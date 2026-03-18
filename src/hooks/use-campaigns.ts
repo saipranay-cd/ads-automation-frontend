@@ -51,6 +51,7 @@ export interface AdAccount {
   account_id: string
   currency: string
   account_status: number
+  syncedAt: string | null
 }
 
 export function useAdAccounts() {
