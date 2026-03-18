@@ -23,7 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <TooltipProvider delayDuration={200}>
+          <TooltipProvider delay={200}>
             {children}
           </TooltipProvider>
         </ThemeProvider>
