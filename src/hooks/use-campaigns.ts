@@ -52,6 +52,7 @@ export interface AdAccount {
   currency: string
   account_status: number
   syncedAt: string | null
+  business?: { id: string; name: string } | null
 }
 
 export function useAdAccounts() {

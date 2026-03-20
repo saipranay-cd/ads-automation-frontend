@@ -12,7 +12,9 @@ const pageTitles: Record<string, string> = {
   "/campaigns": "Campaigns",
   "/ad-sets": "Ad Sets",
   "/ads": "Ads",
+  "/audiences": "Audiences",
   "/insights": "Insights",
+  "/chat": "AI Chat",
   "/create": "Create Ad",
   "/settings": "Settings",
 }
