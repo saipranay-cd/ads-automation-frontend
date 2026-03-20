@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useWizardStore } from "@/lib/wizard-store"
 import { StepIndicator } from "./StepIndicator"
 import { StepCampaign } from "./StepCampaign"
 import { StepAdSet } from "./StepAdSet"
 import { StepCreative } from "./StepCreative"
+import { StepLeadForm } from "./StepLeadForm"
 import { StepReview } from "./StepReview"
 import { Button } from "@/components/ui/button"
 import { useSaveDraft, useDraft } from "@/hooks/use-campaigns"
@@ -16,19 +17,97 @@ import {
   ChevronRightIcon,
   XIcon,
 } from "lucide-react"
+import type { WizardDraft } from "@/types/adsflow"
 
-// Strip large base64 data before sending to backend
-function stripLocalOnlyFields(draft: Record<string, unknown>) {
-  const cleaned = { ...draft }
-  if (cleaned.creativeJson && typeof cleaned.creativeJson === "object") {
-    const { imagePreview, ...rest } = cleaned.creativeJson as Record<string, unknown>
-    cleaned.creativeJson = rest
+// Map wizard draft to database-compatible fields
+function mapDraftToDb(draft: WizardDraft & { currentStep: number }): Record<string, unknown> {
+  const rawCreative = (draft.creativeJson || {}) as Record<string, unknown>
+  const { imagePreview, ...cleanCreative } = rawCreative
+
+  // Build targeting JSON from wizard fields
+  const targetingJson: Record<string, unknown> = {
+    locations: draft.locations,
+    ageMin: draft.ageMin,
+    ageMax: draft.ageMax,
+    gender: draft.gender,
+    interests: draft.interests,
   }
-  return cleaned
+
+  // Build lead form JSON from wizard fields
+  const leadFormJson: Record<string, unknown> = {
+    mode: draft.leadFormMode || "skip",
+    leadFormId: draft.leadFormId,
+    formName: draft.leadFormName,
+    formType: draft.leadFormType,
+    questions: draft.leadFormQuestions,
+    customQuestions: draft.leadFormCustomQuestions,
+    privacyPolicyUrl: draft.privacyPolicyUrl,
+    thankYouTitle: draft.thankYouTitle,
+    thankYouBody: draft.thankYouBody,
+  }
+
+  return {
+    campaignName: draft.campaignName,
+    objective: draft.objective,
+    dailyBudget: draft.dailyBudget,
+    budgetType: draft.budgetType,
+    adCategory: draft.specialAdCategory,
+    campaignType: draft.bidStrategy,
+    destinationUrl: draft.landingPageUrl,
+    targetingJson,
+    creativeJson: {
+      ...cleanCreative,
+      primaryText: draft.primaryText,
+      headline: draft.headline,
+      description: draft.description,
+      callToAction: draft.callToAction,
+    },
+    utmSource: draft.utmSource,
+    utmMedium: draft.utmMedium,
+    utmCampaign: draft.utmCampaign,
+    utmContent: draft.utmContent,
+    utmTerm: draft.utmTerm,
+    leadFormId: draft.leadFormId || null,
+    leadFormJson,
+    crmWebhookUrl: draft.crmWebhookUrl || null,
+    crmTag: draft.crmTag || null,
+    currentStep: draft.currentStep,
+    status: draft.status,
+  }
 }
 
-const STEP_COMPONENTS = [StepCampaign, StepAdSet, StepCreative, StepReview]
-const STEP_TITLES = ["Details", "Targeting", "Creative", "Review"]
+function validateStep(step: number, draft: WizardDraft): string[] {
+  const errors: string[] = []
+  switch (step) {
+    case 1:
+      if (!draft.campaignName.trim()) errors.push("Campaign name is required")
+      if ((draft.dailyBudget ?? 0) <= 0) errors.push("Budget must be greater than 0")
+      break
+    case 2:
+      if ((draft.locations ?? []).length === 0) errors.push("Select at least one location")
+      if ((draft.interests ?? []).length === 0) errors.push("Select at least one interest")
+      if ((draft.ageMin ?? 18) >= (draft.ageMax ?? 65)) errors.push("Invalid age range")
+      break
+    case 3:
+      if (!draft.primaryText.trim()) errors.push("Primary text is required")
+      if (!draft.headline.trim()) errors.push("Headline is required")
+      if (!draft.landingPageUrl.trim()) errors.push("Landing page URL is required")
+      else {
+        try { new URL(draft.landingPageUrl) } catch { errors.push("Landing page URL must be valid") }
+      }
+      break
+    case 4:
+      if (draft.leadFormMode === "new") {
+        if (!draft.leadFormName.trim()) errors.push("Form name is required")
+        if (!draft.privacyPolicyUrl.trim()) errors.push("Privacy policy URL is required")
+      }
+      break
+  }
+  return errors
+}
+
+const STEP_COMPONENTS = [StepCampaign, StepAdSet, StepCreative, StepLeadForm, StepReview]
+const STEP_TITLES = ["Details", "Targeting", "Creative", "Lead Form", "Review"]
 
 export function WizardShell() {
   const router = useRouter()
@@ -60,7 +139,7 @@ export function WizardShell() {
           id: draftId,
           userId: "",
           adAccountId,
-          draft: stripLocalOnlyFields({ ...draft, currentStep }),
+          draft: mapDraftToDb({ ...draft, currentStep }) as Partial<WizardDraft>,
         })
         if (result?.id && !draftId) {
           setDraftId(result.id)
@@ -75,11 +154,14 @@ export function WizardShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, currentStep])
 
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+
   const completedSteps = useMemo(() => {
     const completed: number[] = []
     if (draft.campaignName && (draft.dailyBudget ?? 0) > 0) completed.push(1)
     if ((draft.locations ?? []).length > 0 && (draft.interests ?? []).length > 0) completed.push(2)
     if (draft.primaryText && draft.headline && draft.landingPageUrl) completed.push(3)
+    if (draft.leadFormMode === "skip" || draft.leadFormId || draft.leadFormName) completed.push(4)
     return completed
   }, [draft])
 
@@ -88,8 +170,17 @@ export function WizardShell() {
     router.push("/")
   }, [resetWizard, router])
 
-  // Clamp to valid range (handles stale persisted state from old 5-step wizard)
-  const safeStep = Math.max(1, Math.min(4, currentStep))
+  const handleNext = useCallback(() => {
+    const errors = validateStep(currentStep, draft)
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors([])
+    nextStep()
+  }, [currentStep, draft, nextStep])
+
+  const safeStep = Math.max(1, Math.min(5, currentStep))
   const StepComponent = STEP_COMPONENTS[safeStep - 1]
 
   return (
@@ -101,7 +192,7 @@ export function WizardShell() {
             {STEP_TITLES[currentStep - 1]}
           </h2>
           <span className="text-xs text-muted-foreground font-mono">
-            Step {currentStep} of 4
+            Step {currentStep} of 5
           </span>
         </div>
         <StepIndicator
@@ -110,6 +201,15 @@ export function WizardShell() {
           onStepClick={goToStep}
         />
       </div>
+
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          {validationErrors.map((err) => (
+            <p key={err} className="text-xs text-destructive">{err}</p>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-24">
@@ -126,15 +226,15 @@ export function WizardShell() {
               Cancel
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={prevStep}>
+            <Button variant="outline" size="sm" onClick={() => { setValidationErrors([]); prevStep() }}>
               <ChevronLeftIcon className="size-4" data-icon="inline-start" />
               Previous
             </Button>
           )}
 
           {/* Right side */}
-          {currentStep < 4 && (
-            <Button size="sm" onClick={nextStep}>
+          {currentStep < 5 && (
+            <Button size="sm" onClick={handleNext}>
               Next
               <ChevronRightIcon className="size-4" data-icon="inline-end" />
             </Button>

@@ -61,6 +61,30 @@ export function StepReview() {
     ["Landing Page", draft.landingPageUrl || "—"],
   ]
 
+  // UTM info
+  const hasUtm = draft.utmSource || draft.utmMedium || draft.utmCampaign
+  const utmPreview = hasUtm
+    ? (() => {
+        try {
+          const url = new URL(draft.landingPageUrl || "https://example.com")
+          if (draft.utmSource) url.searchParams.set("utm_source", draft.utmSource)
+          if (draft.utmMedium) url.searchParams.set("utm_medium", draft.utmMedium)
+          if (draft.utmCampaign) url.searchParams.set("utm_campaign", draft.utmCampaign)
+          if (draft.utmContent) url.searchParams.set("utm_content", draft.utmContent)
+          if (draft.utmTerm) url.searchParams.set("utm_term", draft.utmTerm)
+          return url.toString()
+        } catch { return "" }
+      })()
+    : ""
+
+  // Lead form info
+  const leadFormInfo =
+    draft.leadFormMode === "new"
+      ? `New: ${draft.leadFormName || "Untitled"} (${draft.leadFormType})`
+      : draft.leadFormMode === "existing"
+        ? `Existing: ${draft.leadFormName || draft.leadFormId || "—"}`
+        : "Skipped"
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       {/* Top section — 2-column grid */}
@@ -77,7 +101,7 @@ export function StepReview() {
 
       <Separator />
 
-      {/* Bottom section — full width */}
+      {/* Creative section — full width */}
       <div className="flex flex-col gap-4">
         {summaryBottom.map(([label, value]) => (
           <div key={label}>
@@ -87,6 +111,48 @@ export function StepReview() {
             <p className="text-sm">{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* UTM section */}
+      {hasUtm && (
+        <>
+          <Separator />
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              UTM Tracking URL
+            </p>
+            <p className="break-all font-mono text-xs text-muted-foreground">
+              {utmPreview}
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Lead Form section */}
+      <Separator />
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Lead Form
+          </p>
+          <p className="text-sm">{leadFormInfo}</p>
+        </div>
+        {draft.crmWebhookUrl && (
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              CRM Webhook
+            </p>
+            <p className="text-sm truncate">{draft.crmWebhookUrl}</p>
+          </div>
+        )}
+        {draft.crmTag && (
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              CRM Tag
+            </p>
+            <p className="text-sm">{draft.crmTag}</p>
+          </div>
+        )}
       </div>
 
       {/* Launch section */}

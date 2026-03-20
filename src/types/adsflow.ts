@@ -106,6 +106,21 @@ export type GenderTarget = "all" | "male" | "female"
 export type AudienceType = "Interest" | "Custom" | "Lookalike"
 export type CallToAction = "Learn More" | "Sign Up" | "Get Offer" | "Book Now" | "Contact Us" | "Apply Now" | "Download" | "WhatsApp"
 
+export type LeadFormMode = "existing" | "new" | "skip"
+export type LeadFormType = "MORE_VOLUME" | "HIGHER_INTENT"
+
+export interface LeadFormQuestion {
+  type: string
+  key: string
+  label?: string
+}
+
+export interface LeadFormCustomQuestion {
+  key: string
+  label: string
+  options?: string[]
+}
+
 export interface WizardDraft {
   id?: string
   status: DraftStatus
@@ -131,6 +146,24 @@ export interface WizardDraft {
   callToAction: CallToAction
   landingPageUrl: string
   creativeJson: Record<string, unknown>
+  // Step 3 — UTM
+  utmSource: string
+  utmMedium: string
+  utmCampaign: string
+  utmContent: string
+  utmTerm: string
+  // Step 4 — Lead Form
+  leadFormMode: LeadFormMode
+  leadFormId: string
+  leadFormName: string
+  leadFormType: LeadFormType
+  leadFormQuestions: LeadFormQuestion[]
+  leadFormCustomQuestions: LeadFormCustomQuestion[]
+  privacyPolicyUrl: string
+  thankYouTitle: string
+  thankYouBody: string
+  crmWebhookUrl: string
+  crmTag: string
 }
 
 // ─── Dashboard View Types ────────────────────────────────
@@ -160,6 +193,44 @@ export interface CampaignTableRow {
   reach: number;
   linkClicks: number;
   cpm: number;
+  isActive: boolean;
+}
+
+export interface AdSetTableRow {
+  id: string;
+  name: string;
+  status: string;
+  campaignName: string;
+  campaignId: string;
+  dailyBudget: number;
+  amountSpent: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  leads: number;
+  costPerLead: number | null;
+  isActive: boolean;
+}
+
+export interface AdTableRow {
+  id: string;
+  name: string;
+  status: string;
+  adSetName: string;
+  adSetId: string;
+  thumbnailUrl: string | null;
+  amountSpent: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  leads: number;
+  costPerLead: number | null;
   isActive: boolean;
 }
 

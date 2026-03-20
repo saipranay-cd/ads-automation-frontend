@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import {
   LayoutDashboard,
+  BarChart3,
   Megaphone,
   Layers,
   FileText,
+  Users,
   Sparkles,
   PlusCircle,
   Settings,
@@ -22,6 +24,7 @@ const navSections = [
     label: "OVERVIEW",
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard },
+      { label: "Analytics", href: "/analytics", icon: BarChart3 },
     ],
   },
   {
@@ -30,6 +33,7 @@ const navSections = [
       { label: "Campaigns", href: "/campaigns", icon: Megaphone },
       { label: "Ad Sets", href: "/ad-sets", icon: Layers },
       { label: "Ads", href: "/ads", icon: FileText },
+      { label: "Audiences", href: "/audiences", icon: Users },
     ],
   },
   {

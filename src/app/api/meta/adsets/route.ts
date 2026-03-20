@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/campaigns?adAccountId=${adAccountId}`,
+      `${BACKEND_URL}/api/v1/adsflow/adsets?adAccountId=${adAccountId}`,
       {
         headers: { Authorization: `Bearer ${session.metaAccessToken}` },
       }

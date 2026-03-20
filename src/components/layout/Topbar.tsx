@@ -1,15 +1,26 @@
 "use client"
 
-import { Search, Plus, ChevronDown } from "lucide-react"
+import { Search, Plus } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ThemeToggle } from "./ThemeToggle"
 import { AccountSelector } from "./AccountSelector"
 
-interface TopbarProps {
-  title?: string
+const pageTitles: Record<string, string> = {
+  "/": "Dashboard",
+  "/analytics": "Analytics",
+  "/campaigns": "Campaigns",
+  "/ad-sets": "Ad Sets",
+  "/ads": "Ads",
+  "/insights": "Insights",
+  "/create": "Create Ad",
+  "/settings": "Settings",
 }
 
-export function Topbar({ title = "Dashboard" }: TopbarProps) {
+export function Topbar() {
+  const pathname = usePathname()
+  const title = pageTitles[pathname] || "Dashboard"
+
   return (
     <header
       className="sticky top-0 z-30 flex h-[52px] items-center justify-between border-b px-5"
@@ -27,25 +38,6 @@ export function Topbar({ title = "Dashboard" }: TopbarProps) {
           {title}
         </h1>
         <AccountSelector />
-      </div>
-
-      {/* Center: Search */}
-      <div className="flex items-center">
-        <div
-          className="flex w-[200px] items-center gap-2 rounded-md px-3 py-1.5"
-          style={{
-            background: "var(--bg-subtle)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-          <span
-            className="text-xs"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            Search...
-          </span>
-        </div>
       </div>
 
       {/* Right: Actions */}

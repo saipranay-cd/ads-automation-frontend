@@ -28,6 +28,28 @@ const DEFAULT_DRAFT: WizardDraft = {
   callToAction: "Learn More",
   landingPageUrl: "",
   creativeJson: {},
+  // Step 3 — UTM
+  utmSource: "meta",
+  utmMedium: "paid",
+  utmCampaign: "",
+  utmContent: "",
+  utmTerm: "",
+  // Step 4 — Lead Form
+  leadFormMode: "skip",
+  leadFormId: "",
+  leadFormName: "",
+  leadFormType: "MORE_VOLUME",
+  leadFormQuestions: [
+    { type: "FULL_NAME", key: "full_name", label: "Full Name" },
+    { type: "EMAIL", key: "email", label: "Email" },
+    { type: "PHONE", key: "phone_number", label: "Phone Number" },
+  ],
+  leadFormCustomQuestions: [],
+  privacyPolicyUrl: "",
+  thankYouTitle: "Thank You!",
+  thankYouBody: "We will get back to you soon.",
+  crmWebhookUrl: "",
+  crmTag: "",
 }
 
 interface WizardState {
@@ -55,13 +77,13 @@ export const useWizardStore = create<WizardState>()(
 
       goToStep: (step) =>
         set((s) => ({
-          currentStep: Math.max(1, Math.min(4, step)),
-          draft: { ...s.draft, currentStep: Math.max(1, Math.min(4, step)) },
+          currentStep: Math.max(1, Math.min(5, step)),
+          draft: { ...s.draft, currentStep: Math.max(1, Math.min(5, step)) },
         })),
 
       nextStep: () =>
         set((s) => {
-          const next = Math.min(4, s.currentStep + 1)
+          const next = Math.min(5, s.currentStep + 1)
           return {
             currentStep: next,
             draft: { ...s.draft, currentStep: next },

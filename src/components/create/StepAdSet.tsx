@@ -1,10 +1,13 @@
 "use client"
 
+import { useState, useRef, useEffect } from "react"
 import { useWizardStore } from "@/lib/wizard-store"
+import { useTargetingSearch } from "@/hooks/use-campaigns"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, SearchIcon } from "lucide-react"
 import type { GenderTarget, AudienceType } from "@/types/adsflow"
 
 const GEO_PRESETS = [
@@ -13,10 +16,14 @@ const GEO_PRESETS = [
   "Mumbai Western Suburbs",
   "Mumbai Thane Corridor",
   "Hyderabad HITEC City",
+  "Hyderabad Tech City",
   "Pune Hinjewadi IT",
+  "Pune Hinjawadi",
   "Delhi Gurgaon",
   "Delhi Noida Extension",
+  "Delhi-NCR",
   "Chennai OMR",
+  "Goa Coastal",
   "Kolkata New Town",
 ]
 
@@ -29,6 +36,12 @@ const INTEREST_PRESETS = [
   "Architecture",
   "NRI Investment",
   "Tax Planning",
+  "Mortgage",
+  "Flat Purchase",
+  "Villa",
+  "Plot",
+  "Commercial Property",
+  "Gated Community",
 ]
 
 function ChipToggle({
@@ -54,6 +67,77 @@ function ChipToggle({
       {selected && <CheckIcon className="size-3" />}
       {label}
     </button>
+  )
+}
+
+function SearchDropdown({
+  type,
+  placeholder,
+  onSelect,
+}: {
+  type: "interest" | "location"
+  placeholder: string
+  onSelect: (name: string) => void
+}) {
+  const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [open, setOpen] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => { if (timer.current) clearTimeout(timer.current) }
+  }, [query])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const { data } = useTargetingSearch(type, debouncedQuery)
+  const results = data?.data || []
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="relative">
+        <SearchIcon className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          className="pl-8 text-xs"
+        />
+      </div>
+      {open && results.length > 0 && (
+        <div
+          className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border shadow-md"
+          style={{ background: "var(--bg-base)", borderColor: "var(--border-default)" }}
+        >
+          {results.map((r) => (
+            <button
+              key={r.id || r.key || r.name}
+              className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+              onClick={() => {
+                onSelect(r.name)
+                setQuery("")
+                setOpen(false)
+              }}
+            >
+              {r.name}
+              {r.country_code && (
+                <span className="ml-1 text-muted-foreground">({r.country_code})</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -83,6 +167,15 @@ export function StepAdSet() {
       {/* Locations */}
       <div className="flex flex-col gap-3">
         <Label>Locations</Label>
+        <SearchDropdown
+          type="location"
+          placeholder="Search for a city..."
+          onSelect={(name) => {
+            if (!draft.locations.includes(name)) {
+              updateDraft({ locations: [...draft.locations, name] })
+            }
+          }}
+        />
         <div className="flex flex-wrap gap-2">
           {GEO_PRESETS.map((loc) => (
             <ChipToggle
@@ -149,6 +242,15 @@ export function StepAdSet() {
       {/* Interests */}
       <div className="flex flex-col gap-3">
         <Label>Interests</Label>
+        <SearchDropdown
+          type="interest"
+          placeholder="Search for an interest..."
+          onSelect={(name) => {
+            if (!draft.interests.includes(name)) {
+              updateDraft({ interests: [...draft.interests, name] })
+            }
+          }}
+        />
         <div className="flex flex-wrap gap-2">
           {INTEREST_PRESETS.map((interest) => (
             <ChipToggle

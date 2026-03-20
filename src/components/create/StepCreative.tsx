@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useMemo } from "react"
 import { useWizardStore } from "@/lib/wizard-store"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { UploadIcon } from "lucide-react"
+import { UploadIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import type { CallToAction } from "@/types/adsflow"
 
 const CTA_OPTIONS: CallToAction[] = [
@@ -27,8 +28,24 @@ const CTA_OPTIONS: CallToAction[] = [
 
 export function StepCreative() {
   const { draft, updateDraft } = useWizardStore()
+  const [utmOpen, setUtmOpen] = useState(false)
 
   const creative = draft.creativeJson as { imagePreview?: string }
+
+  const utmPreviewUrl = useMemo(() => {
+    if (!draft.landingPageUrl) return ""
+    try {
+      const url = new URL(draft.landingPageUrl)
+      if (draft.utmSource) url.searchParams.set("utm_source", draft.utmSource)
+      if (draft.utmMedium) url.searchParams.set("utm_medium", draft.utmMedium)
+      if (draft.utmCampaign) url.searchParams.set("utm_campaign", draft.utmCampaign)
+      if (draft.utmContent) url.searchParams.set("utm_content", draft.utmContent)
+      if (draft.utmTerm) url.searchParams.set("utm_term", draft.utmTerm)
+      return url.toString()
+    } catch {
+      return draft.landingPageUrl
+    }
+  }, [draft.landingPageUrl, draft.utmSource, draft.utmMedium, draft.utmCampaign, draft.utmContent, draft.utmTerm])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -142,6 +159,85 @@ export function StepCreative() {
             onChange={(e) => updateDraft({ landingPageUrl: e.target.value })}
           />
         </div>
+      </div>
+
+      {/* UTM Parameters — collapsible */}
+      <div className="rounded-lg border border-border">
+        <button
+          type="button"
+          onClick={() => setUtmOpen(!utmOpen)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/30"
+        >
+          UTM Parameters
+          {utmOpen ? (
+            <ChevronUpIcon className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronDownIcon className="size-4 text-muted-foreground" />
+          )}
+        </button>
+        {utmOpen && (
+          <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">utm_source</Label>
+                <Input
+                  placeholder="meta"
+                  value={draft.utmSource}
+                  onChange={(e) => updateDraft({ utmSource: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">utm_medium</Label>
+                <Input
+                  placeholder="paid"
+                  value={draft.utmMedium}
+                  onChange={(e) => updateDraft({ utmMedium: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">utm_campaign</Label>
+                <Input
+                  placeholder={draft.campaignName || "campaign-name"}
+                  value={draft.utmCampaign}
+                  onChange={(e) => updateDraft({ utmCampaign: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">utm_content</Label>
+                <Input
+                  placeholder="optional"
+                  value={draft.utmContent}
+                  onChange={(e) => updateDraft({ utmContent: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">utm_term</Label>
+                <Input
+                  placeholder="optional"
+                  value={draft.utmTerm}
+                  onChange={(e) => updateDraft({ utmTerm: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+            {utmPreviewUrl && (
+              <div className="rounded-md bg-muted/30 p-3">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  URL Preview
+                </p>
+                <p className="break-all font-mono text-xs text-muted-foreground">
+                  {utmPreviewUrl}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

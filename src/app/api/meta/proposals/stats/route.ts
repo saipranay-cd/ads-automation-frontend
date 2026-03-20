@@ -6,28 +6,25 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.metaAccessToken) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ pending: 0, applied: 0, estimatedSavings: 0, lastScan: null })
   }
 
   const { searchParams } = new URL(req.url)
   const adAccountId = searchParams.get("adAccountId")
 
   if (!adAccountId) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ pending: 0, applied: 0, estimatedSavings: 0, lastScan: null })
   }
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/campaigns?adAccountId=${adAccountId}`,
-      {
-        headers: { Authorization: `Bearer ${session.metaAccessToken}` },
-      }
+      `${BACKEND_URL}/api/v1/adsflow/ai/proposals/stats?adAccountId=${adAccountId}`,
+      { headers: { Authorization: `Bearer ${session.metaAccessToken}` } }
     )
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ pending: 0, applied: 0, estimatedSavings: 0, lastScan: null })
   }
 }

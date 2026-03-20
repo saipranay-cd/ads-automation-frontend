@@ -1,24 +1,118 @@
+"use client"
+
+import { useState, useMemo } from "react"
+import { Search, RefreshCw } from "lucide-react"
+import { AdSetTable } from "@/components/dashboard/AdSetTable"
+import { SyncReminder } from "@/components/dashboard/SyncReminder"
+import { useAdSets, useSync } from "@/hooks/use-campaigns"
+import { useAppStore } from "@/lib/store"
+
+const statusTabs = ["All", "Active", "Paused", "Archived"] as const
+type StatusTab = (typeof statusTabs)[number]
+
 export default function AdSetsPage() {
+  const [activeTab, setActiveTab] = useState<StatusTab>("All")
+  const [search, setSearch] = useState("")
+  const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const { data: adSetsData, isLoading } = useAdSets(selectedAdAccountId)
+  const sync = useSync()
+
+  const adSets = adSetsData?.data || []
+
+  const filtered = useMemo(() => {
+    return adSets.filter((a) => {
+      const matchTab =
+        activeTab === "All" ||
+        a.status.toLowerCase() === activeTab.toLowerCase()
+      const matchSearch =
+        a.name.toLowerCase().includes(search.toLowerCase()) ||
+        a.campaignName.toLowerCase().includes(search.toLowerCase())
+      return matchTab && matchSearch
+    })
+  }, [adSets, activeTab, search])
+
   return (
     <div className="flex flex-col gap-4">
-      <h2
-        className="text-[15px] font-medium"
-        style={{ color: "var(--text-primary)" }}
-      >
-        Ad Sets
-      </h2>
-      <div
-        className="flex h-[200px] items-center justify-center rounded-lg"
-        style={{
-          background: "var(--bg-base)",
-          border: "1px solid var(--border-default)",
-          boxShadow: "var(--shadow-card)",
-        }}
-      >
-        <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-          Ad Sets management — coming soon
-        </span>
+      <SyncReminder />
+
+      {/* Filter bar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+              style={{
+                background:
+                  activeTab === tab
+                    ? "var(--acc-subtle)"
+                    : "transparent",
+                color:
+                  activeTab === tab
+                    ? "var(--acc-text)"
+                    : "var(--text-secondary)",
+              }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => sync.mutate(selectedAdAccountId || undefined)}
+            disabled={sync.isPending}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+            style={{
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
+            {sync.isPending ? "Syncing..." : "Sync"}
+          </button>
+          <div
+            className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
+            style={{
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--border-default)",
+            }}
+          >
+            <Search size={13} style={{ color: "var(--text-tertiary)" }} />
+            <input
+              type="text"
+              placeholder="Search ad sets..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+              style={{ color: "var(--text-primary)" }}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Table */}
+      {adSets.length > 0 && (
+        <AdSetTable adSets={filtered} isLoading={isLoading} />
+      )}
+
+      {/* Empty state */}
+      {!isLoading && filtered.length === 0 && (
+        <div
+          className="flex flex-col items-center justify-center gap-2 rounded-lg py-12"
+          style={{
+            background: "var(--bg-base)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+            No ad sets found
+          </span>
+          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            {search ? "Try adjusting your search" : "Sync your Meta ad account to get started"}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

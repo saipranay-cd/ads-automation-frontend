@@ -12,15 +12,16 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url)
-  const adAccountId = searchParams.get("adAccountId")
+  const type = searchParams.get("type")
+  const q = searchParams.get("q")
 
-  if (!adAccountId) {
+  if (!type || !q) {
     return NextResponse.json({ data: [] })
   }
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/campaigns?adAccountId=${adAccountId}`,
+      `${BACKEND_URL}/api/v1/adsflow/targeting/search?type=${type}&q=${encodeURIComponent(q)}`,
       {
         headers: { Authorization: `Bearer ${session.metaAccessToken}` },
       }
