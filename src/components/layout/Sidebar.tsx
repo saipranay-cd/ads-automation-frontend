@@ -16,6 +16,7 @@ import {
   Zap,
   LogOut,
   LogIn,
+  MessageCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,7 @@ const navSections = [
     label: "INTELLIGENCE",
     items: [
       { label: "Insights", href: "/insights", icon: Sparkles },
+      { label: "AI Chat", href: "/chat", icon: MessageCircle },
       { label: "Create Ad", href: "/create", icon: PlusCircle },
     ],
   },

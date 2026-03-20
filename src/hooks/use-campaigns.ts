@@ -384,6 +384,36 @@ export function useCityBreakdown(adAccountId?: string | null, days = 30) {
   })
 }
 
+// ── AI Chat ─────────────────────────────────────────────
+
+export type ContextArea = "campaigns" | "adsets" | "audiences" | "analytics" | "proposals"
+
+export interface ChatMessage {
+  role: "user" | "assistant"
+  content: string
+}
+
+export function useAiChat() {
+  return useMutation<
+    { reply: string },
+    Error,
+    { message: string; contextAreas: ContextArea[]; history: ChatMessage[]; adAccountId: string }
+  >({
+    mutationFn: async (payload) => {
+      const res = await fetch("/api/meta/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Chat failed")
+      }
+      return res.json()
+    },
+  })
+}
+
 // ── AI Analyze ─────────────────────────────────────────
 export function useAnalyze() {
   return useMutation({
