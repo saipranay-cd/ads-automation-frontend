@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope:
-            "ads_management,ads_read,business_management,read_insights",
+            "ads_management,ads_read,read_insights,pages_read_engagement",
         },
       },
     }),
