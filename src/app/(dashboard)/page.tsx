@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useState, useMemo } from "react"
 import { LogIn } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -17,18 +17,21 @@ import {
 import { MetricCard } from "@/components/dashboard/MetricCard"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
-import { useCampaigns, useDashboard, useAggregatedMetrics } from "@/hooks/use-campaigns"
+import { useCampaigns, useDashboard, useAggregatedMetrics, type DateRange } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
+import { DateRangePicker } from "@/components/ui/DateRangePicker"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
   const isLoggedIn = !!session?.metaAccessToken
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const [chartDays, setChartDays] = useState(30)
+  const [chartDateRange, setChartDateRange] = useState<DateRange | undefined>(undefined)
   const { data: dashboardData } = useDashboard(selectedAdAccountId)
   const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(selectedAdAccountId)
 
-  const { data: metricsData } = useAggregatedMetrics(selectedAdAccountId, 30)
+  const { data: metricsData } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
   const campaigns = campaignsData?.data || []
 
   const chartData = useMemo(() => {
@@ -118,12 +121,20 @@ export default function DashboardPage() {
               boxShadow: "var(--shadow-card)",
             }}
           >
-            <h3
-              className="mb-3 text-sm font-medium"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Campaign Performance — Last 30 Days
-            </h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Campaign Performance
+              </h3>
+              <DateRangePicker
+                days={chartDays}
+                dateRange={chartDateRange}
+                onPreset={(d) => { setChartDays(d); setChartDateRange(undefined) }}
+                onCustomRange={(r) => setChartDateRange(r)}
+              />
+            </div>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>

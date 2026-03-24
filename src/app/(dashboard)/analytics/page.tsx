@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
-import { Download, ChevronDown, FileSpreadsheet, BarChart3, Users, MapPin, Layers, FileDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Download, ChevronDown, ChevronRight, FileSpreadsheet, BarChart3, Users, MapPin, Layers, FileDown, ArrowUp, ArrowDown, Target, Megaphone, LayoutGrid, Image } from "lucide-react"
 import {
   AreaChart,
   Area,
@@ -20,17 +20,25 @@ import {
   usePlacementBreakdown,
   useAgeGenderBreakdown,
   useCityBreakdown,
+  useEntityInsights,
   type BreakdownMetrics,
+  type DateRange,
+  type InsightLevel,
+  type EntityInsight,
 } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
+import { DateRangePicker } from "@/components/ui/DateRangePicker"
 
 // ── Constants ────────────────────────────────────────────
 
-const DATE_RANGES = [
-  { label: "7d", value: 7 },
-  { label: "14d", value: 14 },
-  { label: "30d", value: 30 },
+type ViewLevel = "account" | InsightLevel
+
+const VIEW_LEVELS = [
+  { key: "account" as ViewLevel, label: "Account", icon: Target },
+  { key: "campaign" as ViewLevel, label: "Campaigns", icon: Megaphone },
+  { key: "adset" as ViewLevel, label: "Ad Sets", icon: LayoutGrid },
+  { key: "ad" as ViewLevel, label: "Ads", icon: Image },
 ] as const
 
 const METRICS = [
@@ -87,13 +95,46 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState(30)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("spend")
+  const [viewLevel, setViewLevel] = useState<ViewLevel>("account")
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null)
+
+  // Drill-down: filter child entities by parent
+  const [drillCampaign, setDrillCampaign] = useState<{ id: string; name: string } | null>(null)
+  const [drillAdSet, setDrillAdSet] = useState<{ id: string; name: string } | null>(null)
 
   const adAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const { data: metricsData, isLoading: metricsLoading } = useAggregatedMetrics(adAccountId, days)
-  const { data: rawPlacements, isLoading: placementsLoading } = usePlacementBreakdown(adAccountId, days)
-  const { data: ageGenderData, isLoading: ageGenderLoading } = useAgeGenderBreakdown(adAccountId, days)
-  const { data: rawCities, isLoading: citiesLoading } = useCityBreakdown(adAccountId, days)
+
+  // Entity table data (campaigns / ad sets / ads) — fetched when on entity tabs
+  const entityParentId = viewLevel === "adset" && drillCampaign ? drillCampaign.id
+    : viewLevel === "ad" && drillAdSet ? drillAdSet.id
+    : undefined
+  const { data: entityData, isLoading: entityLoading } = useEntityInsights(
+    viewLevel !== "account" ? adAccountId : null,
+    viewLevel !== "account" ? viewLevel as InsightLevel : undefined,
+    days,
+    dateRange,
+    entityParentId
+  )
+
+  // Auto-select first entity when data loads
+  useEffect(() => {
+    if (viewLevel !== "account" && entityData?.length && !selectedEntityId) {
+      setSelectedEntityId(entityData[0].id)
+    }
+  }, [entityData, viewLevel, selectedEntityId])
+
+  const selectedEntity = entityData?.find((e) => e.id === selectedEntityId) || null
+
+  // The ID whose insights power all the charts: account or selected entity
+  const insightsSourceId = viewLevel === "account" ? adAccountId : selectedEntityId
+
+  // Chart + breakdown data — always fetched, scoped to insightsSourceId
+  const { data: metricsData, isLoading: metricsLoading } = useAggregatedMetrics(insightsSourceId, days, dateRange)
+  const { data: rawPlacements, isLoading: placementsLoading } = usePlacementBreakdown(insightsSourceId, days, dateRange)
+  const { data: ageGenderData, isLoading: ageGenderLoading } = useAgeGenderBreakdown(insightsSourceId, days, dateRange)
+  const { data: rawCities, isLoading: citiesLoading } = useCityBreakdown(insightsSourceId, days, dateRange)
   const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(adAccountId)
 
   // Deduplicate placements by name
@@ -163,6 +204,50 @@ export default function AnalyticsPage() {
     }
   }, [metricsData])
 
+  // ── Entity table sorting ──────────────────────────────────
+  type EntitySortKey = keyof EntityInsight
+  const [entitySortKey, setEntitySortKey] = useState<EntitySortKey>("spend")
+  const [entitySortDir, setEntitySortDir] = useState<"asc" | "desc">("desc")
+
+  function toggleEntitySort(key: EntitySortKey) {
+    if (entitySortKey === key) setEntitySortDir((d) => (d === "asc" ? "desc" : "asc"))
+    else { setEntitySortKey(key); setEntitySortDir("desc") }
+  }
+
+  const sortedEntities = useMemo(() => {
+    if (!entityData?.length) return []
+    return [...entityData].sort((a, b) => {
+      let av = (a as any)[entitySortKey] ?? 0
+      let bv = (b as any)[entitySortKey] ?? 0
+      if (typeof av === "string") av = av.toLowerCase()
+      if (typeof bv === "string") bv = bv.toLowerCase()
+      if (av < bv) return entitySortDir === "asc" ? -1 : 1
+      if (av > bv) return entitySortDir === "asc" ? 1 : -1
+      return 0
+    })
+  }, [entityData, entitySortKey, entitySortDir])
+
+  // Drill-down: navigate to child entities of the selected entity
+  function handleDrill(entity: EntityInsight) {
+    if (viewLevel === "campaign") {
+      setDrillCampaign({ id: entity.id, name: entity.name })
+      setDrillAdSet(null)
+      setSelectedEntityId(null) // will auto-select first child
+      setViewLevel("adset")
+    } else if (viewLevel === "adset") {
+      setDrillAdSet({ id: entity.id, name: entity.name })
+      setSelectedEntityId(null)
+      setViewLevel("ad")
+    }
+  }
+
+  function handleLevelChange(level: ViewLevel) {
+    setViewLevel(level)
+    setSelectedEntityId(null) // reset selection for new level
+    if (level === "account" || level === "campaign") { setDrillCampaign(null); setDrillAdSet(null) }
+    if (level === "adset") setDrillAdSet(null)
+  }
+
   // Sortable campaign table
   type SortKey = "name" | "status" | "amountSpent" | "leads" | "costPerLead" | "impressions" | "reach" | "ctr" | "cpc" | "cpm" | "dailyBudget"
   const [sortKey, setSortKey] = useState<SortKey>("amountSpent")
@@ -206,7 +291,10 @@ export default function AnalyticsPage() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  const filePrefix = `analytics_${days}d_${new Date().toISOString().split("T")[0]}`
+  const dateLabel = dateRange ? `${dateRange.since} to ${dateRange.until}` : `Last ${days} Days`
+  const filePrefix = dateRange
+    ? `analytics_${dateRange.since}_${dateRange.until}`
+    : `analytics_${days}d_${new Date().toISOString().split("T")[0]}`
 
   const downloadCSV = useCallback((filename: string, headers: string[], rows: string[][]) => {
     const escape = (v: string | number) => {
@@ -417,7 +505,7 @@ export default function AnalyticsPage() {
             >
               <div className="px-3 pb-1.5 pt-1">
                 <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
-                  Export — Last {days} Days
+                  Export — {dateLabel}
                 </span>
               </div>
               {exportOptions.map((opt) =>
@@ -459,24 +547,40 @@ export default function AnalyticsPage() {
 
       {/* ── Controls ────────────────────────────────────────── */}
       <div
-        className="flex items-center justify-between rounded-lg px-4 py-2.5"
+        className="flex flex-col gap-2.5 rounded-lg px-4 py-2.5"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
-        <div className="flex items-center gap-1">
-          {DATE_RANGES.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setDays(r.value)}
-              className="rounded-md px-3 py-1 text-xs font-medium transition-colors"
-              style={{
-                background: days === r.value ? "var(--acc)" : "transparent",
-                color: days === r.value ? "white" : "var(--text-secondary)",
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
+        {/* Row 1: Level tabs + Date range */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ background: "var(--bg-subtle)" }}>
+            {VIEW_LEVELS.map((l) => {
+              const active = viewLevel === l.key
+              return (
+                <button
+                  key={l.key}
+                  onClick={() => handleLevelChange(l.key)}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-all"
+                  style={{
+                    background: active ? "var(--bg-base)" : "transparent",
+                    color: active ? "var(--acc-text)" : "var(--text-tertiary)",
+                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+                  }}
+                >
+                  <l.icon size={12} />
+                  {l.label}
+                </button>
+              )
+            })}
+          </div>
+          <DateRangePicker
+            days={days}
+            dateRange={dateRange}
+            onPreset={(d) => { setDays(d); setDateRange(undefined) }}
+            onCustomRange={(r) => setDateRange(r)}
+          />
         </div>
+
+        {/* Row 2: Metric selector (all tabs) */}
         <div className="flex items-center gap-1">
           {METRICS.map((m) => (
             <button
@@ -494,6 +598,182 @@ export default function AnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {/* ═══════ ENTITY SELECTOR (Campaigns / Ad Sets / Ads tabs) ═══════ */}
+      {viewLevel !== "account" && (
+        <div
+          className="overflow-hidden rounded-lg"
+          style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
+        >
+          <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                Select {viewLevel === "campaign" ? "Campaign" : viewLevel === "adset" ? "Ad Set" : "Ad"}
+              </span>
+              {entityData && (
+                <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                  ({entityData.length})
+                </span>
+              )}
+            </div>
+            {/* Breadcrumb */}
+            {(drillCampaign || drillAdSet) && (
+              <div className="flex items-center gap-1 text-[10px]">
+                <button
+                  onClick={() => handleLevelChange("campaign")}
+                  className="font-medium hover:underline"
+                  style={{ color: "var(--acc)" }}
+                >
+                  All Campaigns
+                </button>
+                {drillCampaign && (
+                  <>
+                    <ChevronRight size={9} style={{ color: "var(--text-tertiary)" }} />
+                    <button
+                      onClick={() => { setDrillAdSet(null); setSelectedEntityId(null); setViewLevel("adset"); }}
+                      className="max-w-[140px] truncate font-medium hover:underline"
+                      style={{ color: drillAdSet ? "var(--acc)" : "var(--text-secondary)" }}
+                    >
+                      {drillCampaign.name}
+                    </button>
+                  </>
+                )}
+                {drillAdSet && (
+                  <>
+                    <ChevronRight size={9} style={{ color: "var(--text-tertiary)" }} />
+                    <span className="max-w-[140px] truncate font-medium" style={{ color: "var(--text-secondary)" }}>
+                      {drillAdSet.name}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {entityLoading ? (
+            <div className="space-y-1 px-4 pb-3">
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+            </div>
+          ) : sortedEntities.length > 0 ? (
+            <div className="max-h-[220px] overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10" style={{ background: "var(--bg-muted)" }}>
+                  <tr>
+                    {([
+                      { key: "name" as EntitySortKey, label: viewLevel === "campaign" ? "Campaign" : viewLevel === "adset" ? "Ad Set" : "Ad", align: "left" },
+                      ...(viewLevel !== "campaign" ? [{ key: "parentName" as EntitySortKey, label: viewLevel === "adset" ? "Campaign" : "Ad Set", align: "left" as const }] : []),
+                      { key: "spend" as EntitySortKey, label: "Spend", align: "right" as const },
+                      { key: "leads" as EntitySortKey, label: "Leads", align: "right" as const },
+                      { key: "cpl" as EntitySortKey, label: "CPL", align: "right" as const },
+                      { key: "impressions" as EntitySortKey, label: "Impr.", align: "right" as const },
+                      { key: "ctr" as EntitySortKey, label: "CTR", align: "right" as const },
+                      { key: "cpc" as EntitySortKey, label: "CPC", align: "right" as const },
+                    ] as const).map((col) => (
+                      <th
+                        key={col.key}
+                        onClick={() => toggleEntitySort(col.key)}
+                        className={`cursor-pointer select-none whitespace-nowrap px-3 py-2 text-${col.align} text-[10px] font-medium uppercase tracking-[0.06em]`}
+                        style={{
+                          color: entitySortKey === col.key ? "var(--acc-text)" : "var(--text-tertiary)",
+                          borderBottom: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        <span className="inline-flex items-center gap-0.5">
+                          {col.label}
+                          {entitySortKey === col.key && (entitySortDir === "desc" ? <ArrowDown size={9} /> : <ArrowUp size={9} />)}
+                        </span>
+                      </th>
+                    ))}
+                    {viewLevel !== "ad" && (
+                      <th className="w-8 px-2 py-2" style={{ borderBottom: "1px solid var(--border-subtle)" }} />
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEntities.map((entity, i) => {
+                    const isSelected = entity.id === selectedEntityId
+                    const canDrill = viewLevel === "campaign" || viewLevel === "adset"
+                    return (
+                      <tr
+                        key={entity.id}
+                        onClick={() => setSelectedEntityId(entity.id)}
+                        className="cursor-pointer transition-colors"
+                        style={{
+                          background: isSelected ? "var(--acc-subtle)" : "transparent",
+                          borderBottom: i < sortedEntities.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                        }}
+                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--bg-subtle)" }}
+                        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent" }}
+                      >
+                        <td className="px-3 py-2">
+                          <span
+                            className="max-w-[200px] truncate text-xs font-medium inline-block"
+                            style={{ color: isSelected ? "var(--acc-text)" : "var(--text-primary)" }}
+                          >
+                            {entity.name}
+                          </span>
+                        </td>
+                        {viewLevel !== "campaign" && (
+                          <td className="max-w-[120px] truncate px-3 py-2 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                            {entity.parentName || "—"}
+                          </td>
+                        )}
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono" style={{ color: "var(--text-secondary)" }}>
+                          {entity.spend > 0 ? formatCurrency(entity.spend) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono" style={{ color: "var(--text-secondary)" }}>
+                          {entity.leads > 0 ? formatNumber(entity.leads) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold" style={{ color: entity.cpl > 0 ? cplColor(entity.cpl) : "var(--text-tertiary)" }}>
+                          {entity.cpl > 0 ? formatCurrency(entity.cpl) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono" style={{ color: "var(--text-secondary)" }}>
+                          {entity.impressions > 0 ? formatNumber(entity.impressions) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono" style={{ color: "var(--text-secondary)" }}>
+                          {entity.ctr > 0 ? `${entity.ctr.toFixed(2)}%` : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-mono" style={{ color: "var(--text-secondary)" }}>
+                          {entity.cpc > 0 ? formatCurrency(entity.cpc) : "—"}
+                        </td>
+                        {viewLevel !== "ad" && (
+                          <td className="px-2 py-2 text-center">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDrill(entity) }}
+                              className="rounded p-0.5 transition-colors hover:bg-[var(--bg-muted)]"
+                              title={`View ${viewLevel === "campaign" ? "ad sets" : "ads"}`}
+                            >
+                              <ChevronRight size={12} style={{ color: "var(--text-tertiary)" }} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex h-16 items-center justify-center">
+              <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                No data for this period
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════ SHARED ANALYTICS (all tabs) ═══════ */}
+
+      {/* Selected entity label */}
+      {viewLevel !== "account" && selectedEntity && (
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
+          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+            {selectedEntity.name}
+          </span>
+          <div className="h-px flex-1" style={{ background: "var(--border-subtle)" }} />
+        </div>
+      )}
 
       {/* ── Summary KPIs ─────────────────────────────────────── */}
       {summary && (
@@ -533,7 +813,7 @@ export default function AnalyticsPage() {
         }}
       >
         <div className="mb-3 text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>
-          {metricLabel(selectedMetric)} — Last {days} Days
+          {metricLabel(selectedMetric)} — {dateLabel}
         </div>
         {metricsLoading ? (
           <Skeleton className="h-[280px] w-full" />
@@ -719,7 +999,8 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* ── Campaign Comparison (sortable, all campaigns) ──── */}
+      {/* ── Campaign Comparison (account tab only) ──── */}
+      {viewLevel === "account" && (
       <div
         className="overflow-hidden rounded-lg"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
@@ -848,6 +1129,7 @@ export default function AnalyticsPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

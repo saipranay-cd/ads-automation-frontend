@@ -296,6 +296,11 @@ export function useTargetingSearch(type: "interest" | "location", query: string)
 
 // ── Analytics ─────────────────────────────────────────
 
+export interface DateRange {
+  since: string // YYYY-MM-DD
+  until: string // YYYY-MM-DD
+}
+
 export interface PerformanceMetric {
   date: string
   spend: number
@@ -333,12 +338,55 @@ export interface CityData extends BreakdownMetrics {
   city: string
 }
 
-export function useAggregatedMetrics(adAccountId?: string | null, days = 30) {
+export type InsightLevel = "campaign" | "adset" | "ad"
+
+export interface EntityInsight {
+  id: string
+  name: string
+  parentId?: string
+  parentName?: string
+  campaignId?: string
+  campaignName?: string
+  spend: number
+  leads: number
+  impressions: number
+  clicks: number
+  reach: number
+  cpl: number
+  ctr: number
+  cpc: number
+}
+
+export function useEntityInsights(
+  adAccountId?: string | null,
+  level?: InsightLevel,
+  days = 30,
+  dateRange?: DateRange,
+  parentId?: string
+) {
+  return useQuery<EntityInsight[]>({
+    queryKey: ["analytics", "entity-insights", adAccountId, level, dateRange?.since ?? days, dateRange?.until ?? "", parentId ?? ""],
+    queryFn: async () => {
+      if (!adAccountId || !level) return []
+      const params = new URLSearchParams({ type: "entity-insights", adAccountId, days: String(days), level })
+      if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
+      if (parentId) params.set("parentId", parentId)
+      const res = await fetch(`/api/analytics?${params.toString()}`)
+      if (!res.ok) throw new Error("Failed to fetch entity insights")
+      return res.json()
+    },
+    enabled: !!adAccountId && !!level,
+  })
+}
+
+export function useAggregatedMetrics(adAccountId?: string | null, days = 30, dateRange?: DateRange) {
   return useQuery<PerformanceMetric[]>({
-    queryKey: ["analytics", "metrics", adAccountId, days],
+    queryKey: ["analytics", "metrics", adAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!adAccountId) return []
-      const res = await fetch(`/api/analytics?type=metrics&adAccountId=${adAccountId}&days=${days}`)
+      const params = new URLSearchParams({ type: "metrics", adAccountId, days: String(days) })
+      if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
+      const res = await fetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch metrics")
       return res.json()
     },
@@ -346,12 +394,14 @@ export function useAggregatedMetrics(adAccountId?: string | null, days = 30) {
   })
 }
 
-export function usePlacementBreakdown(adAccountId?: string | null, days = 30) {
+export function usePlacementBreakdown(adAccountId?: string | null, days = 30, dateRange?: DateRange) {
   return useQuery<PlacementData[]>({
-    queryKey: ["analytics", "placements", adAccountId, days],
+    queryKey: ["analytics", "placements", adAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!adAccountId) return []
-      const res = await fetch(`/api/analytics?type=placements&adAccountId=${adAccountId}&days=${days}`)
+      const params = new URLSearchParams({ type: "placements", adAccountId, days: String(days) })
+      if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
+      const res = await fetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch placements")
       return res.json()
     },
@@ -359,12 +409,14 @@ export function usePlacementBreakdown(adAccountId?: string | null, days = 30) {
   })
 }
 
-export function useAgeGenderBreakdown(adAccountId?: string | null, days = 30) {
+export function useAgeGenderBreakdown(adAccountId?: string | null, days = 30, dateRange?: DateRange) {
   return useQuery<AgeGenderData[]>({
-    queryKey: ["analytics", "age-gender", adAccountId, days],
+    queryKey: ["analytics", "age-gender", adAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!adAccountId) return []
-      const res = await fetch(`/api/analytics?type=age-gender&adAccountId=${adAccountId}&days=${days}`)
+      const params = new URLSearchParams({ type: "age-gender", adAccountId, days: String(days) })
+      if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
+      const res = await fetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch age-gender data")
       return res.json()
     },
@@ -372,12 +424,14 @@ export function useAgeGenderBreakdown(adAccountId?: string | null, days = 30) {
   })
 }
 
-export function useCityBreakdown(adAccountId?: string | null, days = 30) {
+export function useCityBreakdown(adAccountId?: string | null, days = 30, dateRange?: DateRange) {
   return useQuery<CityData[]>({
-    queryKey: ["analytics", "cities", adAccountId, days],
+    queryKey: ["analytics", "cities", adAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!adAccountId) return []
-      const res = await fetch(`/api/analytics?type=cities&adAccountId=${adAccountId}&days=${days}`)
+      const params = new URLSearchParams({ type: "cities", adAccountId, days: String(days) })
+      if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
+      const res = await fetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch city data")
       return res.json()
     },

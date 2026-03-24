@@ -11,9 +11,13 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url)
-  const type = searchParams.get("type") // metrics | placements | age-gender | cities
+  const type = searchParams.get("type")
   const adAccountId = searchParams.get("adAccountId")
   const days = searchParams.get("days") || "30"
+  const since = searchParams.get("since")
+  const until = searchParams.get("until")
+  const level = searchParams.get("level")
+  const parentId = searchParams.get("parentId")
 
   if (!adAccountId || !type) {
     return NextResponse.json([])
@@ -24,6 +28,7 @@ export async function GET(req: Request) {
     placements: "analytics/placements",
     "age-gender": "analytics/age-gender",
     cities: "analytics/cities",
+    "entity-insights": "analytics/entity-insights",
   }
 
   const endpoint = endpointMap[type]
@@ -32,8 +37,15 @@ export async function GET(req: Request) {
   }
 
   try {
+    const params = new URLSearchParams({ adAccountId, days })
+    if (since && until) {
+      params.set("since", since)
+      params.set("until", until)
+    }
+    if (level) params.set("level", level)
+    if (parentId) params.set("parentId", parentId)
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/${endpoint}?adAccountId=${adAccountId}&days=${days}`,
+      `${BACKEND_URL}/api/v1/adsflow/${endpoint}?${params.toString()}`,
       {
         headers: { Authorization: `Bearer ${session.metaAccessToken}` },
       }
