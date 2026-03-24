@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
+export const maxDuration = 120 // Allow up to 120s for Vercel serverless function
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.metaAccessToken) {
@@ -19,16 +21,27 @@ export async function POST(req: Request) {
   }
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 110_000) // 110s fetch timeout
+
     const res = await fetch(
       `${BACKEND_URL}/api/v1/adsflow/ai/scan?adAccountId=${adAccountId}&scanType=${scanType}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${session.metaAccessToken}` },
+        signal: controller.signal,
       }
     )
+    clearTimeout(timeout)
+
     const data = await res.json()
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json({ error: "Scan failed" }, { status: 500 })
+    const msg = error instanceof Error ? error.message : "Scan failed"
+    const isTimeout = msg.includes("abort")
+    return NextResponse.json(
+      { error: isTimeout ? "Scan is taking longer than expected. Results will appear shortly." : "Scan failed" },
+      { status: isTimeout ? 202 : 500 }
+    )
   }
 }
