@@ -1,8 +1,9 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useSession, signOut } from "next-auth/react"
-import { LogOut, ExternalLink } from "lucide-react"
-import { useAdAccounts } from "@/hooks/use-campaigns"
+import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check } from "lucide-react"
+import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 
 export default function SettingsPage() {
@@ -76,6 +77,9 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* AI Skill Prompt */}
+      {selectedAdAccountId && <SkillPromptEditor adAccountId={selectedAdAccountId} />}
 
       {/* All Ad Accounts */}
       {accounts.length > 1 && (
@@ -152,6 +156,144 @@ export default function SettingsPage() {
     </div>
   )
 }
+
+// ── Skill Prompt Editor ─────────────────────────────────────
+
+function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
+  const { data, isLoading } = useSkillPrompt(adAccountId)
+  const updateMutation = useUpdateSkillPrompt()
+  const [localPrompt, setLocalPrompt] = useState("")
+  const [expanded, setExpanded] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  // Sync from server
+  useEffect(() => {
+    if (data?.prompt) {
+      setLocalPrompt(data.prompt)
+    }
+  }, [data?.prompt])
+
+  const hasChanges = localPrompt !== (data?.prompt || "")
+
+  const handleSave = () => {
+    updateMutation.mutate(
+      { adAccountId, prompt: localPrompt },
+      {
+        onSuccess: () => {
+          setSaved(true)
+          setTimeout(() => setSaved(false), 2000)
+        },
+      }
+    )
+  }
+
+  const handleReset = () => {
+    if (data?.prompt) {
+      setLocalPrompt(data.prompt)
+    }
+  }
+
+  const sectionStyle = {
+    background: "var(--bg-base)" as const,
+    border: "1px solid var(--border-default)" as const,
+  }
+
+  return (
+    <div className="rounded-lg p-5" style={sectionStyle}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "rgba(192, 132, 252, 0.12)" }}
+          >
+            <Brain size={16} style={{ color: "#c084fc" }} />
+          </div>
+          <div>
+            <h2
+              className="text-[10px] font-medium uppercase tracking-[0.06em]"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              AI Skill Prompt
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Controls how AI agents analyze your ads and generate proposals
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-all"
+          style={{
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          {expanded ? "Collapse" : "View & Edit"}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-4">
+          {isLoading ? (
+            <div className="h-40 animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} />
+          ) : (
+            <>
+              <textarea
+                value={localPrompt}
+                onChange={(e) => setLocalPrompt(e.target.value)}
+                className="w-full rounded-md p-3 font-mono text-xs leading-relaxed outline-none"
+                style={{
+                  background: "var(--bg-muted)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                  minHeight: "300px",
+                  resize: "vertical",
+                }}
+                spellCheck={false}
+              />
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                  {localPrompt.length.toLocaleString()} characters
+                  {hasChanges && " · Unsaved changes"}
+                </span>
+                <div className="flex items-center gap-2">
+                  {hasChanges && (
+                    <button
+                      onClick={handleReset}
+                      className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+                      style={{
+                        border: "1px solid var(--border-default)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      <RotateCcw size={11} />
+                      Discard
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasChanges || updateMutation.isPending}
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-all"
+                    style={{
+                      background: saved ? "#4ade80" : "var(--acc)",
+                      opacity: !hasChanges || updateMutation.isPending ? 0.5 : 1,
+                    }}
+                  >
+                    {saved ? <Check size={12} /> : <Save size={12} />}
+                    {saved ? "Saved" : updateMutation.isPending ? "Saving…" : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Row helper ──────────────────────────────────────────────
 
 function Row({
   label,

@@ -484,6 +484,40 @@ export function useAnalyze() {
   })
 }
 
+// ── AI Skill Prompt ──────────────────────────────────────
+
+export function useSkillPrompt(adAccountId?: string | null) {
+  return useQuery<{ prompt: string }>({
+    queryKey: ["skill-prompt", adAccountId],
+    queryFn: async () => {
+      if (!adAccountId) return { prompt: "" }
+      const res = await fetch(`/api/meta/skill-prompt?adAccountId=${adAccountId}`)
+      if (!res.ok) throw new Error("Failed to fetch skill prompt")
+      return res.json()
+    },
+    enabled: !!adAccountId,
+  })
+}
+
+export function useUpdateSkillPrompt() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ adAccountId, prompt }: { adAccountId: string; prompt: string }) => {
+      const res = await fetch("/api/meta/skill-prompt", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adAccountId, prompt }),
+      })
+      if (!res.ok) throw new Error("Failed to update skill prompt")
+      return res.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["skill-prompt", variables.adAccountId] })
+    },
+  })
+}
+
 // ── AI Proposals ──────────────────────────────────────────
 
 export interface ProposalAction {
@@ -509,9 +543,39 @@ export interface ExecutionResult {
   error?: string
 }
 
+export interface EntityMetrics {
+  spend: number
+  impressions: number
+  clicks: number
+  leads: number
+  cpl: number | null
+  ctr: number
+  cpc: number
+}
+
+export interface ComparisonMetrics {
+  label: string
+  spend?: number
+  cpl?: number | null
+  ctr?: number
+  cpc?: number
+}
+
 export interface ProposalMetadata {
   actions?: ProposalAction[]
   executionResult?: ExecutionResult
+  level?: "campaign" | "adset" | "ad"
+  entityId?: string
+  entityName?: string
+  parentInfo?: string
+  // Structured analysis
+  situation?: string
+  diagnosis?: string
+  recommendation?: string
+  expectedOutcome?: string
+  creativeUrl?: string | null
+  entityMetrics?: EntityMetrics | null
+  comparisonMetrics?: ComparisonMetrics | null
 }
 
 export interface AiProposal {
