@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useSession, signOut } from "next-auth/react"
-import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check } from "lucide-react"
+import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu } from "lucide-react"
 import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
+import type { AiModelOption } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 
 export default function SettingsPage() {
@@ -78,7 +79,8 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* AI Skill Prompt */}
+      {/* AI Model + Skill Prompt */}
+      {selectedAdAccountId && <ModelSwitcher adAccountId={selectedAdAccountId} />}
       {selectedAdAccountId && <SkillPromptEditor adAccountId={selectedAdAccountId} />}
 
       {/* All Ad Accounts */}
@@ -151,6 +153,106 @@ export default function SettingsPage() {
               Disconnect
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Model Switcher ──────────────────────────────────────────
+
+function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
+  const { data, isLoading } = useSkillPrompt(adAccountId)
+  const updateMutation = useUpdateSkillPrompt()
+  const [saved, setSaved] = useState(false)
+
+  const currentModel = data?.aiModel || "gpt-4.1-mini"
+  const models: AiModelOption[] = data?.availableModels || []
+
+  const handleSelect = (modelId: string) => {
+    if (modelId === currentModel) return
+    updateMutation.mutate(
+      { adAccountId, aiModel: modelId },
+      {
+        onSuccess: () => {
+          setSaved(true)
+          setTimeout(() => setSaved(false), 2000)
+        },
+      }
+    )
+  }
+
+  const sectionStyle = {
+    background: "var(--bg-base)" as const,
+    border: "1px solid var(--border-default)" as const,
+  }
+
+  return (
+    <div className="rounded-lg p-5" style={sectionStyle}>
+      <div className="flex items-center gap-2.5">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-lg"
+          style={{ background: "rgba(96, 165, 250, 0.12)" }}
+        >
+          <Cpu size={16} style={{ color: "#60a5fa" }} />
+        </div>
+        <div>
+          <h2
+            className="text-[10px] font-medium uppercase tracking-[0.06em]"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            AI Model
+          </h2>
+          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            Choose the model used for AI scans and proposals
+          </p>
+        </div>
+        {saved && (
+          <span className="ml-auto flex items-center gap-1 text-xs font-medium" style={{ color: "#4ade80" }}>
+            <Check size={12} />
+            Saved
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 h-20 animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} />
+      ) : (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {models.map((m) => {
+            const active = m.id === currentModel
+            return (
+              <button
+                key={m.id}
+                onClick={() => handleSelect(m.id)}
+                disabled={updateMutation.isPending}
+                className="rounded-lg px-3.5 py-3 text-left transition-all"
+                style={{
+                  background: active ? "var(--acc-subtle, rgba(139, 92, 246, 0.08))" : "var(--bg-muted)",
+                  border: active ? "1.5px solid var(--acc)" : "1.5px solid transparent",
+                  opacity: updateMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: active ? "var(--acc)" : "var(--text-primary)" }}
+                  >
+                    {m.name}
+                  </span>
+                  {active && (
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: "var(--acc)" }}
+                    />
+                  )}
+                </div>
+                <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--text-tertiary)" }}>
+                  {m.description}
+                </p>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

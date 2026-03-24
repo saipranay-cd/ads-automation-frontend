@@ -486,11 +486,17 @@ export function useAnalyze() {
 
 // ── AI Skill Prompt ──────────────────────────────────────
 
+export interface AiModelOption {
+  id: string
+  name: string
+  description: string
+}
+
 export function useSkillPrompt(adAccountId?: string | null) {
-  return useQuery<{ prompt: string }>({
+  return useQuery<{ prompt: string; aiModel: string; availableModels: AiModelOption[] }>({
     queryKey: ["skill-prompt", adAccountId],
     queryFn: async () => {
-      if (!adAccountId) return { prompt: "" }
+      if (!adAccountId) return { prompt: "", aiModel: "gpt-4.1-mini", availableModels: [] }
       const res = await fetch(`/api/meta/skill-prompt?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch skill prompt")
       return res.json()
@@ -503,11 +509,11 @@ export function useUpdateSkillPrompt() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ adAccountId, prompt }: { adAccountId: string; prompt: string }) => {
+    mutationFn: async (vars: { adAccountId: string; prompt?: string; aiModel?: string }) => {
       const res = await fetch("/api/meta/skill-prompt", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adAccountId, prompt }),
+        body: JSON.stringify(vars),
       })
       if (!res.ok) throw new Error("Failed to update skill prompt")
       return res.json()
