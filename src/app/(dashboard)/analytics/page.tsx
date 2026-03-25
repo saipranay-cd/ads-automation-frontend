@@ -16,6 +16,8 @@ import {
 } from "recharts"
 import {
   useCampaigns,
+  useAdSets,
+  useAds,
   useAggregatedMetrics,
   usePlacementBreakdown,
   useAgeGenderBreakdown,
@@ -136,6 +138,8 @@ export default function AnalyticsPage() {
   const { data: ageGenderData, isLoading: ageGenderLoading } = useAgeGenderBreakdown(insightsSourceId, days, dateRange)
   const { data: rawCities, isLoading: citiesLoading } = useCityBreakdown(insightsSourceId, days, dateRange)
   const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(adAccountId)
+  const { data: adSetsData } = useAdSets(adAccountId)
+  const { data: adsData } = useAds(adAccountId)
 
   // Deduplicate placements by name
   const placementsData = useMemo(() => {
@@ -336,59 +340,68 @@ export default function AnalyticsPage() {
   [citiesData])
 
   const allCampaigns = campaignsData?.data || []
-  const campaignHeaders = ["Campaign", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
+  const campaignHeaders = ["Campaign ID", "Campaign", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
   const campaignRows = useMemo(() =>
     allCampaigns.map((c) => {
       const ctr = c.impressions > 0 ? Math.round((c.linkClicks / c.impressions) * 10000) / 100 : 0
       const cpc = c.linkClicks > 0 ? Math.round((c.amountSpent / c.linkClicks) * 100) / 100 : 0
-      return [c.name, c.status, c.amountSpent, c.leads, c.costPerLead ?? 0, c.impressions, c.reach, c.linkClicks, ctr, cpc, c.cpm, c.dailyBudget].map(String)
+      return [c.id, c.name, c.status, c.amountSpent, c.leads, c.costPerLead ?? 0, c.impressions, c.reach, c.linkClicks, ctr, cpc, c.cpm, c.dailyBudget].map(String)
     }),
   [allCampaigns])
+
+  const allAdSets = adSetsData?.data || []
+  const adSetHeaders = ["Ad Set ID", "Ad Set", "Status", "Campaign ID", "Campaign", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
+  const adSetRows = useMemo(() =>
+    allAdSets.map((a) => [a.id, a.name, a.status, a.campaignId, a.campaignName, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.dailyBudget].map(String)),
+  [allAdSets])
+
+  const allAds = adsData?.data || []
+  const adHeaders = ["Ad ID", "Ad", "Status", "Ad Set ID", "Ad Set", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM"]
+  const adRows = useMemo(() =>
+    allAds.map((a) => [a.id, a.name, a.status, a.adSetId, a.adSetName, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm].map(String)),
+  [allAds])
 
   function exportFullXlsx() {
     import("xlsx").then((XLSX) => {
       const wb = XLSX.utils.book_new()
 
-      if (metricsRows.length) {
-        const ws1 = XLSX.utils.aoa_to_sheet([metricsHeaders, ...metricsRows])
-        ws1["!cols"] = metricsHeaders.map(() => ({ wch: 14 }))
-        XLSX.utils.book_append_sheet(wb, ws1, "Daily Performance")
+      const addSheet = (name: string, headers: string[], rows: string[][], nameColWidth = 32) => {
+        if (!rows.length) return
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+        ws["!cols"] = headers.map((h, i) => ({
+          wch: h.toLowerCase().includes("id") ? 22 : (i === 0 || h.toLowerCase().includes("name") || h.toLowerCase().includes("campaign") || h.toLowerCase().includes("ad set") || h.toLowerCase().includes("ad")) ? nameColWidth : 14,
+        }))
+        XLSX.utils.book_append_sheet(wb, ws, name)
       }
-      if (placementRows.length) {
-        const ws2 = XLSX.utils.aoa_to_sheet([placementHeaders, ...placementRows])
-        ws2["!cols"] = placementHeaders.map((_, i) => ({ wch: i === 0 ? 24 : 14 }))
-        XLSX.utils.book_append_sheet(wb, ws2, "Placements")
-      }
-      if (ageGenderRows.length) {
-        const ws3 = XLSX.utils.aoa_to_sheet([ageGenderHeaders, ...ageGenderRows])
-        ws3["!cols"] = ageGenderHeaders.map(() => ({ wch: 14 }))
-        XLSX.utils.book_append_sheet(wb, ws3, "Age & Gender")
-      }
-      if (regionRows.length) {
-        const ws4 = XLSX.utils.aoa_to_sheet([regionHeaders, ...regionRows])
-        ws4["!cols"] = regionHeaders.map((_, i) => ({ wch: i === 0 ? 20 : 14 }))
-        XLSX.utils.book_append_sheet(wb, ws4, "Regions")
-      }
-      if (campaignRows.length) {
-        const ws5 = XLSX.utils.aoa_to_sheet([campaignHeaders, ...campaignRows])
-        ws5["!cols"] = campaignHeaders.map((_, i) => ({ wch: i === 0 ? 32 : 14 }))
-        XLSX.utils.book_append_sheet(wb, ws5, "Campaigns")
-      }
+
+      // Account-level breakdowns
+      addSheet("Daily Performance", metricsHeaders, metricsRows, 14)
+      addSheet("Placements", placementHeaders, placementRows, 24)
+      addSheet("Age & Gender", ageGenderHeaders, ageGenderRows, 14)
+      addSheet("Regions", regionHeaders, regionRows, 20)
+
+      // Entity-level data
+      addSheet("Campaigns", campaignHeaders, campaignRows)
+      addSheet("Ad Sets", adSetHeaders, adSetRows)
+      addSheet("Ads", adHeaders, adRows)
 
       XLSX.writeFile(wb, `${filePrefix}_full_report.xlsx`)
     })
   }
 
-  const hasAnyData = metricsRows.length > 0 || placementRows.length > 0 || (ageGenderData?.length ?? 0) > 0 || regionRows.length > 0 || campaignRows.length > 0
+  const hasAnyData = metricsRows.length > 0 || placementRows.length > 0 || (ageGenderData?.length ?? 0) > 0 || regionRows.length > 0 || campaignRows.length > 0 || adSetRows.length > 0 || adRows.length > 0
 
   const exportOptions = [
     { key: "daily", label: "Daily Performance", icon: BarChart3, disabled: !metricsRows.length, desc: `${metricsRows.length} days`, action: () => downloadCSV(`${filePrefix}_daily.csv`, metricsHeaders, metricsRows) },
     { key: "placement", label: "Placement Breakdown", icon: Layers, disabled: !placementRows.length, desc: `${placementRows.length} placements`, action: () => downloadCSV(`${filePrefix}_placements.csv`, placementHeaders, placementRows) },
     { key: "demographics", label: "Age & Gender", icon: Users, disabled: !ageGenderRows.length, desc: `${ageGenderRows.length} age groups`, action: () => downloadCSV(`${filePrefix}_demographics.csv`, ageGenderHeaders, ageGenderRows) },
     { key: "region", label: "Region Breakdown", icon: MapPin, disabled: !regionRows.length, desc: `${regionRows.length} regions`, action: () => downloadCSV(`${filePrefix}_regions.csv`, regionHeaders, regionRows) },
-    { key: "campaigns", label: "Campaign Summary", icon: FileDown, disabled: !campaignRows.length, desc: `${campaignRows.length} campaigns`, action: () => downloadCSV(`${filePrefix}_campaigns.csv`, campaignHeaders, campaignRows) },
-    { key: "divider" } as any,
-    { key: "full", label: "Full Report (.xlsx)", icon: FileSpreadsheet, disabled: !hasAnyData, desc: "All data, multiple sheets", action: exportFullXlsx },
+    { key: "divider1" } as any,
+    { key: "campaigns", label: "Campaigns", icon: Megaphone, disabled: !campaignRows.length, desc: `${campaignRows.length} campaigns · with IDs`, action: () => downloadCSV(`${filePrefix}_campaigns.csv`, campaignHeaders, campaignRows) },
+    { key: "adsets", label: "Ad Sets", icon: LayoutGrid, disabled: !adSetRows.length, desc: `${adSetRows.length} ad sets · with campaign info`, action: () => downloadCSV(`${filePrefix}_adsets.csv`, adSetHeaders, adSetRows) },
+    { key: "ads", label: "Ads", icon: Image, disabled: !adRows.length, desc: `${adRows.length} ads · with ad set info`, action: () => downloadCSV(`${filePrefix}_ads.csv`, adHeaders, adRows) },
+    { key: "divider2" } as any,
+    { key: "full", label: "Full Report (.xlsx)", icon: FileSpreadsheet, disabled: !hasAnyData, desc: "All sheets including ad sets & ads", action: exportFullXlsx },
   ]
 
   // ── Tooltip ─────────────────────────────────────────────
@@ -509,8 +522,8 @@ export default function AnalyticsPage() {
                 </span>
               </div>
               {exportOptions.map((opt) =>
-                opt.key === "divider" ? (
-                  <div key="divider" className="mx-3 my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
+                opt.key.startsWith("divider") ? (
+                  <div key={opt.key} className="mx-3 my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
                 ) : (
                   <button
                     key={opt.key}
