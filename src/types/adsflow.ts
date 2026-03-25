@@ -212,6 +212,8 @@ export interface AdSetTableRow {
   cpm: number;
   leads: number;
   costPerLead: number | null;
+  results: number;
+  costPerResult: number | null;
   isActive: boolean;
 }
 
@@ -231,6 +233,8 @@ export interface AdTableRow {
   cpm: number;
   leads: number;
   costPerLead: number | null;
+  results: number;
+  costPerResult: number | null;
   isActive: boolean;
 }
 

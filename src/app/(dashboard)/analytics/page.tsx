@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
-import { Download, ChevronDown, ChevronRight, FileSpreadsheet, BarChart3, Users, MapPin, Layers, FileDown, ArrowUp, ArrowDown, Target, Megaphone, LayoutGrid, Image } from "lucide-react"
+import { Download, ChevronDown, ChevronRight, FileSpreadsheet, BarChart3, Users, MapPin, Layers, FileDown, ArrowUp, ArrowDown, Target, Megaphone, LayoutGrid, Image, Settings2, X } from "lucide-react"
 import {
   AreaChart,
   Area,
@@ -31,6 +31,9 @@ import {
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
+import { useExportStore, type ExportPreset } from "@/lib/export-store"
+import { buildExportSheet } from "@/lib/export-columns"
+import { ExportBuilder } from "@/components/export/ExportBuilder"
 
 // ── Constants ────────────────────────────────────────────
 
@@ -285,7 +288,10 @@ export default function AnalyticsPage() {
 
   // ── Export Helpers ──────────────────────────────────────
   const [exportOpen, setExportOpen] = useState(false)
+  const [showBuilder, setShowBuilder] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
+  const exportPresets = useExportStore((s) => s.presets)
+  const deletePreset = useExportStore((s) => s.deletePreset)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -421,6 +427,97 @@ export default function AnalyticsPage() {
     },
   ]
 
+  // ── Custom Export: record-based group data ──────────────
+  // Each group stores rows as Record<dataPointKey, stringValue>[] for flexible column picking.
+  const allGroupData = useMemo(() => {
+    const freq = (impr: number, reach: number) => reach > 0 ? Math.round((impr / reach) * 100) / 100 : 0
+    const cpmCalc = (spend: number, impr: number) => impr > 0 ? Math.round((spend / impr) * 1000 * 100) / 100 : 0
+
+    const metricsOf = (m: { spend: number; leads: number; cpl: number; impressions: number; clicks: number; reach: number; ctr: number; cpc: number }) => ({
+      spend: String(m.spend), leads: String(m.leads), cpl: String(m.cpl),
+      impressions: String(m.impressions), clicks: String(m.clicks), reach: String(m.reach),
+      ctr: String(m.ctr), cpc: String(m.cpc),
+      cpm: String(cpmCalc(m.spend, m.impressions)), frequency: String(freq(m.impressions, m.reach)),
+    })
+
+    const prefixed = (pre: string, m: Record<string, string>) => {
+      const out: Record<string, string> = {}
+      for (const [k, v] of Object.entries(m))
+        out[`${pre}${k.charAt(0).toUpperCase()}${k.slice(1)}`] = v
+      return out
+    }
+
+    return {
+      daily: (metricsData || []).map((m) => ({ date: m.date, ...metricsOf(m) })),
+      placements: placementsData.map((p) => ({ placement: p.name, ...metricsOf(p) })),
+      ageGender: (ageGenderData || []).map((r) => ({
+        age: r.age, ...prefixed("male", metricsOf(r.male)), ...prefixed("female", metricsOf(r.female)),
+      })),
+      regions: citiesData.map((c) => ({ region: c.city, ...metricsOf(c) })),
+      campaigns: allCampaigns.map((c) => {
+        const ctr = c.impressions > 0 ? Math.round((c.linkClicks / c.impressions) * 10000) / 100 : 0
+        const cpcVal = c.linkClicks > 0 ? Math.round((c.amountSpent / c.linkClicks) * 100) / 100 : 0
+        return {
+          campaignId: c.id, campaignName: c.name, campaignStatus: c.status, objective: c.objective,
+          spend: String(c.amountSpent), leads: String(c.leads), cpl: String(c.costPerLead ?? 0),
+          results: String(c.results), costPerResult: String(c.costPerResult ?? 0),
+          impressions: String(c.impressions), clicks: String(c.linkClicks), reach: String(c.reach),
+          ctr: String(ctr), cpc: String(cpcVal), cpm: String(c.cpm),
+          frequency: String(freq(c.impressions, c.reach)),
+          dailyBudget: String(c.dailyBudget), pacing: String(c.pacing),
+        }
+      }),
+      adSets: allAdSets.map((a) => ({
+        campaignId: a.campaignId, campaignName: a.campaignName,
+        adSetId: a.id, adSetName: a.name, adSetStatus: a.status,
+        spend: String(a.amountSpent), leads: String(a.leads), cpl: String(a.costPerLead ?? 0),
+        impressions: String(a.impressions), clicks: String(a.clicks), reach: String(a.reach),
+        ctr: String(a.ctr), cpc: String(a.cpc), cpm: String(a.cpm),
+        frequency: String(freq(a.impressions, a.reach)), dailyBudget: String(a.dailyBudget),
+        results: String(a.results ?? 0), costPerResult: String(a.costPerResult ?? 0),
+      })),
+      ads: allAds.map((a) => {
+        const parent = adSetCampaignMap.get(a.adSetId)
+        return {
+          campaignId: parent?.campaignId ?? "", campaignName: parent?.campaignName ?? "",
+          adSetId: a.adSetId, adSetName: a.adSetName,
+          adId: a.id, adName: a.name, adStatus: a.status,
+          spend: String(a.amountSpent), leads: String(a.leads), cpl: String(a.costPerLead ?? 0),
+          impressions: String(a.impressions), clicks: String(a.clicks), reach: String(a.reach),
+          ctr: String(a.ctr), cpc: String(a.cpc), cpm: String(a.cpm),
+          frequency: String(freq(a.impressions, a.reach)), thumbnailUrl: a.thumbnailUrl ?? "",
+          results: String(a.results ?? 0), costPerResult: String(a.costPerResult ?? 0),
+        }
+      }),
+    } as Record<string, Record<string, string>[]>
+  }, [metricsData, placementsData, ageGenderData, citiesData, allCampaigns, allAdSets, allAds, adSetCampaignMap])
+
+  const exportFromPreset = useCallback((preset: ExportPreset) => {
+    const pointsSet = new Set(preset.dataPoints)
+    const sheets: { name: string; headers: string[]; rows: string[][] }[] = []
+    for (const gk of preset.groups) {
+      const data = allGroupData[gk]
+      if (!data?.length) continue
+      const sheet = buildExportSheet(gk, data, pointsSet)
+      if (sheet) sheets.push(sheet)
+    }
+    if (!sheets.length) return
+    import("xlsx").then((XLSX) => {
+      const wb = XLSX.utils.book_new()
+      for (const s of sheets) {
+        const ws = XLSX.utils.aoa_to_sheet([s.headers, ...s.rows])
+        ws["!cols"] = s.headers.map((h) => ({
+          wch: h.toLowerCase().includes("id") ? 22
+            : (h.toLowerCase().includes("campaign") || h.toLowerCase().includes("ad set") || h.toLowerCase().includes("ad ") || h === "Ad" || h === "Region" || h === "Placement") ? 30
+            : h.toLowerCase().includes("url") ? 50
+            : 14,
+        }))
+        XLSX.utils.book_append_sheet(wb, ws, s.name)
+      }
+      XLSX.writeFile(wb, `${filePrefix}_report.xlsx`)
+    })
+  }, [allGroupData, filePrefix])
+
   // ── Tooltip ─────────────────────────────────────────────
   function ChartTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null
@@ -519,14 +616,14 @@ export default function AnalyticsPage() {
               background: exportOpen ? "var(--bg-subtle)" : "transparent",
             }}
           >
-            <Download size={13} />
-            Export
+            <FileSpreadsheet size={13} />
+            Reports
             <ChevronDown size={12} className={`transition-transform ${exportOpen ? "rotate-180" : ""}`} />
           </button>
 
           {exportOpen && (
             <div
-              className="absolute right-0 z-50 mt-1.5 w-[260px] rounded-lg py-1.5 shadow-xl"
+              className="absolute right-0 z-50 mt-1.5 w-[280px] rounded-lg py-1.5 shadow-xl"
               style={{
                 background: "var(--bg-base)",
                 border: "1px solid var(--border-default)",
@@ -535,7 +632,55 @@ export default function AnalyticsPage() {
             >
               <div className="px-3 pb-1.5 pt-1">
                 <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
-                  Export — {dateLabel}
+                  Reports — {dateLabel}
+                </span>
+              </div>
+
+              {/* Saved presets */}
+              {exportPresets.length > 0 && (
+                <>
+                  <div className="px-3 pb-0.5 pt-1.5">
+                    <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+                      Saved
+                    </span>
+                  </div>
+                  {exportPresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => { exportFromPreset(preset); setExportOpen(false) }}
+                      className="group flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-subtle)" }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
+                    >
+                      <FileSpreadsheet size={14} style={{ color: "var(--acc)", flexShrink: 0 }} />
+                      <div className="flex flex-1 flex-col overflow-hidden">
+                        <span className="truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                          {preset.name}
+                        </span>
+                        <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                          {preset.groups.length} source{preset.groups.length !== 1 ? "s" : ""} &middot; {preset.dataPoints.length} column{preset.dataPoints.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <span
+                        className="hidden shrink-0 rounded p-0.5 transition-colors group-hover:flex"
+                        style={{ color: "var(--text-tertiary)" }}
+                        onClick={(e) => { e.stopPropagation(); deletePreset(preset.id) }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-primary)" }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)" }}
+                      >
+                        <X size={12} />
+                      </span>
+                    </button>
+                  ))}
+                  <div className="mx-3 my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
+                </>
+              )}
+
+              {/* Quick reports */}
+              <div className="px-3 pb-0.5 pt-1.5">
+                <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+                  Quick Reports
                 </span>
               </div>
               {exportOptions.map((opt) =>
@@ -557,7 +702,7 @@ export default function AnalyticsPage() {
                   >
                     <opt.icon size={14} style={{ color: opt.key === "full" ? "var(--acc)" : "var(--text-tertiary)", flexShrink: 0 }} />
                     <div className="flex flex-1 flex-col">
-                      <span className={`text-xs font-medium ${opt.key === "full" ? "" : ""}`}
+                      <span className={`text-xs font-medium`}
                         style={{ color: opt.key === "full" ? "var(--acc-text)" : "var(--text-primary)" }}
                       >
                         {opt.label}
@@ -570,6 +715,21 @@ export default function AnalyticsPage() {
                   </button>
                 )
               )}
+
+              {/* Custom Report */}
+              <div className="mx-3 my-1" style={{ borderTop: "1px solid var(--border-subtle)" }} />
+              <button
+                onClick={() => { setShowBuilder(true); setExportOpen(false) }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors"
+                style={{ color: "var(--text-primary)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-subtle)" }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
+              >
+                <Settings2 size={14} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
+                <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                  Custom Report...
+                </span>
+              </button>
             </div>
           )}
         </div>
@@ -1160,6 +1320,14 @@ export default function AnalyticsPage() {
         )}
       </div>
       )}
+
+      <ExportBuilder
+        open={showBuilder}
+        onClose={() => setShowBuilder(false)}
+        allGroupData={allGroupData}
+        filePrefix={filePrefix}
+        dateLabel={dateLabel}
+      />
     </div>
   )
 }
