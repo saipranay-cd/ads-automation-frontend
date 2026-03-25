@@ -300,44 +300,46 @@ export default function AnalyticsPage() {
     ? `analytics_${dateRange.since}_${dateRange.until}`
     : `analytics_${days}d_${new Date().toISOString().split("T")[0]}`
 
-  const downloadCSV = useCallback((filename: string, headers: string[], rows: string[][]) => {
-    const escape = (v: string | number) => {
-      const s = String(v)
-      return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s
+  // Entity context columns — added to every breakdown row when scoped to a specific entity
+  const entityCtx = useMemo(() => {
+    if (viewLevel === "account" || !selectedEntity) return null
+    const e = selectedEntity
+    if (viewLevel === "campaign") {
+      return { headers: ["Campaign ID", "Campaign"], values: [e.id, e.name] }
+    } else if (viewLevel === "adset") {
+      return { headers: ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set"], values: [e.campaignId || e.parentId || "", e.campaignName || e.parentName || "", e.id, e.name] }
+    } else {
+      // ad level
+      return { headers: ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Ad ID", "Ad"], values: [e.campaignId || "", e.campaignName || "", e.parentId || "", e.parentName || "", e.id, e.name] }
     }
-    const csv = [headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n")
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [])
+  }, [viewLevel, selectedEntity])
 
-  const metricsHeaders = ["Date", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const ctxH = entityCtx?.headers || []
+  const ctxV = entityCtx?.values || []
+
+  const metricsHeaders = [...ctxH, "Date", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
   const metricsRows = useMemo(() =>
-    (metricsData || []).map((m) => [m.date, m.spend, m.leads, m.cpl, m.impressions, m.clicks, m.reach, m.ctr, m.cpc].map(String)),
-  [metricsData])
+    (metricsData || []).map((m) => [...ctxV, m.date, m.spend, m.leads, m.cpl, m.impressions, m.clicks, m.reach, m.ctr, m.cpc].map(String)),
+  [metricsData, ctxV])
 
-  const placementHeaders = ["Placement", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const placementHeaders = [...ctxH, "Placement", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
   const placementRows = useMemo(() =>
-    placementsData.map((p) => [p.name, p.spend, p.leads, p.cpl, p.impressions, p.clicks, p.reach, p.ctr, p.cpc].map(String)),
-  [placementsData])
+    placementsData.map((p) => [...ctxV, p.name, p.spend, p.leads, p.cpl, p.impressions, p.clicks, p.reach, p.ctr, p.cpc].map(String)),
+  [placementsData, ctxV])
 
-  const ageGenderHeaders = ["Age", "Male Spend", "Male Leads", "Male CPL", "Male Impr.", "Male Clicks", "Male CTR %", "Male CPC", "Female Spend", "Female Leads", "Female CPL", "Female Impr.", "Female Clicks", "Female CTR %", "Female CPC"]
+  const ageGenderHeaders = [...ctxH, "Age", "Male Spend", "Male Leads", "Male CPL", "Male Impr.", "Male Clicks", "Male CTR %", "Male CPC", "Female Spend", "Female Leads", "Female CPL", "Female Impr.", "Female Clicks", "Female CTR %", "Female CPC"]
   const ageGenderRows = useMemo(() =>
     (ageGenderData || []).map((r) => [
-      r.age,
+      ...ctxV, r.age,
       r.male.spend, r.male.leads, r.male.cpl, r.male.impressions, r.male.clicks, r.male.ctr, r.male.cpc,
       r.female.spend, r.female.leads, r.female.cpl, r.female.impressions, r.female.clicks, r.female.ctr, r.female.cpc,
     ].map(String)),
-  [ageGenderData])
+  [ageGenderData, ctxV])
 
-  const regionHeaders = ["Region", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const regionHeaders = [...ctxH, "Region", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
   const regionRows = useMemo(() =>
-    citiesData.map((c) => [c.city, c.spend, c.leads, c.cpl, c.impressions, c.clicks, c.reach, c.ctr, c.cpc].map(String)),
-  [citiesData])
+    citiesData.map((c) => [...ctxV, c.city, c.spend, c.leads, c.cpl, c.impressions, c.clicks, c.reach, c.ctr, c.cpc].map(String)),
+  [citiesData, ctxV])
 
   const allCampaigns = campaignsData?.data || []
   const campaignHeaders = ["Campaign ID", "Campaign", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
@@ -350,58 +352,73 @@ export default function AnalyticsPage() {
   [allCampaigns])
 
   const allAdSets = adSetsData?.data || []
-  const adSetHeaders = ["Ad Set ID", "Ad Set", "Status", "Campaign ID", "Campaign", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
+  const adSetHeaders = ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
   const adSetRows = useMemo(() =>
-    allAdSets.map((a) => [a.id, a.name, a.status, a.campaignId, a.campaignName, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.dailyBudget].map(String)),
+    allAdSets.map((a) => [a.campaignId, a.campaignName, a.id, a.name, a.status, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.dailyBudget].map(String)),
   [allAdSets])
 
-  const allAds = adsData?.data || []
-  const adHeaders = ["Ad ID", "Ad", "Status", "Ad Set ID", "Ad Set", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM"]
-  const adRows = useMemo(() =>
-    allAds.map((a) => [a.id, a.name, a.status, a.adSetId, a.adSetName, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm].map(String)),
-  [allAds])
+  // Lookup: ad set ID → campaign info (for enriching ad rows)
+  const adSetCampaignMap = useMemo(() => {
+    const m = new Map<string, { campaignId: string; campaignName: string }>()
+    for (const a of allAdSets) m.set(a.id, { campaignId: a.campaignId, campaignName: a.campaignName })
+    return m
+  }, [allAdSets])
 
-  function exportFullXlsx() {
+  const allAds = adsData?.data || []
+  const adHeaders = ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Ad ID", "Ad", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM"]
+  const adRows = useMemo(() =>
+    allAds.map((a) => {
+      const parent = adSetCampaignMap.get(a.adSetId)
+      return [parent?.campaignId ?? "", parent?.campaignName ?? "", a.adSetId, a.adSetName, a.id, a.name, a.status, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm].map(String)
+    }),
+  [allAds, adSetCampaignMap])
+
+  // Every export is XLSX with entity sheets (Campaigns, Ad Sets, Ads) always included
+  const exportXlsx = useCallback((filename: string, primarySheets: { name: string; headers: string[]; rows: string[][] }[]) => {
     import("xlsx").then((XLSX) => {
       const wb = XLSX.utils.book_new()
 
-      const addSheet = (name: string, headers: string[], rows: string[][], nameColWidth = 32) => {
+      const addSheet = (name: string, headers: string[], rows: string[][]) => {
         if (!rows.length) return
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-        ws["!cols"] = headers.map((h, i) => ({
-          wch: h.toLowerCase().includes("id") ? 22 : (i === 0 || h.toLowerCase().includes("name") || h.toLowerCase().includes("campaign") || h.toLowerCase().includes("ad set") || h.toLowerCase().includes("ad")) ? nameColWidth : 14,
+        ws["!cols"] = headers.map((h) => ({
+          wch: h.toLowerCase().includes("id") ? 22
+            : (h.toLowerCase().includes("campaign") || h.toLowerCase().includes("ad set") || h.toLowerCase().includes("ad ") || h === "Ad" || h === "Region" || h === "Placement") ? 30
+            : 14,
         }))
         XLSX.utils.book_append_sheet(wb, ws, name)
       }
 
-      // Account-level breakdowns
-      addSheet("Daily Performance", metricsHeaders, metricsRows, 14)
-      addSheet("Placements", placementHeaders, placementRows, 24)
-      addSheet("Age & Gender", ageGenderHeaders, ageGenderRows, 14)
-      addSheet("Regions", regionHeaders, regionRows, 20)
+      // Primary breakdown sheets first
+      for (const s of primarySheets) addSheet(s.name, s.headers, s.rows)
 
-      // Entity-level data
+      // Always include entity hierarchy
       addSheet("Campaigns", campaignHeaders, campaignRows)
       addSheet("Ad Sets", adSetHeaders, adSetRows)
       addSheet("Ads", adHeaders, adRows)
 
-      XLSX.writeFile(wb, `${filePrefix}_full_report.xlsx`)
+      XLSX.writeFile(wb, filename)
     })
-  }
+  }, [campaignHeaders, campaignRows, adSetHeaders, adSetRows, adHeaders, adRows])
 
   const hasAnyData = metricsRows.length > 0 || placementRows.length > 0 || (ageGenderData?.length ?? 0) > 0 || regionRows.length > 0 || campaignRows.length > 0 || adSetRows.length > 0 || adRows.length > 0
 
   const exportOptions = [
-    { key: "daily", label: "Daily Performance", icon: BarChart3, disabled: !metricsRows.length, desc: `${metricsRows.length} days`, action: () => downloadCSV(`${filePrefix}_daily.csv`, metricsHeaders, metricsRows) },
-    { key: "placement", label: "Placement Breakdown", icon: Layers, disabled: !placementRows.length, desc: `${placementRows.length} placements`, action: () => downloadCSV(`${filePrefix}_placements.csv`, placementHeaders, placementRows) },
-    { key: "demographics", label: "Age & Gender", icon: Users, disabled: !ageGenderRows.length, desc: `${ageGenderRows.length} age groups`, action: () => downloadCSV(`${filePrefix}_demographics.csv`, ageGenderHeaders, ageGenderRows) },
-    { key: "region", label: "Region Breakdown", icon: MapPin, disabled: !regionRows.length, desc: `${regionRows.length} regions`, action: () => downloadCSV(`${filePrefix}_regions.csv`, regionHeaders, regionRows) },
+    { key: "daily", label: "Daily Performance", icon: BarChart3, disabled: !metricsRows.length, desc: `${metricsRows.length} days + entity data`, action: () => exportXlsx(`${filePrefix}_daily.xlsx`, [{ name: "Daily Performance", headers: metricsHeaders, rows: metricsRows }]) },
+    { key: "placement", label: "Placement Breakdown", icon: Layers, disabled: !placementRows.length, desc: `${placementRows.length} placements + entity data`, action: () => exportXlsx(`${filePrefix}_placements.xlsx`, [{ name: "Placements", headers: placementHeaders, rows: placementRows }]) },
+    { key: "demographics", label: "Age & Gender", icon: Users, disabled: !ageGenderRows.length, desc: `${ageGenderRows.length} age groups + entity data`, action: () => exportXlsx(`${filePrefix}_demographics.xlsx`, [{ name: "Age & Gender", headers: ageGenderHeaders, rows: ageGenderRows }]) },
+    { key: "region", label: "Region Breakdown", icon: MapPin, disabled: !regionRows.length, desc: `${regionRows.length} regions + entity data`, action: () => exportXlsx(`${filePrefix}_regions.xlsx`, [{ name: "Regions", headers: regionHeaders, rows: regionRows }]) },
     { key: "divider1" } as any,
-    { key: "campaigns", label: "Campaigns", icon: Megaphone, disabled: !campaignRows.length, desc: `${campaignRows.length} campaigns · with IDs`, action: () => downloadCSV(`${filePrefix}_campaigns.csv`, campaignHeaders, campaignRows) },
-    { key: "adsets", label: "Ad Sets", icon: LayoutGrid, disabled: !adSetRows.length, desc: `${adSetRows.length} ad sets · with campaign info`, action: () => downloadCSV(`${filePrefix}_adsets.csv`, adSetHeaders, adSetRows) },
-    { key: "ads", label: "Ads", icon: Image, disabled: !adRows.length, desc: `${adRows.length} ads · with ad set info`, action: () => downloadCSV(`${filePrefix}_ads.csv`, adHeaders, adRows) },
-    { key: "divider2" } as any,
-    { key: "full", label: "Full Report (.xlsx)", icon: FileSpreadsheet, disabled: !hasAnyData, desc: "All sheets including ad sets & ads", action: exportFullXlsx },
+    {
+      key: "full", label: "Full Report", icon: FileSpreadsheet, disabled: !hasAnyData,
+      desc: "All breakdowns + campaigns, ad sets & ads",
+      action: () => exportXlsx(`${filePrefix}_full_report.xlsx`, [
+        { name: "Daily Performance", headers: metricsHeaders, rows: metricsRows },
+        { name: "Placements", headers: placementHeaders, rows: placementRows },
+        { name: "Age & Gender", headers: ageGenderHeaders, rows: ageGenderRows },
+        { name: "Regions", headers: regionHeaders, rows: regionRows },
+      ]),
+    },
   ]
 
   // ── Tooltip ─────────────────────────────────────────────
