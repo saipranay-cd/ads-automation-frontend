@@ -531,6 +531,14 @@ function ProposalCard({
               <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: riskColor }} />
               {p.risk}
             </span>
+            {(p.agentId === "lead-quality" || p.description?.includes("CPQL") || p.description?.includes("CRM") || p.description?.includes("Dead")) && (
+              <span
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase"
+                style={{ background: "rgba(167, 139, 250, 0.12)", color: "#a78bfa" }}
+              >
+                CRM
+              </span>
+            )}
           </div>
 
           {/* Action previews */}
