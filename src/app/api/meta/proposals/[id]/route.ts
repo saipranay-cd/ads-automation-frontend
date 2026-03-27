@@ -17,7 +17,7 @@ export async function PUT(
   const body = await req.json()
   const action = body.action as string // "approve" | "reject" | "execute"
 
-  if (!["approve", "reject", "execute"].includes(action)) {
+  if (!["approve", "reject", "execute", "undo"].includes(action)) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 })
   }
 

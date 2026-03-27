@@ -19,7 +19,10 @@ export async function POST(req: Request) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/sync`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.metaAccessToken}`,
+      },
       body: JSON.stringify({
         userId: session.user?.email || "default",
         accessToken: session.metaAccessToken,

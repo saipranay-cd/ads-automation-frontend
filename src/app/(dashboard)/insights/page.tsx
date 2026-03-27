@@ -6,16 +6,16 @@ import {
   Zap, Play, AlertTriangle, CheckCircle, Clock, XCircle,
   ArrowRight, RefreshCw, Megaphone, LayoutGrid, Image as ImageIcon,
   ChevronDown, ChevronUp, Sparkles, ThumbsUp, ThumbsDown,
-  TrendingDown, Lightbulb, Search, Wrench, ArrowUpRight,
+  TrendingDown, Lightbulb, Search, Wrench, ArrowUpRight, Download,
 } from "lucide-react"
 import { useAppStore } from "@/lib/store"
-import { useProposals, useProposalStats, useScanProposals, useUpdateProposal } from "@/hooks/use-campaigns"
-import type { AiProposal, ExecutionResult, ProposalAction, EntityMetrics } from "@/hooks/use-campaigns"
+import { useProposals, useProposalStats, useScanProposals, useUpdateProposal, useImpactStats, useMeasureProposals } from "@/hooks/use-campaigns"
+import type { AiProposal, ExecutionResult, ProposalAction, EntityMetrics, ImpactStats } from "@/hooks/use-campaigns"
 
 // ── Types ──────────────────────────────────────────────────
 
 type AgentId = "budget-sentinel" | "audience-architect" | "creative-fatigue" | "bid-optimizer" | "lead-quality" | "performance-prophet"
-type FilterTab = "all" | "pending" | "approved" | "executed" | "rejected" | "failed"
+type FilterTab = "all" | "pending" | "approved" | "executed" | "rejected" | "failed" | "superseded" | "undone"
 
 interface AgentConfig {
   id: AgentId
@@ -44,8 +44,10 @@ const statusConfig: Record<string, { color: string; bg: string; icon: typeof Clo
   pending:  { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.10)", icon: Clock,         label: "Pending"  },
   approved: { color: "#4ade80", bg: "rgba(74, 222, 128, 0.10)", icon: CheckCircle,   label: "Approved" },
   executed: { color: "#a78bfa", bg: "rgba(167, 139, 250, 0.10)", icon: Zap,           label: "Executed" },
-  rejected: { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.04)", icon: XCircle, label: "Rejected" },
-  failed:   { color: "#f87171", bg: "rgba(248, 113, 113, 0.10)", icon: AlertTriangle, label: "Failed"   },
+  rejected:   { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.04)", icon: XCircle,       label: "Rejected"   },
+  failed:     { color: "#f87171", bg: "rgba(248, 113, 113, 0.10)", icon: AlertTriangle, label: "Failed"     },
+  superseded: { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.02)", icon: Clock,         label: "Superseded" },
+  undone:     { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.08)", icon: ArrowRight,    label: "Undone"     },
 }
 
 const levelIcons: Record<string, typeof ImageIcon> = { ad: ImageIcon, adset: LayoutGrid, campaign: Megaphone }
@@ -96,14 +98,18 @@ export default function InsightsPage() {
   const adAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: proposalsData, isLoading: proposalsLoading } = useProposals(adAccountId)
   const { data: stats, isLoading: statsLoading } = useProposalStats(adAccountId)
+  const { data: impactData } = useImpactStats(adAccountId)
   const scanMutation = useScanProposals()
   const updateMutation = useUpdateProposal()
+  const measureMutation = useMeasureProposals()
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all")
   const [executingId, setExecutingId] = useState<string | null>(null)
   const [lastExecution, setLastExecution] = useState<{ id: string; result: ExecutionResult } | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAgents, setShowAgents] = useState(false)
+
+  const impact = impactData?.data
 
   const proposals: AiProposal[] = proposalsData?.data || []
 
@@ -144,6 +150,130 @@ export default function InsightsPage() {
 
   const handleReject = (id: string) => updateMutation.mutate({ id, action: "reject" })
 
+  const getFilteredProposals = () => proposals.filter(p => activeFilter === "all" ? true : p.status === activeFilter)
+
+  const handleExportCSV = () => {
+    const items = getFilteredProposals()
+    if (items.length === 0) return
+
+    const csvRows = [
+      ["Agent", "Status", "Risk", "Confidence", "Title", "Campaign", "Situation", "Diagnosis", "Recommendation", "Expected Outcome", "Est. Savings", "Actions"].join(","),
+      ...items.map(p => [
+        p.agentId, p.status, p.risk, p.confidence,
+        `"${(p.title || "").replace(/"/g, '""')}"`,
+        `"${(p.campaignName || "").replace(/"/g, '""')}"`,
+        `"${(p.metadata?.situation || "").replace(/"/g, '""')}"`,
+        `"${(p.metadata?.diagnosis || "").replace(/"/g, '""')}"`,
+        `"${(p.metadata?.recommendation || "").replace(/"/g, '""').replace(/\n/g, " | ")}"`,
+        `"${(p.metadata?.expectedOutcome || p.impact || "").replace(/"/g, '""')}"`,
+        p.estimatedSavings || "",
+        (p.metadata?.actions || []).map((a: any) => `${a.type}: ${a.entityName}`).join("; "),
+      ].join(","))
+    ]
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a"); a.href = url
+    a.download = `adsflow-proposals-${new Date().toISOString().split("T")[0]}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  const handleExportPDF = () => {
+    const items = getFilteredProposals()
+    if (items.length === 0) return
+
+    const date = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    const riskColor = (r: string) => r === "high" ? "#f87171" : r === "medium" ? "#fbbf24" : "#4ade80"
+
+    const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>Adsflow AI Proposals — ${date}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', -apple-system, sans-serif; color: #1a1a1a; padding: 40px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 24px; }
+  .summary { display: flex; gap: 24px; margin-bottom: 32px; padding: 16px; background: #f8f9fa; border-radius: 8px; }
+  .summary-item { text-align: center; }
+  .summary-item .num { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .summary-item .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .proposal { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 16px; overflow: hidden; page-break-inside: avoid; }
+  .proposal-header { padding: 14px 18px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; }
+  .agent-badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; }
+  .risk { font-size: 10px; font-weight: 500; padding: 2px 6px; border-radius: 3px; }
+  .confidence { font-size: 10px; color: #888; margin-left: auto; font-family: 'DM Mono', monospace; }
+  .proposal-title { font-size: 13px; font-weight: 600; padding: 0 18px; margin-top: 10px; }
+  .section { padding: 8px 18px; }
+  .section-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 4px; }
+  .section-text { font-size: 11px; line-height: 1.5; color: #444; }
+  .metrics { display: flex; gap: 16px; padding: 10px 18px; background: #fafafa; font-family: 'DM Mono', monospace; font-size: 10px; }
+  .metric span { color: #888; font-family: 'DM Sans', sans-serif; font-size: 9px; text-transform: uppercase; }
+  .actions { padding: 10px 18px 14px; }
+  .action { font-size: 10px; padding: 4px 8px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; display: inline-block; margin-right: 6px; margin-bottom: 4px; color: #16a34a; }
+  .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #ccc; }
+  @media print { body { padding: 20px; } .proposal { break-inside: avoid; } }
+</style>
+</head><body>
+<h1>AI Proposals Report</h1>
+<p class="subtitle">Generated by Adsflow on ${date} &middot; ${items.length} proposals</p>
+
+<div class="summary">
+  <div class="summary-item"><div class="num">${items.length}</div><div class="label">Total</div></div>
+  <div class="summary-item"><div class="num">${items.filter(p => p.status === "pending").length}</div><div class="label">Pending</div></div>
+  <div class="summary-item"><div class="num">${items.filter(p => p.status === "executed").length}</div><div class="label">Executed</div></div>
+  <div class="summary-item"><div class="num">${items.filter(p => p.estimatedSavings).reduce((s, p) => s + (p.estimatedSavings || 0), 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</div><div class="label">Est. Savings</div></div>
+</div>
+
+${items.map((p, i) => {
+  const agentColors: Record<string, string> = {
+    "budget-sentinel": "#34d399", "audience-architect": "#60a5fa", "creative-fatigue": "#f472b6",
+    "bid-optimizer": "#fbbf24", "lead-quality": "#a78bfa", "performance-prophet": "#fb923c",
+  }
+  const agentColor = agentColors[p.agentId] || "#888"
+  const m = p.metadata?.entityMetrics
+  return `
+<div class="proposal">
+  <div class="proposal-header">
+    <span class="agent-badge" style="background: ${agentColor}15; color: ${agentColor}">${p.agentId.replace("-", " ")}</span>
+    <span class="risk" style="background: ${riskColor(p.risk)}15; color: ${riskColor(p.risk)}">${p.risk} risk</span>
+    <span style="font-size:10px;color:#888">${p.status}</span>
+    <span class="confidence">${p.confidence}%</span>
+  </div>
+  <div class="proposal-title">${p.title || "Untitled"}</div>
+  ${p.metadata?.situation ? `<div class="section"><div class="section-label">What's happening</div><div class="section-text">${p.metadata.situation}</div></div>` : ""}
+  ${p.metadata?.diagnosis ? `<div class="section"><div class="section-label">Why</div><div class="section-text">${p.metadata.diagnosis}</div></div>` : ""}
+  ${p.metadata?.recommendation ? `<div class="section"><div class="section-label">What to do</div><div class="section-text">${p.metadata.recommendation.replace(/\n/g, "<br>")}</div></div>` : ""}
+  ${p.metadata?.expectedOutcome || p.impact ? `<div class="section"><div class="section-label">Expected outcome</div><div class="section-text">${p.metadata?.expectedOutcome || p.impact}</div></div>` : ""}
+  ${m ? `<div class="metrics">
+    ${m.spend != null ? `<div class="metric"><span>Spend </span>₹${Math.round(m.spend).toLocaleString()}</div>` : ""}
+    ${m.leads != null ? `<div class="metric"><span>Leads </span>${m.leads}</div>` : ""}
+    ${m.cpl != null ? `<div class="metric"><span>CPL </span>₹${Math.round(m.cpl)}</div>` : ""}
+    ${m.ctr != null ? `<div class="metric"><span>CTR </span>${m.ctr}%</div>` : ""}
+  </div>` : ""}
+  ${(p.metadata?.actions || []).length > 0 ? `<div class="actions">${(p.metadata?.actions || []).map((a: any) => `<span class="action">${actionLabel(a)}</span>`).join("")}</div>` : ""}
+</div>`
+}).join("")}
+
+<div class="footer">Generated by Adsflow AI Insights &middot; ${date}</div>
+</body></html>`
+
+    // Open in new tab for print
+    const w = window.open("", "_blank")
+    if (w) {
+      w.document.write(html)
+      w.document.close()
+      setTimeout(() => w.print(), 500)
+    }
+  }
+
+  const handleUndo = (id: string) => {
+    setExecutingId(id)
+    updateMutation.mutate({ id, action: "undo" }, {
+      onSuccess: () => setExecutingId(null),
+      onError: () => setExecutingId(null),
+    })
+  }
+
   if (proposalsLoading || statsLoading) {
     return (
       <div className="flex flex-col gap-4">
@@ -166,6 +296,43 @@ export default function InsightsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {proposals.length > 0 && (
+            <div className="relative group">
+              <button
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all"
+                style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)" }}
+                onMouseEnter={e => e.currentTarget.style.color = "var(--text-secondary)"}
+                onMouseLeave={e => e.currentTarget.style.color = "var(--text-tertiary)"}
+              >
+                <Download size={13} />
+                Export
+                <ChevronDown size={10} />
+              </button>
+              {/* Invisible bridge to prevent hover gap */}
+              <div className="absolute right-0 top-full z-20 hidden pt-1 group-hover:block">
+                <div className="w-36 rounded-lg overflow-hidden shadow-lg" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+                  <button
+                    onClick={handleExportCSV}
+                    className="w-full px-3 py-2 text-left text-[11px] font-medium transition-colors"
+                    style={{ color: "var(--text-secondary)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-muted)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full px-3 py-2 text-left text-[11px] font-medium transition-colors"
+                    style={{ color: "var(--text-secondary)", borderTop: "1px solid var(--border-default)" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--bg-muted)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    Export as PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <button
             onClick={() => handleScan("quick")}
             disabled={scanMutation.isPending}
@@ -187,6 +354,28 @@ export default function InsightsPage() {
         </div>
       </div>
 
+      {/* ── Impact summary ───────────────────────────── */}
+      {impact && impact.executed > 0 && (
+        <div
+          className="flex items-center gap-6 rounded-xl px-5 py-3"
+          style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
+        >
+          <StatPill label="Executed" value={impact.executed} color="#60a5fa" />
+          <Sep />
+          <StatPill label="Measured" value={impact.measured} color="#a78bfa" />
+          <Sep />
+          <StatPill label="Improved" value={`${impact.improved} (${impact.successRate}%)`} color="#4ade80" />
+          <Sep />
+          <StatPill label="Actual Savings" value={impact.totalSavings > 0 ? fmtInr(impact.totalSavings) : "—"} color="#34d399" />
+          {impact.degraded > 0 && (
+            <>
+              <Sep />
+              <StatPill label="Degraded" value={impact.degraded} color="#f87171" />
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Stat strip ──────────────────────────────── */}
       <div
         className="flex items-center gap-6 rounded-xl px-5 py-3.5"
@@ -196,7 +385,7 @@ export default function InsightsPage() {
         <Sep />
         <StatPill label="Applied" value={stats?.applied ?? 0} color="#4ade80" />
         <Sep />
-        <StatPill label="Savings" value={stats?.estimatedSavings ? fmtInr(stats.estimatedSavings) : "—"} color="#34d399" />
+        <StatPill label="Est. Savings" value={stats?.estimatedSavings ? fmtInr(stats.estimatedSavings) : "—"} color="#34d399" />
         <Sep />
         <StatPill label="Rejected" value={stats?.rejected ?? 0} />
         <button
@@ -282,26 +471,53 @@ export default function InsightsPage() {
               onApprove={() => handleApprove(p.id)}
               onReject={() => handleReject(p.id)}
               onRetry={() => handleRetry(p.id)}
+              onUndo={() => handleUndo(p.id)}
             />
           ))}
         </div>
       ) : (
         <div
-          className="flex flex-col items-center gap-2 rounded-xl py-14"
+          className="flex flex-col items-center gap-3 rounded-xl py-14 px-6"
           style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
         >
-          <Sparkles size={20} style={{ color: "var(--text-tertiary)" }} />
-          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-            {proposals.length ? "No proposals match this filter" : "No insights yet"}
-          </p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {proposals.length ? "Try a different filter" : "Run a scan to analyze your campaigns, ad sets, and ads"}
-          </p>
+          {proposals.length ? (
+            <>
+              <Sparkles size={20} style={{ color: "var(--text-tertiary)" }} />
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>No proposals match this filter</p>
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>Try a different filter</p>
+            </>
+          ) : (
+            <>
+              <Sparkles size={24} style={{ color: "var(--acc)" }} />
+              <p className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>How AI Insights Work</p>
+              <div className="flex flex-col gap-3 mt-2 max-w-[420px]">
+                {[
+                  { step: "1", label: "Scan", desc: "AI analyzes all your campaigns, ad sets, and ads using Meta metrics + CRM quality data", color: "#60a5fa" },
+                  { step: "2", label: "Review", desc: "Review each proposal — see what's automated vs what you do manually", color: "#a78bfa" },
+                  { step: "3", label: "Execute", desc: "Approve & execute — the AI makes changes on Meta (budget, pause, activate). You can undo anytime.", color: "#4ade80" },
+                  { step: "4", label: "Measure", desc: "After 7 days, see the before/after impact — did CPQL improve? Did quality leads increase?", color: "#fbbf24" },
+                ].map((s) => (
+                  <div key={s.step} className="flex items-start gap-3">
+                    <div
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                      style={{ background: s.color }}
+                    >
+                      {s.step}
+                    </div>
+                    <div>
+                      <span className="text-[12px] font-semibold" style={{ color: "var(--text-primary)" }}>{s.label}</span>
+                      <p className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           {!proposals.length && (
             <button
               onClick={() => handleScan("quick")}
               disabled={scanMutation.isPending}
-              className="mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-white"
+              className="mt-3 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-white"
               style={{ background: "var(--acc)" }}
             >
               <Zap size={13} />
@@ -332,12 +548,13 @@ function StatPill({ label, value, color }: { label: string; value: number | stri
 // ── Proposal card ──────────────────────────────────────────
 
 function ProposalCard({
-  proposal: p, expanded, onToggle, isExecuting, lastExecution, onApprove, onReject, onRetry,
+  proposal: p, expanded, onToggle, isExecuting, lastExecution, onApprove, onReject, onRetry, onUndo,
 }: {
   proposal: AiProposal; expanded: boolean; onToggle: () => void
   isExecuting: boolean; lastExecution: ExecutionResult | null
-  onApprove: () => void; onReject: () => void; onRetry: () => void
+  onApprove: () => void; onReject: () => void; onRetry: () => void; onUndo?: () => void
 }) {
+  const [showConfirm, setShowConfirm] = useState(false)
   const agent = agentMap[p.agentId] || agents[0]
   const stCfg = statusConfig[p.status] || statusConfig.pending
   const LevelIcon = p.metadata?.level ? levelIcons[p.metadata.level] || Megaphone : null
@@ -562,7 +779,7 @@ function ProposalCard({
 
           {/* Buttons */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {p.status === "pending" && (
+            {p.status === "pending" && !showConfirm && (
               <>
                 <button
                   onClick={onReject} disabled={isExecuting}
@@ -573,12 +790,12 @@ function ProposalCard({
                   Reject
                 </button>
                 <button
-                  onClick={onApprove} disabled={isExecuting}
+                  onClick={() => setShowConfirm(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white transition-all"
-                  style={{ background: "var(--acc)", opacity: isExecuting ? 0.6 : 1 }}
+                  style={{ background: "var(--acc)" }}
                 >
-                  {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <ThumbsUp size={11} />}
-                  {isExecuting ? "Executing…" : "Approve & Execute"}
+                  <ThumbsUp size={11} />
+                  Approve & Execute
                 </button>
               </>
             )}
@@ -592,8 +809,152 @@ function ProposalCard({
                 {isExecuting ? "Retrying…" : "Retry"}
               </button>
             )}
+            {p.status === "executed" && onUndo && (
+              <button
+                onClick={onUndo} disabled={isExecuting}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all"
+                style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)", opacity: isExecuting ? 0.6 : 1 }}
+              >
+                {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <ArrowRight size={11} style={{ transform: "rotate(180deg)" }} />}
+                Undo
+              </button>
+            )}
+            {p.status === "undone" && (
+              <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium" style={{ background: "rgba(251,191,36,0.10)", color: "#fbbf24" }}>
+                Undone
+              </span>
+            )}
           </div>
         </div>
+
+        {/* Execution confirmation modal */}
+        {showConfirm && p.status === "pending" && (() => {
+          const actions = p.metadata?.actions || []
+          const recommendations = (p.metadata?.recommendation || "").split("\n").filter((l: string) => l.trim())
+          // Separate automated (first N matching actions) from manual (rest)
+          const manualSteps = actions.length > 0
+            ? recommendations.slice(actions.length)
+            : recommendations
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false) }}
+            >
+              <div
+                className="w-full max-w-[480px] rounded-2xl overflow-hidden shadow-2xl"
+                style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
+              >
+                {/* Header */}
+                <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "rgba(139,92,246,0.12)" }}>
+                      <Zap size={15} style={{ color: "var(--acc)" }} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Confirm Execution
+                      </p>
+                      <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                        {p.title}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Automated actions */}
+                <div className="px-5 py-3.5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80" }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#4ade80" }}>
+                      Automated — executes on Meta now
+                    </span>
+                  </div>
+                  {actions.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {actions.map((a: ProposalAction, i: number) => (
+                        <div key={i} className="flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.12)" }}>
+                          <Play size={11} style={{ color: "#4ade80", flexShrink: 0 }} />
+                          <div>
+                            <span className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
+                              {actionLabel(a)}
+                            </span>
+                            <span className="block text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                              {a.entityLevel}: {a.entityName}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg px-3 py-2.5" style={{ background: "var(--bg-muted)" }}>
+                      <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                        No automated actions — this is an advisory-only recommendation.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Manual steps */}
+                {manualSteps.length > 0 && (
+                  <div className="px-5 py-3.5" style={{ borderBottom: "1px solid var(--border-default)" }}>
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#fbbf24" }} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#fbbf24" }}>
+                        Manual — do these yourself
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {manualSteps.map((step: string, i: number) => (
+                        <div key={i} className="flex items-start gap-2 py-0.5">
+                          <span className="text-[10px] mt-0.5 shrink-0 w-4 text-right" style={{ color: "var(--text-tertiary)" }}>{i + 1}.</span>
+                          <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>{step.replace(/^\d+\.\s*/, "")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="px-5 py-3.5 flex items-center justify-between">
+                  <span className="text-[10px] max-w-[220px]" style={{ color: "var(--text-tertiary)" }}>
+                    Undo available anytime. Impact measured after 7 days.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowConfirm(false)}
+                      className="rounded-lg px-3.5 py-2 text-[11px] font-medium transition-all"
+                      style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-muted)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { setShowConfirm(false); onApprove(); }}
+                      disabled={isExecuting}
+                      className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold text-white transition-all"
+                      style={{ background: actions.length > 0 ? "#4ade80" : "var(--acc)", opacity: isExecuting ? 0.6 : 1 }}
+                    >
+                      {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <Play size={11} />}
+                      {isExecuting ? "Executing…" : actions.length > 0 ? "Execute Now" : "Acknowledge"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Impact measurement (before/after) */}
+        {p.status === "executed" && (p as any).impactStatus === "pending_measurement" && (
+          <div className="mx-4 mb-3 rounded-lg px-3 py-2 text-[11px]" style={{ background: "rgba(167,139,250,0.06)", color: "#a78bfa" }}>
+            Impact will be measured in {Math.max(0, 7 - Math.floor((Date.now() - new Date((p as any).executedAt || p.createdAt).getTime()) / (24*60*60*1000)))} days
+          </div>
+        )}
+        {((p as any).impactStatus === "improved" || (p as any).impactStatus === "degraded" || (p as any).impactStatus === "no_change") && (p as any).beforeMetrics && (p as any).afterMetrics && (
+          <ImpactCard beforeMetrics={(p as any).beforeMetrics} afterMetrics={(p as any).afterMetrics} impactStatus={(p as any).impactStatus} estimatedSavings={p.estimatedSavings} actualSavings={(p as any).actualSavings} />
+        )}
 
         {/* Execution result */}
         {lastExecution && <ExecResult result={lastExecution} />}
@@ -659,6 +1020,85 @@ function MiniVal({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
       <span className="font-sans text-[9px] uppercase" style={{ color: "var(--text-tertiary)" }}>{k} </span>
       {v}
     </span>
+  )
+}
+
+// ── Execution result ────────────────────────────────────────
+
+// ── Impact card (before/after comparison) ───────────────────
+
+function ImpactCard({ beforeMetrics, afterMetrics, impactStatus, estimatedSavings, actualSavings }: {
+  beforeMetrics: any; afterMetrics: any; impactStatus: string; estimatedSavings?: number | null; actualSavings?: number | null
+}) {
+  const verdictColor = impactStatus === "improved" ? "#4ade80" : impactStatus === "degraded" ? "#f87171" : "#fbbf24"
+  const verdictLabel = impactStatus === "improved" ? "IMPROVED" : impactStatus === "degraded" ? "DEGRADED" : "NO CHANGE"
+  const verdictIcon = impactStatus === "improved" ? "↑" : impactStatus === "degraded" ? "↓" : "→"
+
+  function delta(before: number | null, after: number | null): string {
+    if (before == null || after == null || before === 0) return ""
+    const pct = Math.round(((after - before) / before) * 100)
+    return pct > 0 ? `+${pct}%` : `${pct}%`
+  }
+
+  function deltaColor(before: number | null, after: number | null, lowerIsBetter = false): string {
+    if (before == null || after == null) return "var(--text-tertiary)"
+    const improved = lowerIsBetter ? after < before : after > before
+    return improved ? "#4ade80" : after === before ? "var(--text-tertiary)" : "#f87171"
+  }
+
+  return (
+    <div className="mx-4 mb-3 rounded-lg overflow-hidden" style={{ border: `1px solid ${verdictColor}25` }}>
+      {/* Verdict banner */}
+      <div className="flex items-center gap-2 px-3 py-1.5" style={{ background: `${verdictColor}10` }}>
+        <span className="text-[11px] font-bold" style={{ color: verdictColor }}>{verdictIcon} {verdictLabel}</span>
+        {actualSavings != null && estimatedSavings != null && (
+          <span className="ml-auto text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+            Est. {fmtInr(estimatedSavings)} → Actual {fmtInr(actualSavings)} ({Math.round((actualSavings / (estimatedSavings || 1)) * 100)}%)
+          </span>
+        )}
+      </div>
+      {/* Before/After grid */}
+      <div className="grid grid-cols-2 gap-px" style={{ background: "var(--border-default)" }}>
+        <div className="px-3 py-2" style={{ background: "var(--bg-muted)" }}>
+          <p className="text-[9px] font-medium uppercase mb-1" style={{ color: "var(--text-tertiary)" }}>Before</p>
+          <div className="flex flex-col gap-0.5 font-mono text-[11px]">
+            {beforeMetrics.spend != null && <span style={{ color: "var(--text-secondary)" }}>Spend: {fmtInr(beforeMetrics.spend)}</span>}
+            {beforeMetrics.crm?.cpql != null && <span style={{ color: "var(--text-secondary)" }}>CPQL: {fmtInr(beforeMetrics.crm.cpql)}</span>}
+            {beforeMetrics.crm?.junkPercentage != null && <span style={{ color: "var(--text-secondary)" }}>Junk: {beforeMetrics.crm.junkPercentage}%</span>}
+            {beforeMetrics.crm?.qualityLeads != null && <span style={{ color: "var(--text-secondary)" }}>Quality: {beforeMetrics.crm.qualityLeads}</span>}
+          </div>
+        </div>
+        <div className="px-3 py-2" style={{ background: "var(--bg-muted)" }}>
+          <p className="text-[9px] font-medium uppercase mb-1" style={{ color: "var(--text-tertiary)" }}>After (7d)</p>
+          <div className="flex flex-col gap-0.5 font-mono text-[11px]">
+            {afterMetrics.spend != null && (
+              <span>
+                <span style={{ color: "var(--text-secondary)" }}>Spend: {fmtInr(afterMetrics.spend)}</span>
+                <span className="ml-1 text-[9px]" style={{ color: deltaColor(beforeMetrics.spend, afterMetrics.spend, true) }}>{delta(beforeMetrics.spend, afterMetrics.spend)}</span>
+              </span>
+            )}
+            {afterMetrics.crm?.cpql != null && (
+              <span>
+                <span style={{ color: verdictColor, fontWeight: 600 }}>CPQL: {fmtInr(afterMetrics.crm.cpql)}</span>
+                <span className="ml-1 text-[9px]" style={{ color: deltaColor(beforeMetrics.crm?.cpql, afterMetrics.crm?.cpql, true) }}>{delta(beforeMetrics.crm?.cpql, afterMetrics.crm?.cpql)}</span>
+              </span>
+            )}
+            {afterMetrics.crm?.junkPercentage != null && (
+              <span>
+                <span style={{ color: "var(--text-secondary)" }}>Junk: {afterMetrics.crm.junkPercentage}%</span>
+                <span className="ml-1 text-[9px]" style={{ color: deltaColor(beforeMetrics.crm?.junkPercentage, afterMetrics.crm?.junkPercentage, true) }}>{delta(beforeMetrics.crm?.junkPercentage, afterMetrics.crm?.junkPercentage)}</span>
+              </span>
+            )}
+            {afterMetrics.crm?.qualityLeads != null && (
+              <span>
+                <span style={{ color: "var(--text-secondary)" }}>Quality: {afterMetrics.crm.qualityLeads}</span>
+                <span className="ml-1 text-[9px]" style={{ color: deltaColor(beforeMetrics.crm?.qualityLeads, afterMetrics.crm?.qualityLeads) }}>{delta(beforeMetrics.crm?.qualityLeads, afterMetrics.crm?.qualityLeads)}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -17,7 +17,10 @@ export async function POST(req: Request) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/ai/analyze`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.metaAccessToken}`,
+      },
       body: JSON.stringify({ ...body, userId }),
     })
     const data = await res.json()

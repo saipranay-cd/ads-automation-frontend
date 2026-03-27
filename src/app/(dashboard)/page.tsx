@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { MetricCard } from "@/components/dashboard/MetricCard"
+import { PredictionsPanel } from "@/components/dashboard/PredictionsPanel"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { useCampaigns, useDashboard, useAggregatedMetrics, type DateRange } from "@/hooks/use-campaigns"
@@ -31,12 +32,15 @@ export default function DashboardPage() {
   const { data: dashboardData } = useDashboard(selectedAdAccountId)
   const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(selectedAdAccountId)
 
-  const { data: metricsData } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
+  const { data: metricsRaw } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
   const campaigns = campaignsData?.data || []
+
+  // Backend returns { data: [...] } but hook types as PerformanceMetric[]
+  const metricsData = Array.isArray(metricsRaw) ? metricsRaw : (metricsRaw as any)?.data || []
 
   const chartData = useMemo(() => {
     if (!metricsData || metricsData.length === 0) return []
-    return metricsData.map((d) => ({
+    return metricsData.map((d: any) => ({
       date: d.date.slice(5), // "MM-DD"
       spend: d.spend,
       leads: d.leads,
@@ -101,6 +105,9 @@ export default function DashboardPage() {
       {/* Sync reminder — shows when data is stale or never synced */}
       {isLoggedIn && <SyncReminder />}
 
+      {/* Predictions (shows only when there are predictions) */}
+      <PredictionsPanel />
+
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((m, i) => (
@@ -108,8 +115,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Two-column layout */}
-      <div className="flex gap-5">
+      {/* Two-column layout (stacks on mobile) */}
+      <div className="flex flex-col gap-5 lg:flex-row">
         {/* Left: Chart + Table */}
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           {/* Performance chart */}

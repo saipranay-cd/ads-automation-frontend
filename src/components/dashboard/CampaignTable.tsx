@@ -10,6 +10,8 @@ interface CampaignTableProps {
   campaigns: CampaignTableRow[]
   isLoading?: boolean
   onToggle?: (id: string, active: boolean) => void
+  selectedIds?: Set<string>
+  onSelectionChange?: (ids: Set<string>) => void
 }
 
 const scrollHeaders = [
@@ -56,7 +58,29 @@ export function CampaignTable({
   campaigns,
   isLoading = false,
   onToggle,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: CampaignTableProps) {
+  const allSelected = campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id))
+  const someSelected = campaigns.some((c) => selectedIds.has(c.id))
+
+  const toggleAll = () => {
+    if (allSelected) {
+      onSelectionChange?.(new Set())
+    } else {
+      onSelectionChange?.(new Set(campaigns.map((c) => c.id)))
+    }
+  }
+
+  const toggleOne = (id: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    onSelectionChange?.(next)
+  }
   const statusMap = (s: string) => {
     switch (s) {
       case "ACTIVE":
@@ -81,9 +105,28 @@ export function CampaignTable({
         {/* Header */}
         <thead className="sticky top-0 z-30">
           <tr>
+            {/* Checkbox header */}
+            {onSelectionChange && (
+              <th
+                className="sticky left-0 z-30 w-10 px-3 py-2.5 text-center"
+                style={{
+                  ...stickyHeaderBg,
+                  ...thStyle,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected }}
+                  onChange={toggleAll}
+                  className="h-3.5 w-3.5 cursor-pointer rounded"
+                  style={{ accentColor: "var(--accent-primary)" }}
+                />
+              </th>
+            )}
             {/* Frozen campaign header */}
             <th
-              className={`${stickyCol} z-30 text-left text-[10px] font-medium uppercase tracking-[0.06em]`}
+              className={`${onSelectionChange ? "sticky left-10 z-30" : stickyCol + " z-30"} text-left text-[10px] font-medium uppercase tracking-[0.06em] px-3 py-2.5 min-w-[220px] max-w-[280px]`}
               style={{
                 ...stickyHeaderBg,
                 ...thStyle,
@@ -142,9 +185,24 @@ export function CampaignTable({
                     e.currentTarget.style.setProperty("--row-bg", "var(--bg-base)")
                   }}
                 >
+                  {/* Checkbox column */}
+                  {onSelectionChange && (
+                    <td
+                      className="sticky left-0 z-20 w-10 px-3 py-2.5 text-center"
+                      style={{ background: "var(--row-bg, var(--bg-base))" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleOne(c.id)}
+                        className="h-3.5 w-3.5 cursor-pointer rounded"
+                        style={{ accentColor: "var(--accent-primary)" }}
+                      />
+                    </td>
+                  )}
                   {/* Frozen campaign column */}
                   <td
-                    className={stickyCol}
+                    className={`${onSelectionChange ? "sticky left-10 z-20" : stickyCol} px-3 py-2.5 min-w-[220px] max-w-[280px]`}
                     style={{
                       background: "var(--row-bg, var(--bg-base))",
                       borderRight: "1px solid var(--border-subtle)",

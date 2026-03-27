@@ -44,6 +44,39 @@ export function useSync() {
   })
 }
 
+// ── Bulk Actions ──────────────────────────────────────
+export interface BulkActionParams {
+  entityIds: string[]
+  entityLevel: "campaign" | "adset" | "ad"
+  action: "pause" | "activate" | "update_budget"
+  params?: Record<string, unknown>
+}
+
+export function useBulkAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: BulkActionParams) => {
+      const res = await fetch("/api/meta/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Bulk action failed")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+      queryClient.invalidateQueries({ queryKey: ["adsets"] })
+      queryClient.invalidateQueries({ queryKey: ["ads"] })
+    },
+  })
+}
+
 // ── Ad Accounts ────────────────────────────────────────
 export interface AdAccount {
   id: string
@@ -588,7 +621,7 @@ export interface AiProposal {
   id: string
   adAccountId: string
   agentId: string
-  status: "pending" | "approved" | "executed" | "rejected" | "failed"
+  status: "pending" | "approved" | "executed" | "rejected" | "failed" | "superseded" | "undone"
   risk: "low" | "medium" | "high"
   campaignId: string | null
   campaignName: string
@@ -667,7 +700,7 @@ export function useUpdateProposal() {
   return useMutation<
     { data: AiProposal; execution?: ExecutionResult },
     Error,
-    { id: string; action: "approve" | "reject" | "execute" }
+    { id: string; action: "approve" | "reject" | "execute" | "undo" }
   >({
     mutationFn: async ({ id, action }) => {
       const res = await fetch(`/api/meta/proposals/${id}`, {
@@ -680,9 +713,52 @@ export function useUpdateProposal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["proposals"] })
-      // Budgets/statuses may have changed on Meta
+      queryClient.invalidateQueries({ queryKey: ["proposal-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["impact-stats"] })
       queryClient.invalidateQueries({ queryKey: ["campaigns"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+    },
+  })
+}
+
+// ── Impact Stats ───────────────────────────────────────
+
+export interface ImpactStats {
+  executed: number
+  measured: number
+  improved: number
+  degraded: number
+  successRate: number
+  totalSavings: number
+}
+
+export function useImpactStats(adAccountId?: string | null) {
+  return useQuery<{ data: ImpactStats }>({
+    queryKey: ["impact-stats", adAccountId],
+    queryFn: async () => {
+      if (!adAccountId) return { data: { executed: 0, measured: 0, improved: 0, degraded: 0, successRate: 0, totalSavings: 0 } }
+      const res = await fetch(`/api/meta/proposals?adAccountId=${adAccountId}&type=impact-stats`)
+      if (!res.ok) throw new Error("Failed to fetch impact stats")
+      return res.json()
+    },
+    enabled: !!adAccountId,
+  })
+}
+
+export function useMeasureProposals() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (adAccountId: string) => {
+      const res = await fetch(`/api/meta/proposals?adAccountId=${adAccountId}`, {
+        method: "POST",
+      })
+      if (!res.ok) throw new Error("Failed to measure proposals")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["proposals"] })
+      queryClient.invalidateQueries({ queryKey: ["impact-stats"] })
     },
   })
 }

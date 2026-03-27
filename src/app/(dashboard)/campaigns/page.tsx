@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react"
 import { Search, RefreshCw } from "lucide-react"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
+import { BulkActionBar } from "@/components/dashboard/BulkActionBar"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { useCampaigns, useSync } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
@@ -13,6 +14,7 @@ type StatusTab = (typeof statusTabs)[number]
 export default function CampaignsPage() {
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: campaignsData, isLoading } = useCampaigns(selectedAdAccountId)
   const sync = useSync()
@@ -92,8 +94,20 @@ export default function CampaignsPage() {
 
       {/* Table */}
       {campaigns.length > 0 && (
-        <CampaignTable campaigns={filtered} isLoading={isLoading} />
+        <CampaignTable
+          campaigns={filtered}
+          isLoading={isLoading}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
       )}
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedIds={Array.from(selectedIds)}
+        entityLevel="campaign"
+        onClear={() => setSelectedIds(new Set())}
+      />
 
       {/* Empty state */}
       {!isLoading && filtered.length === 0 && (
