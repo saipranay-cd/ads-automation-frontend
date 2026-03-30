@@ -313,6 +313,7 @@ export function CampaignTable({
                     <CampaignToggle
                       isActive={c.isActive}
                       onChange={(active) => onToggle?.(c.id, active)}
+                      campaignName={c.name}
                     />
                   </td>
                 </tr>

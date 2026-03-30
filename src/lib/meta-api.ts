@@ -54,58 +54,78 @@ export class MetaAPI {
     return data as T
   }
 
+  /**
+   * Fetch all pages of a paginated Meta API endpoint.
+   * Follows paging.next cursor until no more pages remain.
+   */
+  private async fetchAll<T>(
+    endpoint: string,
+    params: Record<string, string>
+  ): Promise<T[]> {
+    const firstPage = await this.request<MetaPaginatedResponse<T>>(endpoint, { params })
+    const allData: T[] = [...firstPage.data]
+
+    let nextUrl = firstPage.paging?.next
+    while (nextUrl) {
+      const res = await fetch(nextUrl)
+      const page = await res.json() as MetaPaginatedResponse<T>
+      if (!res.ok) {
+        throw new MetaAPIError(res.status, page as unknown as { error: { message: string; type: string; code: number } } & any)
+      }
+      allData.push(...page.data)
+      nextUrl = page.paging?.next
+    }
+
+    return allData
+  }
+
   async getAdAccounts(): Promise<MetaPaginatedResponse<MetaAdAccount>> {
-    return this.request("/me/adaccounts", {
-      params: {
-        fields: "id,name,currency,timezone_name,account_status",
-        limit: "50",
-      },
+    const data = await this.fetchAll<MetaAdAccount>("/me/adaccounts", {
+      fields: "id,name,currency,timezone_name,account_status",
+      limit: "50",
     })
+    return { data }
   }
 
   async getCampaigns(
     adAccountId: string
   ): Promise<MetaPaginatedResponse<MetaCampaign>> {
-    return this.request(`/${adAccountId}/campaigns`, {
-      params: {
-        fields:
-          "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time",
-        limit: "100",
-      },
+    const data = await this.fetchAll<MetaCampaign>(`/${adAccountId}/campaigns`, {
+      fields:
+        "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time",
+      limit: "100",
     })
+    return { data }
   }
 
   async getAdSets(
     adAccountId: string
   ): Promise<MetaPaginatedResponse<MetaAdSet>> {
-    return this.request(`/${adAccountId}/adsets`, {
-      params: {
-        fields: "id,name,status,daily_budget,targeting,campaign_id",
-        limit: "100",
-      },
+    const data = await this.fetchAll<MetaAdSet>(`/${adAccountId}/adsets`, {
+      fields: "id,name,status,daily_budget,targeting,campaign_id",
+      limit: "100",
     })
+    return { data }
   }
 
   async getAds(adAccountId: string): Promise<MetaPaginatedResponse<MetaAd>> {
-    return this.request(`/${adAccountId}/ads`, {
-      params: {
-        fields: "id,name,status,creative,adset_id",
-        limit: "100",
-      },
+    const data = await this.fetchAll<MetaAd>(`/${adAccountId}/ads`, {
+      fields: "id,name,status,creative,adset_id",
+      limit: "100",
     })
+    return { data }
   }
 
   async getCampaignInsights(
     campaignId: string,
     datePreset = "last_30d"
   ): Promise<MetaPaginatedResponse<MetaInsight>> {
-    return this.request(`/${campaignId}/insights`, {
-      params: {
-        fields: "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,cost_per_action_type",
-        date_preset: datePreset,
-        time_increment: "1",
-      },
+    const data = await this.fetchAll<MetaInsight>(`/${campaignId}/insights`, {
+      fields: "impressions,clicks,spend,reach,ctr,cpc,cpm,actions,cost_per_action_type",
+      date_preset: datePreset,
+      time_increment: "1",
     })
+    return { data }
   }
 
   async updateCampaign(

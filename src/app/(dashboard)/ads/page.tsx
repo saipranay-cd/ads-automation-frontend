@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, RefreshCw } from "lucide-react"
+import { Search, RefreshCw, FileImage } from "lucide-react"
 import { AdTable } from "@/components/dashboard/AdTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { useAds, useSync } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 const statusTabs = ["All", "Active", "Paused", "Archived"] as const
 type StatusTab = (typeof statusTabs)[number]
@@ -14,7 +17,7 @@ export default function AdsPage() {
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const { data: adsData, isLoading } = useAds(selectedAdAccountId)
+  const { data: adsData, isLoading, error, refetch } = useAds(selectedAdAccountId)
   const sync = useSync()
 
   const ads = adsData?.data || []
@@ -91,27 +94,38 @@ export default function AdsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      {ads.length > 0 && (
-        <AdTable ads={filtered} isLoading={isLoading} />
+      {/* Error state */}
+      {error && (
+        <ErrorBanner
+          message={error.message || "Failed to load ads"}
+          onRetry={() => refetch()}
+        />
       )}
 
-      {/* Empty state */}
-      {!isLoading && filtered.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center gap-2 rounded-lg py-12"
-          style={{
-            background: "var(--bg-base)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-            No ads found
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {search ? "Try adjusting your search" : "Sync your Meta ad account to get started"}
-          </span>
-        </div>
+      {/* Table */}
+      {isLoading ? (
+        <TableSkeleton rows={8} columns={6} />
+      ) : ads.length > 0 ? (
+        <>
+          <AdTable ads={filtered} isLoading={isLoading} />
+
+          {/* Filtered empty state */}
+          {filtered.length === 0 && (
+            <EmptyState
+              icon={FileImage}
+              title="No matching ads"
+              description={search ? "Try adjusting your search" : "No ads match this filter"}
+            />
+          )}
+        </>
+      ) : (
+        <EmptyState
+          icon={FileImage}
+          title="No ads"
+          description="Ads will appear here after you sync your ad account"
+          actionLabel="Sync Now"
+          onAction={() => sync.mutate(selectedAdAccountId || undefined)}
+        />
       )}
     </div>
   )

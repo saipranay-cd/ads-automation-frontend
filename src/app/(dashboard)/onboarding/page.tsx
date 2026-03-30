@@ -66,6 +66,16 @@ export default function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-xl py-8">
+      {/* Welcome header */}
+      <div className="mb-6 text-center">
+        <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Welcome to Adsflow{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Let's get your Meta ads dashboard set up. It takes about 2 minutes.
+        </p>
+      </div>
+
       {/* Progress bar */}
       <div className="mb-8 flex items-center gap-2">
         {STEPS.map((step, i) => {

@@ -6,9 +6,10 @@ import {
   ArrowDownRight, RefreshCw, ChevronLeft, ChevronRight,
   Circle, AlertTriangle, CheckCircle, XCircle, Minus,
   Link2, Search, SlidersHorizontal,
-  Megaphone, Layers, Image,
+  Megaphone, Layers, Image, BarChart3,
 } from "lucide-react"
 import { useAppStore } from "@/lib/store"
+import { EmptyState as EmptyStateUI } from "@/components/ui/empty-state"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
 import {
@@ -731,6 +732,15 @@ export default function LeadQualityPage() {
             accent="#fbbf24"
           />
         </div>
+      )}
+
+      {/* No leads empty state */}
+      {!insightsLoading && insights && insights.totalLeads === 0 && (
+        <EmptyStateUI
+          icon={BarChart3}
+          title="No leads yet"
+          description="Leads appear after campaigns start running"
+        />
       )}
 
       {/* Quality Distribution */}

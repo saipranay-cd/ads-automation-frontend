@@ -36,6 +36,9 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-3 focus:bg-[var(--acc)] focus:text-white focus:rounded-md focus:top-2 focus:left-2">
+          Skip to main content
+        </a>
         <Providers>{children}</Providers>
       </body>
     </html>

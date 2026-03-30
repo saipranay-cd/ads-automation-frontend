@@ -8,6 +8,7 @@ import {
   Layers, BarChart3, Zap, ImageOff, Play, Pause, Volume2, VolumeX,
   ChevronLeft, ChevronRight, X,
 } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
 
 // ── Types ──────────────────────────────────────────────
 
@@ -173,17 +174,11 @@ export default function CreativesPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl py-20" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "var(--bg-muted)" }}>
-            <Image size={24} style={{ color: "var(--text-disabled)" }} />
-          </div>
-          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-            {filter === "all" ? "No creatives found" : `No ${filter} creatives`}
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Sync your ad account to pull creative data
-          </span>
-        </div>
+        <EmptyState
+          icon={Image}
+          title={filter === "all" ? "No creatives found" : `No ${filter} creatives`}
+          description="Sync your ad account to pull creative data"
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c, i) => (

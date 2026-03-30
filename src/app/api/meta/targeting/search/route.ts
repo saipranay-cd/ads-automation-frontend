@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
 
   if (!session?.metaAccessToken) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")
 
   if (!type || !q) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "type and q parameters required" }, { status: 400 })
   }
 
   try {
@@ -29,6 +29,6 @@ export async function GET(req: Request) {
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }

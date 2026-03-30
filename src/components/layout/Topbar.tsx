@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ThemeToggle } from "./ThemeToggle"
@@ -20,22 +20,36 @@ const pageTitles: Record<string, string> = {
   "/settings": "Settings",
 }
 
-export function Topbar() {
+interface TopbarProps {
+  onMenuClick?: () => void
+}
+
+export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname()
   const title = pageTitles[pathname] || "Dashboard"
 
   return (
     <header
-      className="sticky top-0 z-30 flex h-[52px] items-center justify-between border-b px-3 md:px-5"
+      role="banner"
+      className="sticky top-0 z-30 flex h-12 items-center justify-between border-b px-3 sm:h-[52px] sm:px-4 lg:px-5"
       style={{
         background: "var(--bg-base)",
         borderColor: "var(--border-default)",
       }}
     >
-      {/* Left: Page title + Account selector */}
-      <div className="flex items-center gap-2 md:gap-3">
+      {/* Left: Hamburger (mobile) + Page title + Account selector */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Hamburger menu — visible only on mobile (<640px) */}
+        <button
+          onClick={onMenuClick}
+          className="flex h-8 w-8 items-center justify-center rounded-md transition-colors sm:hidden"
+          style={{ color: "var(--text-secondary)" }}
+          aria-label="Open navigation menu"
+        >
+          <Menu size={18} />
+        </button>
         <h1
-          className="text-[13px] md:text-[15px] font-medium"
+          className="text-[13px] font-medium sm:text-[14px] lg:text-[15px]"
           style={{ color: "var(--text-primary)" }}
         >
           {title}
@@ -44,10 +58,10 @@ export function Topbar() {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-1.5 md:gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5">
         <Link
           href="/create"
-          className="hidden sm:flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium text-white transition-all"
+          className="hidden items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium text-white transition-all sm:flex"
           style={{
             background: "var(--acc)",
             boxShadow: "var(--shadow-glow)",
@@ -57,7 +71,10 @@ export function Topbar() {
           New Campaign
         </Link>
         <NotificationCenter />
-        <ThemeToggle />
+        {/* Theme toggle hidden on mobile (available in mobile drawer instead) */}
+        <div className="hidden sm:block">
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )

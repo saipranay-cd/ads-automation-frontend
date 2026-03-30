@@ -10,16 +10,16 @@ const DEFAULT_DRAFT: WizardDraft = {
   // Step 1 — Details
   campaignName: "",
   objective: "Lead Generation",
-  specialAdCategory: "Housing",
+  specialAdCategory: "None",
   budgetType: "DAILY",
   dailyBudget: 1500,
   bidStrategy: "Lowest Cost",
   // Step 2 — Targeting
-  locations: ["Bangalore IT Corridor"],
-  ageMin: 28,
-  ageMax: 55,
+  locations: [],
+  ageMin: 18,
+  ageMax: 65,
   gender: "all",
-  interests: ["Real Estate", "Property Investment", "Home Buying"],
+  interests: [],
   audienceType: "Interest",
   // Step 3 — Creative
   primaryText: "",

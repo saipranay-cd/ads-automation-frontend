@@ -7,7 +7,7 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.metaAccessToken) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   // GET field map
   if (action === "get-field-map") {
     const connectionId = searchParams.get("connectionId")
-    if (!connectionId) return NextResponse.json({ data: [] })
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/field-map`,
@@ -25,14 +25,14 @@ export async function GET(req: Request) {
       const data = await res.json()
       return NextResponse.json(data)
     } catch {
-      return NextResponse.json({ data: [] })
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
   }
 
   // GET Zoho fields list
   if (action === "get-zoho-fields") {
     const connectionId = searchParams.get("connectionId")
-    if (!connectionId) return NextResponse.json({ data: [] })
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/zoho-fields`,
@@ -41,14 +41,14 @@ export async function GET(req: Request) {
       const data = await res.json()
       return NextResponse.json(data)
     } catch {
-      return NextResponse.json({ data: [] })
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
   }
 
   // GET source map for a specific connection
   if (action === "get-source-map") {
     const connectionId = searchParams.get("connectionId")
-    if (!connectionId) return NextResponse.json({ data: [] })
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/source-map`,
@@ -57,14 +57,14 @@ export async function GET(req: Request) {
       const data = await res.json()
       return NextResponse.json(data)
     } catch {
-      return NextResponse.json({ data: [] })
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
   }
 
   // GET quality map for a specific connection
   if (action === "get-quality-map") {
     const connectionId = searchParams.get("connectionId")
-    if (!connectionId) return NextResponse.json({ data: [] })
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/quality-map`,
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       const data = await res.json()
       return NextResponse.json(data)
     } catch {
-      return NextResponse.json({ data: [] })
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
   }
 
@@ -81,7 +81,7 @@ export async function GET(req: Request) {
   const adAccountId = searchParams.get("adAccountId")
 
   if (!adAccountId) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "adAccountId required" }, { status: 400 })
   }
 
   try {
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }
 

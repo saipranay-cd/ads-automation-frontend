@@ -30,6 +30,7 @@ import {
 } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
+import { EmptyState } from "@/components/ui/empty-state"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { useExportStore, type ExportPreset } from "@/lib/export-store"
 import { buildExportSheet } from "@/lib/export-columns"
@@ -1049,11 +1050,12 @@ export default function AnalyticsPage() {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-[280px] items-center justify-center">
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              No data — sync your ad account to see analytics
-            </span>
-          </div>
+          <EmptyState
+            icon={BarChart3}
+            title="Insufficient data"
+            description="Sync your ad account to see analytics"
+            className="h-[280px]"
+          />
         )}
       </div>
 

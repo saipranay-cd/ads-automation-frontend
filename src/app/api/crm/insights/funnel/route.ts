@@ -6,7 +6,7 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) return NextResponse.json({ data: null })
+  if (!session?.metaAccessToken) return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const params = searchParams.toString()
@@ -18,6 +18,6 @@ export async function GET(req: Request) {
     )
     return NextResponse.json(await res.json())
   } catch {
-    return NextResponse.json({ data: null })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }

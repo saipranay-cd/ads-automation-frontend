@@ -4,14 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { CampaignTableRow, AdSetTableRow, AdTableRow, WizardDraft } from "@/types/adsflow"
 
 // ── Campaigns ──────────────────────────────────────────
-export function useCampaigns(adAccountId?: string | null) {
+export function useCampaigns(adAccountId?: string | null, limit?: number) {
   return useQuery<{ data: CampaignTableRow[] }>({
-    queryKey: ["campaigns", adAccountId],
+    queryKey: ["campaigns", adAccountId, limit],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(
-        `/api/meta/campaigns?adAccountId=${adAccountId}`
-      )
+      const params = new URLSearchParams({ adAccountId })
+      if (limit) params.set("limit", String(limit))
+      const res = await fetch(`/api/meta/campaigns?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch campaigns")
       return res.json()
     },
@@ -421,7 +421,9 @@ export function useAggregatedMetrics(adAccountId?: string | null, days = 30, dat
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
       const res = await fetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch metrics")
-      return res.json()
+      const json = await res.json()
+      // Backend may return { data: [...] } or [...] directly
+      return Array.isArray(json) ? json : json.data ?? []
     },
     enabled: !!adAccountId,
   })

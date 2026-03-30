@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { LogIn } from "lucide-react"
+import { LogIn, LayoutDashboard, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
@@ -22,15 +22,50 @@ import { useCampaigns, useDashboard, useAggregatedMetrics, type DateRange } from
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
+import { useTheme } from "@/lib/theme"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBanner } from "@/components/ui/error-banner"
+
+// Chart colors extracted for theme-awareness.
+// Recharts SVG doesn't support CSS variables, so we use JS theme switching.
+const CHART_COLORS = {
+  obsidian: {
+    spend: "#5eead4",
+    leads: "#fbbf24",
+    grid: "rgba(255,255,255,0.06)",
+    tick: "rgba(255,255,255,0.35)",
+    legendText: "rgba(255,255,255,0.5)",
+    tooltipBg: "rgba(30, 30, 36, 0.95)",
+    tooltipBorder: "rgba(255,255,255,0.1)",
+    tooltipLabel: "rgba(255,255,255,0.7)",
+    tooltipShadow: "0 8px 24px rgba(0,0,0,0.4)",
+    dotStroke: "#fff",
+  },
+  violet: {
+    spend: "#0d9488",
+    leads: "#d97706",
+    grid: "rgba(0,0,0,0.06)",
+    tick: "rgba(0,0,0,0.35)",
+    legendText: "rgba(0,0,0,0.5)",
+    tooltipBg: "rgba(255, 255, 255, 0.95)",
+    tooltipBorder: "rgba(0,0,0,0.1)",
+    tooltipLabel: "rgba(0,0,0,0.7)",
+    tooltipShadow: "0 8px 24px rgba(0,0,0,0.1)",
+    dotStroke: "#fff",
+  },
+} as const
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const { theme } = useTheme()
+  const colors = CHART_COLORS[theme]
   const isLoggedIn = !!session?.metaAccessToken
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const [chartDays, setChartDays] = useState(30)
   const [chartDateRange, setChartDateRange] = useState<DateRange | undefined>(undefined)
-  const { data: dashboardData } = useDashboard(selectedAdAccountId)
-  const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(selectedAdAccountId)
+  const { data: dashboardData, error: dashboardError, refetch: refetchDashboard } = useDashboard(selectedAdAccountId)
+  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch: refetchCampaigns } = useCampaigns(selectedAdAccountId, 5)
 
   const { data: metricsRaw } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
   const campaigns = campaignsData?.data || []
@@ -105,6 +140,14 @@ export default function DashboardPage() {
       {/* Sync reminder — shows when data is stale or never synced */}
       {isLoggedIn && <SyncReminder />}
 
+      {/* Dashboard error */}
+      {dashboardError && (
+        <ErrorBanner
+          message={dashboardError.message || "Failed to load dashboard data"}
+          onRetry={() => refetchDashboard()}
+        />
+      )}
+
       {/* Predictions (shows only when there are predictions) */}
       <PredictionsPanel />
 
@@ -147,29 +190,29 @@ export default function DashboardPage() {
                 <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#5eead4" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#5eead4" stopOpacity={0.04} />
+                      <stop offset="0%" stopColor={colors.spend} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={colors.spend} stopOpacity={0.04} />
                     </linearGradient>
                     <linearGradient id="gradLeads" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.03} />
+                      <stop offset="0%" stopColor={colors.leads} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={colors.leads} stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.06)"
+                    stroke={colors.grid}
                     vertical={false}
                   />
                   <XAxis
                     dataKey="date"
-                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.35)" }}
+                    tick={{ fontSize: 10, fill: colors.tick }}
                     axisLine={false}
                     tickLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
                     yAxisId="spend"
-                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.35)" }}
+                    tick={{ fontSize: 10, fill: colors.tick }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) =>
@@ -179,20 +222,20 @@ export default function DashboardPage() {
                   <YAxis
                     yAxisId="leads"
                     orientation="right"
-                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.35)" }}
+                    tick={{ fontSize: 10, fill: colors.tick }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "rgba(30, 30, 36, 0.95)",
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: colors.tooltipBg,
+                      border: `1px solid ${colors.tooltipBorder}`,
                       borderRadius: 8,
                       fontSize: 12,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                      boxShadow: colors.tooltipShadow,
                     }}
                     itemStyle={{ padding: "2px 0" }}
-                    labelStyle={{ color: "rgba(255,255,255,0.7)", marginBottom: 4, fontWeight: 500 }}
+                    labelStyle={{ color: colors.tooltipLabel, marginBottom: 4, fontWeight: 500 }}
                     formatter={(value, name) => {
                       if (name === "Spend")
                         return [
@@ -211,7 +254,7 @@ export default function DashboardPage() {
                     iconSize={6}
                     wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
                     formatter={(val) => (
-                      <span style={{ color: "rgba(255,255,255,0.5)", marginLeft: 2 }}>
+                      <span style={{ color: colors.legendText, marginLeft: 2 }}>
                         {val}
                       </span>
                     )}
@@ -221,31 +264,32 @@ export default function DashboardPage() {
                     type="monotone"
                     dataKey="spend"
                     name="Spend"
-                    stroke="#5eead4"
+                    stroke={colors.spend}
                     strokeWidth={2}
                     fill="url(#gradSpend)"
                     dot={false}
-                    activeDot={{ r: 4, stroke: "#fff", strokeWidth: 2, fill: "#5eead4" }}
+                    activeDot={{ r: 4, stroke: colors.dotStroke, strokeWidth: 2, fill: colors.spend }}
                   />
                   <Area
                     yAxisId="leads"
                     type="monotone"
                     dataKey="leads"
                     name="Leads"
-                    stroke="#fbbf24"
+                    stroke={colors.leads}
                     strokeWidth={2}
                     fill="url(#gradLeads)"
                     dot={false}
-                    activeDot={{ r: 4, stroke: "#fff", strokeWidth: 2, fill: "#fbbf24" }}
+                    activeDot={{ r: 4, stroke: colors.dotStroke, strokeWidth: 2, fill: colors.leads }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-[240px] items-center justify-center">
-                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  No performance data available
-                </span>
-              </div>
+              <EmptyState
+                icon={BarChart3}
+                title="No performance data"
+                description="Data appears after your campaigns start running"
+                className="h-[240px] py-0"
+              />
             )}
           </div>
 
@@ -266,23 +310,25 @@ export default function DashboardPage() {
                 View all
               </a>
             </div>
-            {campaigns.length > 0 ? (
+            {campaignsError ? (
+              <ErrorBanner
+                message={campaignsError.message || "Failed to load campaigns"}
+                onRetry={() => refetchCampaigns()}
+              />
+            ) : campaignsLoading ? (
+              <TableSkeleton rows={5} columns={5} />
+            ) : campaigns.length > 0 ? (
               <CampaignTable
-                campaigns={campaigns.slice(0, 5)}
+                campaigns={campaigns}
                 isLoading={campaignsLoading}
               />
             ) : (
-              <div
-                className="flex h-24 items-center justify-center rounded-lg"
-                style={{
-                  background: "var(--bg-base)",
-                  border: "1px solid var(--border-default)",
-                }}
-              >
-                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  {campaignsLoading ? "Loading campaigns..." : "No campaigns — sync your ad account to get started"}
-                </span>
-              </div>
+              <EmptyState
+                icon={LayoutDashboard}
+                title="No campaigns yet"
+                description="Sync your ad account to see your campaigns here"
+                actionLabel="Sync Now"
+              />
             )}
           </div>
         </div>

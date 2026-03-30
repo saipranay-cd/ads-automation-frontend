@@ -5,6 +5,9 @@ import { Search, Users, PlusCircle, XIcon, CheckCircle2, MinusCircle, CircleDot 
 import { useAudiences, type MetaAudience, type MetaAudienceTargeting } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBanner } from "@/components/ui/error-banner"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 
 function formatNumber(n: number): string {
   if (!n) return "—"
@@ -636,7 +639,7 @@ function AudienceOverlap({ audiences }: { audiences: MetaAudience[] }) {
 export default function AudiencesPage() {
   const [search, setSearch] = useState("")
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const { data: audienceData, isLoading } = useAudiences(selectedAdAccountId)
+  const { data: audienceData, isLoading, isError, refetch } = useAudiences(selectedAdAccountId)
 
   const audiences = audienceData?.data || []
   const filtered = audiences.filter((a) =>
@@ -682,8 +685,19 @@ export default function AudiencesPage() {
         </div>
       </div>
 
+      {/* Error */}
+      {isError && (
+        <ErrorBanner
+          message="Failed to load audiences"
+          onRetry={() => refetch()}
+        />
+      )}
+
+      {/* Loading */}
+      {isLoading && <TableSkeleton rows={5} columns={5} />}
+
       {/* Table */}
-      {filtered.length > 0 && (
+      {!isLoading && filtered.length > 0 && (
         <div
           className="overflow-hidden rounded-lg"
           style={{ border: "1px solid var(--border-default)" }}
@@ -756,22 +770,13 @@ export default function AudiencesPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && filtered.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center gap-2 rounded-lg py-12"
-          style={{
-            background: "var(--bg-base)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <Users size={32} style={{ color: "var(--text-tertiary)" }} />
-          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-            No audiences found
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {search ? "Try adjusting your search" : "Create custom audiences in Meta to see them here"}
-          </span>
-        </div>
+      {!isLoading && !isError && filtered.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title="No saved audiences"
+          description={search ? "Try adjusting your search" : "Create one during campaign setup or here"}
+          actionLabel="Create Audience"
+        />
       )}
 
       {/* Audience Overlap Visualization */}

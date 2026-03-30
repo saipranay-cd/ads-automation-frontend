@@ -7,7 +7,7 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.metaAccessToken || !session?.user?.email) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
@@ -15,12 +15,12 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${session.user.email}&adAccountId=${adAccountId}`,
+      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${session.user.email!}&adAccountId=${adAccountId}`,
       { headers: { Authorization: `Bearer ${session.metaAccessToken}` } }
     )
     return NextResponse.json(await res.json())
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${session.user.email}`,
+      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${session.user.email!}`,
       {
         method: "POST",
         headers: {

@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Plus, Zap, Trash2, ToggleLeft, ToggleRight, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAppStore } from "@/lib/store"
+import { EmptyState } from "@/components/ui/empty-state"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 
 // ── Types ──────────────────────────────────────────────
 
@@ -142,22 +144,15 @@ export default function AutomationPage() {
 
       {/* Rules list */}
       {isLoading ? (
-        <div className="py-12 text-center text-sm" style={{ color: "var(--text-tertiary)" }}>
-          Loading rules...
-        </div>
+        <TableSkeleton rows={3} columns={4} />
       ) : rules.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-2 rounded-lg py-12"
-          style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
-        >
-          <Zap size={28} style={{ color: "var(--text-disabled)" }} />
-          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            No automation rules yet
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Create a rule to automatically pause campaigns, adjust budgets, or get alerts
-          </span>
-        </div>
+        <EmptyState
+          icon={Zap}
+          title="No automation rules yet"
+          description="Set up alerts for spend spikes, CTR drops, and more"
+          actionLabel="Create Rule"
+          onAction={() => setShowCreate(true)}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {rules.map((rule) => (

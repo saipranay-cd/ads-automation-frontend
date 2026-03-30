@@ -34,27 +34,15 @@ export function MetricCard({
 
   return (
     <div
-      className="flex flex-col gap-1 rounded-lg p-4"
-      style={{
-        background: "var(--bg-base)",
-        border: "1px solid var(--border-default)",
-        borderTop: isFirst ? "2px solid var(--acc)" : undefined,
-        boxShadow: "var(--shadow-card)",
-      }}
+      className={cn(
+        "flex flex-col gap-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] p-4 shadow-[var(--shadow-card)]",
+        isFirst && "border-t-2 border-t-[var(--acc)]"
+      )}
     >
-      <span
-        className="text-[10px] font-medium uppercase tracking-[0.06em]"
-        style={{ color: "var(--text-tertiary)" }}
-      >
+      <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
         {label}
       </span>
-      <span
-        className="font-mono text-[22px] font-semibold leading-8"
-        style={{
-          color: "var(--text-primary)",
-          letterSpacing: "-0.5px",
-        }}
-      >
+      <span className="font-mono text-[22px] font-semibold leading-8 tracking-tight text-[var(--text-primary)]">
         {value}
       </span>
       {(delta !== undefined || subtext) && (
@@ -69,10 +57,7 @@ export function MetricCard({
             </span>
           )}
           {subtext && (
-            <span
-              className="text-[11px]"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <span className="text-[11px] text-[var(--text-tertiary)]">
               {subtext}
             </span>
           )}

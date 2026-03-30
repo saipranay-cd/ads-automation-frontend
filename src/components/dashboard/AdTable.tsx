@@ -231,6 +231,7 @@ export function AdTable({
                     <CampaignToggle
                       isActive={row.isActive}
                       onChange={(active) => onToggle?.(row.id, active)}
+                      campaignName={row.name}
                     />
                   </td>
                 </tr>

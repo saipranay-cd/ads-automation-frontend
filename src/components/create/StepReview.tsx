@@ -9,10 +9,9 @@ import {
   PauseIcon,
   RocketIcon,
   LoaderIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  RotateCcwIcon,
 } from "lucide-react"
+import { SuccessBanner } from "@/components/ui/success-banner"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 type PublishState = "idle" | "publishing" | "success" | "error"
 
@@ -190,28 +189,15 @@ export function StepReview() {
         )}
 
         {publishState === "success" && (
-          <div className="flex flex-col items-center gap-3">
-            <CheckCircleIcon className="size-10 text-green-500" />
-            <p className="text-sm font-medium">Campaign created successfully</p>
-          </div>
+          <SuccessBanner message="Campaign is live!" autoDismiss={false} className="w-full max-w-md" />
         )}
 
         {publishState === "error" && (
-          <div className="flex flex-col items-center gap-3">
-            <XCircleIcon className="size-10 text-destructive" />
-            <p className="text-sm font-medium">Campaign creation failed</p>
-            <p className="max-w-sm text-center text-xs text-muted-foreground">
-              {errorMsg}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleLaunch("Active")}
-            >
-              <RotateCcwIcon className="size-3.5" data-icon="inline-start" />
-              Retry
-            </Button>
-          </div>
+          <ErrorBanner
+            message={errorMsg || "Campaign creation failed"}
+            onRetry={() => handleLaunch("Active")}
+            className="w-full max-w-md"
+          />
         )}
 
         {!draftId && publishState === "idle" && (

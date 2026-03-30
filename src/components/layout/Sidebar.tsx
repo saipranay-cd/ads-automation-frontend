@@ -67,205 +67,193 @@ export function Sidebar() {
   const user = session?.user;
 
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside
-        className="hidden md:flex h-screen w-[220px] flex-col border-r"
-        style={{
-          background: "var(--bg-base)",
-          borderColor: "var(--border-subtle)",
-        }}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-4 py-4">
-          <div
-            className="flex h-7 w-7 items-center justify-center rounded-md"
-            style={{
-              background: "var(--acc)",
-              boxShadow: "var(--shadow-glow)",
-            }}
+    <aside
+      role="navigation"
+      aria-label="Main navigation"
+      className={cn(
+        // Hidden on mobile (<640px), shown on tablet+
+        "hidden h-screen flex-col border-r",
+        // Tablet (sm to lg): collapsed 56px icon-only sidebar
+        "sm:flex sm:w-[56px]",
+        // Desktop (lg+): full 220px sidebar
+        "lg:w-[220px]",
+        // Hover expand on tablet with group selector
+        "group/sidebar sm:hover:w-[220px] lg:hover:w-[220px]",
+        "sm:transition-[width] sm:duration-200 sm:ease-out"
+      )}
+      style={{
+        background: "var(--bg-base)",
+        borderColor: "var(--border-subtle)",
+      }}
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 py-4 sm:justify-center sm:px-2 lg:justify-start lg:px-4">
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+          style={{
+            background: "var(--acc)",
+            boxShadow: "var(--shadow-glow)",
+          }}
+        >
+          <Zap size={14} color="white" />
+        </div>
+        <div className="hidden flex-col group-hover/sidebar:sm:flex lg:flex">
+          <span
+            className="whitespace-nowrap text-sm font-semibold leading-tight"
+            style={{ color: "var(--text-primary)" }}
           >
-            <Zap size={14} color="white" />
-          </div>
-          <div className="flex flex-col">
+            Adsflow
+          </span>
+          <span
+            className="whitespace-nowrap font-mono text-[10px] leading-tight"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Meta Ads Platform
+          </span>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 sm:px-1 lg:px-2.5">
+        {navSections.map((section) => (
+          <div key={section.label} className="mb-4">
             <span
-              className="text-sm font-semibold leading-tight"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Adsflow
-            </span>
-            <span
-              className="font-mono text-[10px] leading-tight"
+              className="mb-1 hidden whitespace-nowrap px-2.5 text-[10px] font-medium uppercase tracking-[0.06em] group-hover/sidebar:sm:block lg:block"
               style={{ color: "var(--text-tertiary)" }}
             >
-              Meta Ads Platform
+              {section.label}
             </span>
-          </div>
-        </div>
+            {section.items.map((item) => {
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
+              const Icon = item.icon;
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2.5 py-2">
-          {navSections.map((section) => (
-            <div key={section.label} className="mb-4">
-              <span
-                className="mb-1 block px-2.5 text-[10px] font-medium uppercase tracking-[0.06em]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                {section.label}
-              </span>
-              {section.items.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href);
-                const Icon = item.icon;
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
-                      isActive ? "font-medium" : "",
-                    )}
-                    style={{
-                      background: isActive
-                        ? "var(--acc-subtle)"
-                        : "transparent",
-                      color: isActive
-                        ? "var(--acc-text)"
-                        : "var(--text-secondary)",
-                    }}
-                  >
-                    <Icon size={15} />
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "group/nav-item relative flex items-center rounded-md text-[13px] transition-colors",
+                    // Tablet collapsed: centered icon
+                    "sm:justify-center sm:px-0 sm:py-2",
+                    // Tablet hover expanded / Desktop: normal layout
+                    "group-hover/sidebar:sm:justify-start group-hover/sidebar:sm:gap-2.5 group-hover/sidebar:sm:px-2.5 group-hover/sidebar:sm:py-1.5",
+                    "lg:justify-start lg:gap-2.5 lg:px-2.5 lg:py-1.5",
+                    isActive ? "font-medium" : "",
+                  )}
+                  style={{
+                    background: isActive
+                      ? "var(--acc-subtle)"
+                      : "transparent",
+                    color: isActive
+                      ? "var(--acc-text)"
+                      : "var(--text-secondary)",
+                  }}
+                >
+                  <Icon size={15} className="shrink-0" aria-hidden="true" />
+                  {/* Label: hidden in collapsed tablet, visible on hover and desktop */}
+                  <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
                     {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-
-        {/* User row */}
-        <div
-          className="flex items-center justify-between border-t px-4 py-3"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
-          {user ? (
-            <>
-              <div className="flex items-center gap-2.5">
-                {user.image ? (
-                  <img
-                    src={user.image}
-                    alt=""
-                    className="h-7 w-7 rounded-full"
-                  />
-                ) : (
-                  <div
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-medium"
+                  </span>
+                  {/* Tooltip for collapsed tablet state (hidden when sidebar is expanded or on desktop) */}
+                  <span
+                    className="pointer-events-none absolute left-full z-50 ml-2 hidden whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium opacity-0 transition-opacity sm:block sm:group-hover/nav-item:opacity-100 lg:!hidden group-hover/sidebar:!hidden"
                     style={{
-                      background: "var(--acc-subtle)",
-                      color: "var(--acc-text)",
+                      background: "var(--bg-raised)",
+                      color: "var(--text-primary)",
+                      boxShadow: "var(--shadow-float)",
+                      border: "1px solid var(--border-subtle)",
                     }}
                   >
-                    {user.name?.[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
-                <div className="flex flex-col">
-                  <span
-                    className="max-w-[100px] truncate text-xs font-medium"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {user.name || "User"}
+                    {item.label}
                   </span>
-                  <span
-                    className="text-[10px]"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Connected
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-                style={{ color: "var(--text-tertiary)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--bg-subtle)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-                title="Disconnect"
-              >
-                <LogOut size={14} />
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors"
-              style={{ color: "var(--acc-text)" }}
-            >
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded-full"
-                style={{
-                  background: "var(--acc-subtle)",
-                  color: "var(--acc-text)",
-                }}
-              >
-                <LogIn size={13} />
-              </div>
-              Connect Meta
-            </Link>
-          )}
-        </div>
-      </aside>
-
-      {/* Mobile bottom nav */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t py-2 md:hidden"
-        style={{
-          background: "var(--bg-base)",
-          borderColor: "var(--border-subtle)",
-        }}
-      >
-        {[
-          { label: "Home", href: "/", icon: LayoutDashboard },
-          { label: "Campaigns", href: "/campaigns", icon: Megaphone },
-          { label: "Insights", href: "/insights", icon: Sparkles },
-          { label: "Quality", href: "/lead-quality", icon: Target },
-          { label: "Settings", href: "/settings", icon: Settings },
-        ].map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center gap-0.5 px-3 py-1"
-            >
-              <Icon
-                size={20}
-                style={{
-                  color: isActive ? "var(--acc-text)" : "var(--text-tertiary)",
-                }}
-              />
-              <span
-                className="text-[10px] font-medium"
-                style={{
-                  color: isActive ? "var(--acc-text)" : "var(--text-tertiary)",
-                }}
-              >
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-    </>
+
+      {/* User row */}
+      <div
+        className="flex items-center justify-between border-t px-4 py-3 sm:justify-center sm:px-2 lg:justify-between lg:px-4"
+        style={{ borderColor: "var(--border-subtle)" }}
+      >
+        {user ? (
+          <>
+            <div className="flex items-center gap-2.5">
+              {user.image ? (
+                <img
+                  src={user.image}
+                  alt=""
+                  className="h-7 w-7 shrink-0 rounded-full"
+                />
+              ) : (
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
+                  style={{
+                    background: "var(--acc-subtle)",
+                    color: "var(--acc-text)",
+                  }}
+                >
+                  {user.name?.[0]?.toUpperCase() || "U"}
+                </div>
+              )}
+              <div className="hidden flex-col group-hover/sidebar:sm:flex lg:flex">
+                <span
+                  className="max-w-[100px] truncate text-xs font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {user.name || "User"}
+                </span>
+                <span
+                  className="text-[10px]"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Connected
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="hidden h-7 w-7 items-center justify-center rounded-md transition-colors group-hover/sidebar:sm:flex lg:flex"
+              style={{ color: "var(--text-tertiary)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--bg-subtle)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+              title="Disconnect"
+              aria-label="Disconnect account"
+            >
+              <LogOut size={14} aria-hidden="true" />
+            </button>
+          </>
+        ) : (
+          <Link
+            href="/login"
+            className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors sm:justify-center sm:px-0 lg:justify-start lg:px-1"
+            style={{ color: "var(--acc-text)" }}
+          >
+            <div
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+              style={{
+                background: "var(--acc-subtle)",
+                color: "var(--acc-text)",
+              }}
+            >
+              <LogIn size={13} />
+            </div>
+            <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
+              Connect Meta
+            </span>
+          </Link>
+        )}
+      </div>
+    </aside>
   );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { X } from "lucide-react"
+import { X, Sparkles, AlertTriangle, Lightbulb, AlertCircle } from "lucide-react"
 
 type InsightType = "ai" | "budget" | "opportunity" | "warning"
 
@@ -16,6 +16,13 @@ const tagStyles: Record<InsightType, { bg: string; text: string }> = {
   budget: { bg: "var(--amber-bg)", text: "var(--amber-text)" },
   opportunity: { bg: "var(--blue-bg)", text: "var(--blue-text)" },
   warning: { bg: "var(--red-bg)", text: "var(--red-text)" },
+}
+
+const typeIcons: Record<InsightType, typeof Sparkles> = {
+  ai: Sparkles,
+  budget: AlertTriangle,
+  opportunity: Lightbulb,
+  warning: AlertCircle,
 }
 
 interface AiInsightCardProps {
@@ -38,22 +45,24 @@ export function AiInsightCard({
   onDismiss,
 }: AiInsightCardProps) {
   const tagStyle = tagStyles[type]
+  const Icon = typeIcons[type]
   return (
     <div
       className="flex flex-col gap-2.5 rounded-lg p-3.5"
       style={{
         background: "var(--bg-base)",
         border: "1px solid var(--border-default)",
-        borderLeft: `3px solid ${borderColors[type]}`,
+        borderTop: `2px solid ${borderColors[type]}`,
         boxShadow: "var(--shadow-card)",
         animation: "fade-in 200ms cubic-bezier(0.25, 1, 0.5, 1)",
       }}
     >
       <div className="flex items-start justify-between">
         <span
-          className="rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.06em]"
+          className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.06em]"
           style={{ background: tagStyle.bg, color: tagStyle.text }}
         >
+          <Icon size={10} />
           {tag}
         </span>
         {onDismiss && (

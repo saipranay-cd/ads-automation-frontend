@@ -8,7 +8,7 @@ export async function GET() {
   const session = await getServerSession(authOptions)
 
   if (!session?.metaAccessToken) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   try {
@@ -18,6 +18,6 @@ export async function GET() {
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }

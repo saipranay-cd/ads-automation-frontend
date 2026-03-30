@@ -4,6 +4,7 @@ import FacebookProvider from "next-auth/providers/facebook"
 declare module "next-auth" {
   interface Session {
     metaAccessToken?: string
+    metaTokenExpired?: boolean
   }
 }
 
@@ -11,6 +12,33 @@ declare module "next-auth/jwt" {
   interface JWT {
     metaAccessToken?: string
     metaTokenExpiry?: number
+  }
+}
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Exchange a short-lived token for a long-lived one (60-day expiry).
+ * Called when token is within 7 days of expiry.
+ */
+async function refreshMetaToken(currentToken: string): Promise<{ token: string; expiresAt: number } | null> {
+  try {
+    const url = new URL("https://graph.facebook.com/oauth/access_token")
+    url.searchParams.set("grant_type", "fb_exchange_token")
+    url.searchParams.set("client_id", process.env.META_APP_ID!)
+    url.searchParams.set("client_secret", process.env.META_APP_SECRET!)
+    url.searchParams.set("fb_exchange_token", currentToken)
+
+    const res = await fetch(url.toString())
+    if (!res.ok) return null
+
+    const data = await res.json()
+    return {
+      token: data.access_token,
+      expiresAt: Math.floor(Date.now() / 1000) + (data.expires_in || 5184000), // default 60 days
+    }
+  } catch {
+    return null
   }
 }
 
@@ -29,14 +57,36 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, account }) {
+      // On initial sign-in, store the access token
       if (account?.access_token) {
         token.metaAccessToken = account.access_token
         token.metaTokenExpiry = account.expires_at
       }
+
+      // Check token expiry and refresh if within 7 days
+      if (token.metaAccessToken && token.metaTokenExpiry) {
+        const expiresAtMs = token.metaTokenExpiry * 1000
+        const now = Date.now()
+
+        if (now > expiresAtMs) {
+          // Token already expired, mark for re-auth
+          token.metaAccessToken = undefined
+          token.metaTokenExpiry = undefined
+        } else if (expiresAtMs - now < SEVEN_DAYS_MS) {
+          // Within 7 days of expiry, try to refresh
+          const refreshed = await refreshMetaToken(token.metaAccessToken)
+          if (refreshed) {
+            token.metaAccessToken = refreshed.token
+            token.metaTokenExpiry = refreshed.expiresAt
+          }
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
       session.metaAccessToken = token.metaAccessToken
+      session.metaTokenExpired = !token.metaAccessToken && !token.metaTokenExpiry ? false : !token.metaAccessToken
       return session
     },
   },

@@ -12,7 +12,11 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const userId = (session as any).user?.email || "default"
+  if (!session.user?.email) {
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  }
+
+  const userId = session.user.email!
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/ai/analyze`, {

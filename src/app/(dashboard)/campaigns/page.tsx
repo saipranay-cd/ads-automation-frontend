@@ -1,12 +1,15 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, RefreshCw } from "lucide-react"
+import { Search, RefreshCw, Megaphone } from "lucide-react"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { BulkActionBar } from "@/components/dashboard/BulkActionBar"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { useCampaigns, useSync } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 const statusTabs = ["All", "Active", "Paused", "Archived"] as const
 type StatusTab = (typeof statusTabs)[number]
@@ -16,7 +19,7 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const { data: campaignsData, isLoading } = useCampaigns(selectedAdAccountId)
+  const { data: campaignsData, isLoading, error, refetch } = useCampaigns(selectedAdAccountId)
   const sync = useSync()
 
   const campaigns = campaignsData?.data || []
@@ -92,39 +95,49 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      {/* Table */}
-      {campaigns.length > 0 && (
-        <CampaignTable
-          campaigns={filtered}
-          isLoading={isLoading}
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
+      {/* Error state */}
+      {error && (
+        <ErrorBanner
+          message={error.message || "Failed to load campaigns"}
+          onRetry={() => refetch()}
         />
       )}
 
-      {/* Bulk action bar */}
-      <BulkActionBar
-        selectedIds={Array.from(selectedIds)}
-        entityLevel="campaign"
-        onClear={() => setSelectedIds(new Set())}
-      />
+      {/* Table */}
+      {isLoading ? (
+        <TableSkeleton rows={8} columns={6} />
+      ) : campaigns.length > 0 ? (
+        <>
+          <CampaignTable
+            campaigns={filtered}
+            isLoading={isLoading}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+          />
 
-      {/* Empty state */}
-      {!isLoading && filtered.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center gap-2 rounded-lg py-12"
-          style={{
-            background: "var(--bg-base)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-            No campaigns found
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {search ? "Try adjusting your search" : "Sync your Meta ad account to get started"}
-          </span>
-        </div>
+          {/* Bulk action bar */}
+          <BulkActionBar
+            selectedIds={Array.from(selectedIds)}
+            entityLevel="campaign"
+            onClear={() => setSelectedIds(new Set())}
+          />
+
+          {/* Filtered empty state (has campaigns but filter yields nothing) */}
+          {filtered.length === 0 && (
+            <EmptyState
+              icon={Megaphone}
+              title="No matching campaigns"
+              description={search ? "Try adjusting your search" : "No campaigns match this filter"}
+            />
+          )}
+        </>
+      ) : (
+        <EmptyState
+          icon={Megaphone}
+          title="No campaigns"
+          description="Create your first campaign to get started"
+          actionLabel="Create Campaign"
+        />
       )}
     </div>
   )

@@ -19,9 +19,13 @@ export async function GET(req: Request) {
   }
 
   try {
+    if (!session.user?.email) {
+      return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+    }
+
     // userId is resolved on the backend from the access token
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/crm/zoho/auth?adAccountId=${adAccountId}&userId=${session.user?.email || "default"}`,
+      `${BACKEND_URL}/api/v1/crm/zoho/auth?adAccountId=${adAccountId}&userId=${session.user.email!}`,
       { headers: { Authorization: `Bearer ${session.metaAccessToken}` } }
     )
     const data = await res.json()

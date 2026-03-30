@@ -24,7 +24,6 @@ export async function POST(
         Authorization: `Bearer ${session.metaAccessToken}`,
       },
       body: JSON.stringify({
-        accessToken: session.metaAccessToken,
         status: body.status,
         imageBase64: body.imageBase64,
       }),

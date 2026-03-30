@@ -7,7 +7,7 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.metaAccessToken) {
-    return NextResponse.json([])
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const parentId = searchParams.get("parentId")
 
   if (!adAccountId || !type) {
-    return NextResponse.json([])
+    return NextResponse.json({ error: "adAccountId and type required" }, { status: 400 })
   }
 
   const endpointMap: Record<string, string> = {
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   const endpoint = endpointMap[type]
   if (!endpoint) {
-    return NextResponse.json([])
+    return NextResponse.json({ error: "Invalid analytics type" }, { status: 400 })
   }
 
   try {
@@ -53,6 +53,6 @@ export async function GET(req: Request) {
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json([])
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }

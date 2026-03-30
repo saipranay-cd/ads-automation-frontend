@@ -13,8 +13,12 @@ function authHeaders(token?: string) {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  const email = session?.user?.email
-  const token = session?.metaAccessToken
+  if (!session?.metaAccessToken) {
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  }
+
+  const email = session.user?.email
+  const token = session.metaAccessToken
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
@@ -26,12 +30,12 @@ export async function GET(req: Request) {
       const data = await res.json()
       return NextResponse.json(data, { status: res.status })
     } catch {
-      return NextResponse.json({ error: "Failed to fetch draft" }, { status: 500 })
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
   }
 
   if (!email) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
   }
 
   try {
@@ -42,13 +46,16 @@ export async function GET(req: Request) {
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  const email = session?.user?.email || "default"
+  if (!session?.metaAccessToken || !session?.user?.email) {
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  }
+  const email = session.user.email!
 
   try {
     const body = await req.json()
@@ -66,6 +73,9 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const session = await getServerSession(authOptions)
+  if (!session?.metaAccessToken) {
+    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  }
 
   try {
     const body = await req.json()

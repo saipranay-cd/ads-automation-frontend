@@ -24,8 +24,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${session.metaAccessToken}`,
       },
       body: JSON.stringify({
-        userId: session.user?.email || "default",
-        accessToken: session.metaAccessToken,
+        userId: session.user?.email!,
         adAccountId: body.adAccountId,
       }),
     })
