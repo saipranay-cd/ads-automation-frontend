@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 import type { CampaignTableRow, AdSetTableRow, AdTableRow, WizardDraft } from "@/types/adsflow"
 
 // ── Campaigns ──────────────────────────────────────────
@@ -11,7 +12,7 @@ export function useCampaigns(adAccountId?: string | null, limit?: number) {
       if (!adAccountId) return { data: [] }
       const params = new URLSearchParams({ adAccountId })
       if (limit) params.set("limit", String(limit))
-      const res = await fetch(`/api/meta/campaigns?${params.toString()}`)
+      const res = await apiFetch(`/api/meta/campaigns?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch campaigns")
       return res.json()
     },
@@ -25,7 +26,7 @@ export function useSync() {
 
   return useMutation({
     mutationFn: async (adAccountId?: string) => {
-      const res = await fetch("/api/meta/sync", {
+      const res = await apiFetch("/api/meta/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adAccountId }),
@@ -57,7 +58,7 @@ export function useBulkAction() {
 
   return useMutation({
     mutationFn: async (params: BulkActionParams) => {
-      const res = await fetch("/api/meta/bulk-action", {
+      const res = await apiFetch("/api/meta/bulk-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
@@ -89,12 +90,21 @@ export interface AdAccount {
 }
 
 export function useAdAccounts() {
-  return useQuery<{ data: AdAccount[] }>({
+  return useQuery<{ data: AdAccount[]; error?: string }>({
     queryKey: ["accounts"],
     queryFn: async () => {
-      const res = await fetch("/api/meta/accounts")
+      const res = await apiFetch("/api/meta/accounts")
+      if (res.status === 429) {
+        return { data: [], error: "Meta API rate limit reached. Wait a few minutes." }
+      }
       if (!res.ok) throw new Error("Failed to fetch accounts")
       return res.json()
+    },
+    staleTime: 30 * 60 * 1000, // 30 min — accounts rarely change, avoid rate limits
+    retry: (count, error) => {
+      // Don't retry on rate limits
+      if (error?.message?.includes("429")) return false
+      return count < 2
     },
   })
 }
@@ -105,7 +115,7 @@ export function useAdSets(adAccountId?: string | null) {
     queryKey: ["adsets", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/meta/adsets?adAccountId=${adAccountId}`
       )
       if (!res.ok) throw new Error("Failed to fetch ad sets")
@@ -121,7 +131,7 @@ export function useAds(adAccountId?: string | null) {
     queryKey: ["ads", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/meta/ads?adAccountId=${adAccountId}`
       )
       if (!res.ok) throw new Error("Failed to fetch ads")
@@ -145,7 +155,7 @@ export function useDashboard(adAccountId?: string | null) {
     queryKey: ["dashboard", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return null as any
-      const res = await fetch(`/api/meta/dashboard?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/dashboard?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch dashboard")
       return res.json()
     },
@@ -159,7 +169,7 @@ export function useDraft(id?: string | null) {
   return useQuery<WizardDraft & { id: string }>({
     queryKey: ["draft", id],
     queryFn: async () => {
-      const res = await fetch(`/api/meta/drafts?id=${id}`)
+      const res = await apiFetch(`/api/meta/drafts?id=${id}`)
       if (!res.ok) throw new Error("Failed to fetch draft")
       return res.json()
     },
@@ -182,7 +192,7 @@ export function useSaveDraft() {
         ? { id: payload.id, ...payload.draft }
         : { userId: payload.userId, adAccountId: payload.adAccountId, ...payload.draft }
 
-      const res = await fetch("/api/meta/drafts", {
+      const res = await apiFetch("/api/meta/drafts", {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -201,7 +211,7 @@ export function usePublish() {
 
   return useMutation({
     mutationFn: async ({ draftId, status, imageBase64 }: { draftId: string; status?: "Active" | "Paused"; imageBase64?: string }) => {
-      const res = await fetch(`/api/meta/drafts/${draftId}/publish`, {
+      const res = await apiFetch(`/api/meta/drafts/${draftId}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, imageBase64 }),
@@ -256,7 +266,7 @@ export function useAudiences(adAccountId?: string | null) {
     queryKey: ["audiences", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(`/api/meta/audiences?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/audiences?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch audiences")
       return res.json()
     },
@@ -269,7 +279,7 @@ export function useDeleteAudience() {
 
   return useMutation({
     mutationFn: async (audienceId: string) => {
-      const res = await fetch(`/api/meta/audiences/${audienceId}`, {
+      const res = await apiFetch(`/api/meta/audiences/${audienceId}`, {
         method: "DELETE",
       })
       if (!res.ok) throw new Error("Failed to delete audience")
@@ -294,7 +304,7 @@ export function useLeadForms(adAccountId?: string | null) {
     queryKey: ["lead-forms", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(`/api/meta/lead-forms?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/lead-forms?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch lead forms")
       return res.json()
     },
@@ -317,7 +327,7 @@ export function useTargetingSearch(type: "interest" | "location", query: string)
     queryKey: ["targeting-search", type, query],
     queryFn: async () => {
       if (!query || query.length < 2) return { data: [] }
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/meta/targeting/search?type=${type}&q=${encodeURIComponent(query)}`
       )
       if (!res.ok) throw new Error("Search failed")
@@ -404,9 +414,10 @@ export function useEntityInsights(
       const params = new URLSearchParams({ type: "entity-insights", adAccountId, days: String(days), level })
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
       if (parentId) params.set("parentId", parentId)
-      const res = await fetch(`/api/analytics?${params.toString()}`)
+      const res = await apiFetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch entity insights")
-      return res.json()
+      const json = await res.json()
+      return Array.isArray(json) ? json : json.data ?? []
     },
     enabled: !!adAccountId && !!level,
   })
@@ -419,7 +430,7 @@ export function useAggregatedMetrics(adAccountId?: string | null, days = 30, dat
       if (!adAccountId) return []
       const params = new URLSearchParams({ type: "metrics", adAccountId, days: String(days) })
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
-      const res = await fetch(`/api/analytics?${params.toString()}`)
+      const res = await apiFetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch metrics")
       const json = await res.json()
       // Backend may return { data: [...] } or [...] directly
@@ -436,9 +447,10 @@ export function usePlacementBreakdown(adAccountId?: string | null, days = 30, da
       if (!adAccountId) return []
       const params = new URLSearchParams({ type: "placements", adAccountId, days: String(days) })
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
-      const res = await fetch(`/api/analytics?${params.toString()}`)
+      const res = await apiFetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch placements")
-      return res.json()
+      const json = await res.json()
+      return Array.isArray(json) ? json : json.data ?? []
     },
     enabled: !!adAccountId,
   })
@@ -451,9 +463,10 @@ export function useAgeGenderBreakdown(adAccountId?: string | null, days = 30, da
       if (!adAccountId) return []
       const params = new URLSearchParams({ type: "age-gender", adAccountId, days: String(days) })
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
-      const res = await fetch(`/api/analytics?${params.toString()}`)
+      const res = await apiFetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch age-gender data")
-      return res.json()
+      const json = await res.json()
+      return Array.isArray(json) ? json : json.data ?? []
     },
     enabled: !!adAccountId,
   })
@@ -466,9 +479,10 @@ export function useCityBreakdown(adAccountId?: string | null, days = 30, dateRan
       if (!adAccountId) return []
       const params = new URLSearchParams({ type: "cities", adAccountId, days: String(days) })
       if (dateRange) { params.set("since", dateRange.since); params.set("until", dateRange.until) }
-      const res = await fetch(`/api/analytics?${params.toString()}`)
+      const res = await apiFetch(`/api/analytics?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch city data")
-      return res.json()
+      const json = await res.json()
+      return Array.isArray(json) ? json : json.data ?? []
     },
     enabled: !!adAccountId,
   })
@@ -487,10 +501,10 @@ export function useAiChat() {
   return useMutation<
     { reply: string },
     Error,
-    { message: string; contextAreas: ContextArea[]; history: ChatMessage[]; adAccountId: string }
+    { message: string; contextAreas: ContextArea[]; history: ChatMessage[]; adAccountId: string; platform?: "meta" | "google" }
   >({
     mutationFn: async (payload) => {
-      const res = await fetch("/api/meta/chat", {
+      const res = await apiFetch("/api/meta/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -508,7 +522,7 @@ export function useAiChat() {
 export function useAnalyze() {
   return useMutation({
     mutationFn: async (campaignId: string) => {
-      const res = await fetch("/api/meta/insights", {
+      const res = await apiFetch("/api/meta/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ campaignId }),
@@ -527,12 +541,12 @@ export interface AiModelOption {
   description: string
 }
 
-export function useSkillPrompt(adAccountId?: string | null) {
+export function useSkillPrompt(adAccountId?: string | null, platform: "meta" | "google" = "meta") {
   return useQuery<{ prompt: string; aiModel: string; availableModels: AiModelOption[] }>({
-    queryKey: ["skill-prompt", adAccountId],
+    queryKey: ["skill-prompt", adAccountId, platform],
     queryFn: async () => {
       if (!adAccountId) return { prompt: "", aiModel: "gpt-4.1-mini", availableModels: [] }
-      const res = await fetch(`/api/meta/skill-prompt?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/skill-prompt?adAccountId=${adAccountId}&platform=${platform}`)
       if (!res.ok) throw new Error("Failed to fetch skill prompt")
       return res.json()
     },
@@ -544,8 +558,8 @@ export function useUpdateSkillPrompt() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (vars: { adAccountId: string; prompt?: string; aiModel?: string }) => {
-      const res = await fetch("/api/meta/skill-prompt", {
+    mutationFn: async (vars: { adAccountId: string; prompt?: string; aiModel?: string; platform?: "meta" | "google" }) => {
+      const res = await apiFetch("/api/meta/skill-prompt", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vars),
@@ -654,7 +668,7 @@ export function useProposals(adAccountId?: string | null) {
     queryKey: ["proposals", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(`/api/meta/proposals?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/proposals?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch proposals")
       return res.json()
     },
@@ -667,7 +681,7 @@ export function useProposalStats(adAccountId?: string | null) {
     queryKey: ["proposals", "stats", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { pending: 0, approved: 0, executed: 0, rejected: 0, applied: 0, estimatedSavings: 0, lastScan: null, lastScanDuration: null }
-      const res = await fetch(`/api/meta/proposals/stats?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/proposals/stats?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch proposal stats")
       return res.json()
     },
@@ -680,7 +694,7 @@ export function useScanProposals() {
 
   return useMutation({
     mutationFn: async ({ adAccountId, scanType }: { adAccountId: string; scanType?: "quick" | "daily" }) => {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/meta/proposals/scan?adAccountId=${adAccountId}&scanType=${scanType || "quick"}`,
         { method: "POST" }
       )
@@ -705,7 +719,7 @@ export function useUpdateProposal() {
     { id: string; action: "approve" | "reject" | "execute" | "undo" }
   >({
     mutationFn: async ({ id, action }) => {
-      const res = await fetch(`/api/meta/proposals/${id}`, {
+      const res = await apiFetch(`/api/meta/proposals/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -715,9 +729,12 @@ export function useUpdateProposal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["proposals"] })
+      queryClient.invalidateQueries({ queryKey: ["google-proposals"] })
       queryClient.invalidateQueries({ queryKey: ["proposal-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["google-proposal-stats"] })
       queryClient.invalidateQueries({ queryKey: ["impact-stats"] })
       queryClient.invalidateQueries({ queryKey: ["campaigns"] })
+      queryClient.invalidateQueries({ queryKey: ["google-campaigns"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
     },
   })
@@ -739,7 +756,7 @@ export function useImpactStats(adAccountId?: string | null) {
     queryKey: ["impact-stats", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: { executed: 0, measured: 0, improved: 0, degraded: 0, successRate: 0, totalSavings: 0 } }
-      const res = await fetch(`/api/meta/proposals?adAccountId=${adAccountId}&type=impact-stats`)
+      const res = await apiFetch(`/api/meta/proposals?adAccountId=${adAccountId}&type=impact-stats`)
       if (!res.ok) throw new Error("Failed to fetch impact stats")
       return res.json()
     },
@@ -752,7 +769,7 @@ export function useMeasureProposals() {
 
   return useMutation({
     mutationFn: async (adAccountId: string) => {
-      const res = await fetch(`/api/meta/proposals?adAccountId=${adAccountId}`, {
+      const res = await apiFetch(`/api/meta/proposals?adAccountId=${adAccountId}`, {
         method: "POST",
       })
       if (!res.ok) throw new Error("Failed to measure proposals")

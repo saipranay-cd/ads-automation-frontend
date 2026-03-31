@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { LogIn, LayoutDashboard, BarChart3 } from "lucide-react"
+import { LogIn, LayoutDashboard, BarChart3, Globe, Facebook, Search } from "lucide-react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { useAuth } from "@/hooks/use-auth"
 import {
   AreaChart,
   Area,
@@ -19,6 +19,7 @@ import { PredictionsPanel } from "@/components/dashboard/PredictionsPanel"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { useCampaigns, useDashboard, useAggregatedMetrics, type DateRange } from "@/hooks/use-campaigns"
+import { useGoogleDashboard, useGoogleAuthStatus } from "@/hooks/use-google"
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
@@ -57,14 +58,19 @@ const CHART_COLORS = {
 } as const
 
 export default function DashboardPage() {
-  const { data: session } = useSession()
+  const { isAuthenticated } = useAuth()
   const { theme } = useTheme()
   const colors = CHART_COLORS[theme]
-  const isLoggedIn = !!session?.metaAccessToken
+  const isLoggedIn = isAuthenticated
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
   const [chartDays, setChartDays] = useState(30)
   const [chartDateRange, setChartDateRange] = useState<DateRange | undefined>(undefined)
+  const [platformFilter, setPlatformFilter] = useState<"all" | "meta" | "google">("all")
   const { data: dashboardData, error: dashboardError, refetch: refetchDashboard } = useDashboard(selectedAdAccountId)
+  const { data: googleDashboard } = useGoogleDashboard(selectedGoogleAccountId)
+  const { data: googleAuth } = useGoogleAuthStatus()
+  const googleConnected = googleAuth?.connected ?? false
   const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch: refetchCampaigns } = useCampaigns(selectedAdAccountId, 5)
 
   const { data: metricsRaw } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
@@ -82,35 +88,68 @@ export default function DashboardPage() {
     }))
   }, [metricsData])
 
-  const metrics = dashboardData
-    ? [
-        {
-          label: "Total Spend",
-          value: formatCurrency(dashboardData.totalSpend),
-          subtext: "last 7 days",
-        },
-        {
-          label: "Leads Today",
-          value: formatNumber(dashboardData.leadsToday),
-          subtext: "today",
-        },
-        {
-          label: "Cost per Lead",
-          value: formatCurrency(dashboardData.costPerLead),
-          subtext: "last 7 days",
-        },
-        {
-          label: "Active Campaigns",
-          value: String(dashboardData.activeCampaigns),
-          subtext: `${dashboardData.pausedCampaigns} paused`,
-        },
-      ]
-    : [
+  const metrics = useMemo(() => {
+    const meta = dashboardData
+    const google = googleDashboard
+
+    const showMeta = platformFilter === "all" || platformFilter === "meta"
+    const showGoogle = platformFilter === "all" || platformFilter === "google"
+
+    const metaSpend = showMeta ? (meta?.totalSpend ?? 0) : 0
+    const googleSpend = showGoogle ? (google?.totalSpend ?? 0) : 0
+    const totalSpend = metaSpend + googleSpend
+
+    const metaLeads = showMeta ? (meta?.leadsToday ?? 0) : 0
+    const googleConversions = showGoogle ? (google?.conversions ?? 0) : 0
+    const totalLeads = metaLeads + googleConversions
+
+    const metaCpl = showMeta ? (meta?.costPerLead ?? 0) : 0
+    const googleCpc = showGoogle ? (google?.costPerConversion ?? 0) : 0
+    // Weighted average: only count platforms that have data
+    const cplParts: number[] = []
+    if (showMeta && meta) cplParts.push(metaCpl)
+    if (showGoogle && google) cplParts.push(googleCpc)
+    const avgCpl = cplParts.length > 0 ? cplParts.reduce((a, b) => a + b, 0) / cplParts.length : 0
+
+    const metaActive = showMeta ? (meta?.activeCampaigns ?? 0) : 0
+    const googleActive = showGoogle ? (google?.activeCampaigns ?? 0) : 0
+    const metaPaused = showMeta ? (meta?.pausedCampaigns ?? 0) : 0
+    const googlePaused = showGoogle ? (google?.pausedCampaigns ?? 0) : 0
+
+    const hasData = (showMeta && meta) || (showGoogle && google)
+
+    if (!hasData) {
+      return [
         { label: "Total Spend", value: "--", subtext: "last 7 days" },
-        { label: "Leads Today", value: "--", subtext: "today" },
-        { label: "Cost per Lead", value: "--", subtext: "last 7 days" },
+        { label: "Leads / Conversions", value: "--", subtext: "today" },
+        { label: "Cost per Result", value: "--", subtext: "last 7 days" },
         { label: "Active Campaigns", value: "--", subtext: "no data" },
       ]
+    }
+
+    return [
+      {
+        label: "Total Spend",
+        value: formatCurrency(totalSpend),
+        subtext: "last 7 days",
+      },
+      {
+        label: platformFilter === "google" ? "Conversions" : platformFilter === "meta" ? "Leads Today" : "Leads / Conversions",
+        value: formatNumber(totalLeads),
+        subtext: "today",
+      },
+      {
+        label: platformFilter === "google" ? "Cost / Conversion" : platformFilter === "meta" ? "Cost per Lead" : "Cost per Result",
+        value: formatCurrency(avgCpl),
+        subtext: "last 7 days",
+      },
+      {
+        label: "Active Campaigns",
+        value: String(metaActive + googleActive),
+        subtext: `${metaPaused + googlePaused} paused`,
+      },
+    ]
+  }, [dashboardData, googleDashboard, platformFilter])
 
   return (
     <div className="flex flex-col gap-6 overflow-hidden">
@@ -124,15 +163,15 @@ export default function DashboardPage() {
           }}
         >
           <span className="text-xs" style={{ color: "var(--acc-text)" }}>
-            Connect your Meta ad account to see live metrics
+            Sign in to see live metrics
           </span>
           <Link
-            href="/login"
+            href="/org-login"
             className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-medium text-white transition-all"
             style={{ background: "var(--acc)" }}
           >
             <LogIn size={12} />
-            Connect Meta
+            Sign In
           </Link>
         </div>
       )}
@@ -156,6 +195,31 @@ export default function DashboardPage() {
         {metrics.map((m, i) => (
           <MetricCard key={m.label} {...m} isFirst={i === 0} />
         ))}
+      </div>
+
+      {/* Platform filter */}
+      <div className="flex items-center gap-1.5">
+        {([
+          { key: "all" as const, label: "All Platforms", icon: Globe },
+          { key: "meta" as const, label: "Meta", icon: Facebook },
+          { key: "google" as const, label: "Google", icon: Search },
+        ]).map(({ key, label, icon: Icon }) => {
+          const isActive = platformFilter === key
+          return (
+            <button
+              key={key}
+              onClick={() => setPlatformFilter(key)}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
+              style={{
+                background: isActive ? "var(--acc-subtle)" : "var(--bg-subtle)",
+                color: isActive ? "var(--acc-text)" : "var(--text-secondary)",
+              }}
+            >
+              <Icon size={12} />
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Two-column layout (stacks on mobile) */}
@@ -303,14 +367,30 @@ export default function DashboardPage() {
                 Top Campaigns
               </h2>
               <a
-                href="/campaigns"
+                href={platformFilter === "google" ? "/google/campaigns" : "/campaigns"}
                 className="text-xs font-medium"
                 style={{ color: "var(--acc)" }}
               >
                 View all
               </a>
             </div>
-            {campaignsError ? (
+            {platformFilter === "google" ? (
+              <div
+                className="flex h-24 items-center justify-center rounded-lg"
+                style={{
+                  background: "var(--bg-base)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
+                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                  Switch to{" "}
+                  <Link href="/google/campaigns" className="font-medium" style={{ color: "var(--acc)" }}>
+                    Google Campaigns
+                  </Link>{" "}
+                  for campaign details
+                </span>
+              </div>
+            ) : campaignsError ? (
               <ErrorBanner
                 message={campaignsError.message || "Failed to load campaigns"}
                 onRetry={() => refetchCampaigns()}

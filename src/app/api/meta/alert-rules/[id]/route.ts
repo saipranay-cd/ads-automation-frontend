@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getBackendAuth } from "@/app/api/_helpers/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
   const { id } = await params
   const body = await req.json()
@@ -14,7 +13,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/alert-rules/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.metaAccessToken}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
       body: JSON.stringify(body),
     })
     return NextResponse.json(await res.json(), { status: res.status })
@@ -24,15 +23,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
 
   const { id } = await params
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/alert-rules/${id}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${session.metaAccessToken}` },
+      headers: { Authorization: `Bearer ${auth.token}` },
     })
     return NextResponse.json(await res.json(), { status: res.status })
   } catch {

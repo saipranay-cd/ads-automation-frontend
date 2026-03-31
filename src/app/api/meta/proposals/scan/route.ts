@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getBackendAuth } from "@/app/api/_helpers/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export const maxDuration = 120 // Allow up to 120s for Vercel serverless function
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) {
+  const auth = await getBackendAuth(req)
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
@@ -28,7 +27,7 @@ export async function POST(req: Request) {
       `${BACKEND_URL}/api/v1/adsflow/ai/scan?adAccountId=${adAccountId}&scanType=${scanType}`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.metaAccessToken}` },
+        headers: { Authorization: `Bearer ${auth.token}` },
         signal: controller.signal,
       }
     )

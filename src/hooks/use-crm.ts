@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 
 // ── Types ──────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export interface CrmLead {
   matchConfidence: number | null
   dealValue: number | null
   crmCreatedAt: string | null
+  utmTerm: string | null
 }
 
 export interface QualityMapping {
@@ -55,8 +57,10 @@ export interface PlatformBreakdown {
 }
 
 export interface CampaignQualityMetrics {
-  campaignId: string
-  campaignName: string
+  campaignId?: string
+  campaignName?: string
+  entityId?: string
+  entityName?: string
   totalLeads: number
   qualityLeads: number
   junkLeads: number
@@ -87,6 +91,8 @@ export interface CrmInsights {
   totalLeads: number
   qualityLeads: number
   cpql: number | null
+  cpl: number | null
+  totalSpend: number
   conversionRate: number
   avgDealValue: number | null
   qualityBreakdown: QualityBreakdown[]
@@ -108,7 +114,7 @@ export function useCrmConnection(adAccountId?: string | null) {
     queryKey: ["crm-connection", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
-      const res = await fetch(`/api/crm/connections?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/crm/connections?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch CRM connections")
       return res.json()
     },
@@ -123,7 +129,7 @@ export function useSyncCrm() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "sync" }),
@@ -143,19 +149,24 @@ export function useSyncCrm() {
 
 export function useCrmLeads(
   adAccountId?: string | null,
-  params?: { page?: number; tier?: string; platform?: string; matched?: string }
+  params?: { page?: number; pageSize?: number; tier?: string; platform?: string; matched?: string; campaignId?: string; adSetId?: string; from?: string; to?: string }
 ) {
   const searchParams = new URLSearchParams()
   if (adAccountId) searchParams.set("adAccountId", adAccountId)
   if (params?.page) searchParams.set("page", String(params.page))
+  if (params?.pageSize) searchParams.set("pageSize", String(params.pageSize))
   if (params?.tier) searchParams.set("tier", params.tier)
   if (params?.platform) searchParams.set("platform", params.platform)
   if (params?.matched) searchParams.set("matched", params.matched)
+  if (params?.campaignId) searchParams.set("campaignId", params.campaignId)
+  if (params?.adSetId) searchParams.set("adSetId", params.adSetId)
+  if (params?.from) searchParams.set("from", params.from)
+  if (params?.to) searchParams.set("to", params.to)
 
   return useQuery<{ data: CrmLead[]; total: number }>({
     queryKey: ["crm-leads", adAccountId, params],
     queryFn: async () => {
-      const res = await fetch(`/api/crm/leads?${searchParams}`)
+      const res = await apiFetch(`/api/crm/leads?${searchParams}`)
       if (!res.ok) throw new Error("Failed to fetch leads")
       return res.json()
     },
@@ -179,7 +190,7 @@ export function useCrmInsights(
   return useQuery<{ data: CrmInsights }>({
     queryKey: ["crm-insights", adAccountId, dateRange?.from, dateRange?.to, platform],
     queryFn: async () => {
-      const res = await fetch(`/api/crm/insights?${searchParams}`)
+      const res = await apiFetch(`/api/crm/insights?${searchParams}`)
       if (!res.ok) throw new Error("Failed to fetch insights")
       return res.json()
     },
@@ -200,7 +211,7 @@ export function useCrmTrends(
   return useQuery<{ data: QualityTrend[] }>({
     queryKey: ["crm-trends", adAccountId, dateRange],
     queryFn: async () => {
-      const res = await fetch(`/api/crm/insights?${searchParams}`)
+      const res = await apiFetch(`/api/crm/insights?${searchParams}`)
       if (!res.ok) throw new Error("Failed to fetch trends")
       return res.json()
     },
@@ -227,7 +238,7 @@ export function useEntityQuality(
   return useQuery<{ data: EntityQualityMetrics[] }>({
     queryKey: ["crm-entity-quality", adAccountId, level, platform, dateRange?.from, dateRange?.to],
     queryFn: async () => {
-      const res = await fetch(`/api/crm/insights?${searchParams}`)
+      const res = await apiFetch(`/api/crm/insights?${searchParams}`)
       if (!res.ok) throw new Error("Failed to fetch entity quality")
       return res.json()
     },
@@ -242,7 +253,7 @@ export function useCrmQualityMap(connectionId?: string) {
     queryKey: ["crm-quality-map", connectionId],
     queryFn: async () => {
       if (!connectionId) return { data: [] }
-      const res = await fetch(`/api/crm/connections?action=get-quality-map&connectionId=${connectionId}`)
+      const res = await apiFetch(`/api/crm/connections?action=get-quality-map&connectionId=${connectionId}`)
       if (!res.ok) return { data: [] }
       return res.json()
     },
@@ -261,7 +272,7 @@ export function useUpdateQualityMap() {
       connectionId: string
       mappings: { crmStage: string; qualityScore: number; qualityTier: string; sortOrder?: number }[]
     }) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "update-quality-map", mappings }),
@@ -282,7 +293,7 @@ export function useDiscoverStages() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "discover-stages" }),
@@ -315,7 +326,7 @@ export function useFieldMap(connectionId?: string) {
     queryKey: ["crm-field-map", connectionId],
     queryFn: async () => {
       if (!connectionId) return { data: [] }
-      const res = await fetch(`/api/crm/connections?action=get-field-map&connectionId=${connectionId}`)
+      const res = await apiFetch(`/api/crm/connections?action=get-field-map&connectionId=${connectionId}`)
       if (!res.ok) return { data: [] }
       return res.json()
     },
@@ -328,7 +339,7 @@ export function useZohoFields(connectionId?: string) {
     queryKey: ["zoho-fields", connectionId],
     queryFn: async () => {
       if (!connectionId) return { data: [] }
-      const res = await fetch(`/api/crm/connections?action=get-zoho-fields&connectionId=${connectionId}`)
+      const res = await apiFetch(`/api/crm/connections?action=get-zoho-fields&connectionId=${connectionId}`)
       if (!res.ok) return { data: [] }
       return res.json()
     },
@@ -347,7 +358,7 @@ export function useUpdateFieldMap() {
       connectionId: string
       mappings: { metaField: string; zohoField: string }[]
     }) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "update-field-map", mappings }),
@@ -374,7 +385,7 @@ export function useSourceMap(connectionId?: string) {
     queryKey: ["crm-source-map", connectionId],
     queryFn: async () => {
       if (!connectionId) return { data: [] }
-      const res = await fetch(`/api/crm/connections?action=get-source-map&connectionId=${connectionId}`)
+      const res = await apiFetch(`/api/crm/connections?action=get-source-map&connectionId=${connectionId}`)
       if (!res.ok) return { data: [] }
       return res.json()
     },
@@ -393,7 +404,7 @@ export function useUpdateSourceMap() {
       connectionId: string
       mappings: { crmSource: string; adPlatform: string }[]
     }) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "update-source-map", mappings }),
@@ -413,7 +424,7 @@ export function useDiscoverSources() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const res = await fetch("/api/crm/connections", {
+      const res = await apiFetch("/api/crm/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionId, action: "discover-sources" }),
@@ -444,7 +455,7 @@ export function useMatchLead() {
       adSetId?: string
       adId?: string
     }) => {
-      const res = await fetch("/api/crm/leads", {
+      const res = await apiFetch("/api/crm/leads", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId, campaignId, adSetId, adId }),

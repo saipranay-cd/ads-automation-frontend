@@ -1,25 +1,25 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getBackendAuth } from "@/app/api/_helpers/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
   const adAccountId = searchParams.get("adAccountId")
+  const platform = searchParams.get("platform") || "meta"
   if (!adAccountId) {
     return NextResponse.json({ error: "adAccountId required" }, { status: 400 })
   }
 
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/ai/skill-prompt?adAccountId=${adAccountId}`,
-      { headers: { Authorization: `Bearer ${session.metaAccessToken}` } }
+      `${BACKEND_URL}/api/v1/adsflow/ai/skill-prompt?adAccountId=${adAccountId}&platform=${platform}`,
+      { headers: { Authorization: `Bearer ${auth.token}` } }
     )
     const data = await res.json()
     return NextResponse.json(data)
@@ -29,9 +29,9 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   try {
@@ -41,7 +41,7 @@ export async function PUT(req: Request) {
       {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${session.metaAccessToken}`,
+          Authorization: `Bearer ${auth.token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),

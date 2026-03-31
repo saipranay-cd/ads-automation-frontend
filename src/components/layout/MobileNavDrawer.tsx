@@ -3,7 +3,8 @@
 import { useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
+import { signOut } from "next-auth/react"
+import { useAuth } from "@/hooks/use-auth"
 import {
   LayoutDashboard,
   BarChart3,
@@ -22,46 +23,66 @@ import {
   Compass,
   GitCommitVertical,
   X,
+  FolderOpen,
+  KeyRound,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePlatform } from "@/hooks/use-platform"
 import { ThemeToggle } from "./ThemeToggle"
 
-const navSections = [
-  {
-    label: "OVERVIEW",
-    items: [
-      { label: "Dashboard", href: "/", icon: LayoutDashboard },
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "MANAGE",
-    items: [
-      { label: "Campaigns", href: "/campaigns", icon: Megaphone },
-      { label: "Ad Sets", href: "/ad-sets", icon: Layers },
-      { label: "Ads", href: "/ads", icon: FileText },
-      { label: "Audiences", href: "/audiences", icon: Users },
-    ],
-  },
-  {
-    label: "INTELLIGENCE",
-    items: [
-      { label: "Insights", href: "/insights", icon: Sparkles },
-      { label: "Lead Quality", href: "/lead-quality", icon: Target },
-      { label: "Funnel", href: "/funnel", icon: GitCommitVertical },
-      { label: "Creatives", href: "/creatives", icon: FileText },
-      { label: "AI Chat", href: "/chat", icon: MessageCircle },
-      { label: "Create Ad", href: "/create", icon: PlusCircle },
-    ],
-  },
-  {
-    label: "SYSTEM",
-    items: [
-      { label: "Onboarding", href: "/onboarding", icon: Compass },
-      { label: "Settings", href: "/settings", icon: Settings },
-    ],
-  },
+const metaManageItems = [
+  { label: "Campaigns", href: "/campaigns", icon: Megaphone },
+  { label: "Ad Sets", href: "/ad-sets", icon: Layers },
+  { label: "Ads", href: "/ads", icon: FileText },
+  { label: "Audiences", href: "/audiences", icon: Users },
 ]
+
+const googleManageItems = [
+  { label: "Campaigns", href: "/google/campaigns", icon: Megaphone },
+  { label: "Ad Groups", href: "/google/ad-groups", icon: FolderOpen },
+  { label: "Ads", href: "/google/ads", icon: FileText },
+  { label: "Keywords", href: "/google/keywords", icon: KeyRound },
+]
+
+function getNavSections(platform: "meta" | "google") {
+  return [
+    {
+      label: "OVERVIEW",
+      items: [
+        { label: "Dashboard", href: "/", icon: LayoutDashboard },
+        { label: "Analytics", href: "/analytics", icon: BarChart3 },
+      ],
+    },
+    {
+      label: "MANAGE",
+      items: platform === "google" ? googleManageItems : metaManageItems,
+    },
+    {
+      label: "INTELLIGENCE",
+      items: platform === "google"
+        ? [
+            { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "AI Chat", href: "/chat", icon: MessageCircle },
+            { label: "Create Campaign", href: "/google/create", icon: PlusCircle },
+          ]
+        : [
+            { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "Lead Quality", href: "/lead-quality", icon: Target },
+            { label: "Funnel", href: "/funnel", icon: GitCommitVertical },
+            { label: "Creatives", href: "/creatives", icon: FileText },
+            { label: "AI Chat", href: "/chat", icon: MessageCircle },
+            { label: "Create Ad", href: "/create", icon: PlusCircle },
+          ],
+    },
+    {
+      label: "SYSTEM",
+      items: [
+        { label: "Onboarding", href: "/onboarding", icon: Compass },
+        { label: "Settings", href: "/settings", icon: Settings },
+      ],
+    },
+  ]
+}
 
 interface MobileNavDrawerProps {
   isOpen: boolean
@@ -70,8 +91,9 @@ interface MobileNavDrawerProps {
 
 export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
   const pathname = usePathname()
-  const { data: session } = useSession()
-  const user = session?.user
+  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth()
+  const { platform } = usePlatform()
+  const navSections = getNavSections(platform)
   const drawerRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number | null>(null)
 
@@ -263,12 +285,12 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
           </div>
 
           {/* User row */}
-          {user ? (
+          {isAuthenticated && authUser ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                {user.image ? (
+                {authUser.image ? (
                   <img
-                    src={user.image}
+                    src={authUser.image}
                     alt=""
                     className="h-7 w-7 rounded-full"
                   />
@@ -280,7 +302,7 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
                       color: "var(--acc-text)",
                     }}
                   >
-                    {user.name?.[0]?.toUpperCase() || "U"}
+                    {authUser.name?.[0]?.toUpperCase() || "U"}
                   </div>
                 )}
                 <div className="flex flex-col">
@@ -288,28 +310,36 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
                     className="max-w-[140px] truncate text-xs font-medium"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {user.name || "User"}
+                    {authUser.name || "User"}
                   </span>
                   <span
                     className="text-[10px]"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Connected
+                    {isMetaAuth ? "Connected" : "Signed in"}
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => {
+                  if (isMetaAuth) {
+                    signOut({ callbackUrl: "/login" })
+                  } else {
+                    localStorage.removeItem("org-token")
+                    localStorage.removeItem("org-user")
+                    window.location.href = "/org-login"
+                  }
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                 style={{ color: "var(--text-tertiary)" }}
-                aria-label="Disconnect"
+                aria-label="Sign out"
               >
                 <LogOut size={14} />
               </button>
             </div>
           ) : (
             <Link
-              href="/login"
+              href="/org-login"
               className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors"
               style={{ color: "var(--acc-text)" }}
             >
@@ -322,7 +352,7 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
               >
                 <LogIn size={13} />
               </div>
-              Connect Meta
+              Sign In
             </Link>
           )}
         </div>

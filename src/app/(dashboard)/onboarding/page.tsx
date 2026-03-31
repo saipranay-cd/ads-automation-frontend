@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { apiFetch } from "@/lib/api-fetch"
 import { useSession, signIn } from "next-auth/react"
+import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle, Circle, ArrowRight, ArrowLeft, SkipForward,
@@ -26,8 +28,9 @@ type StepId = (typeof STEPS)[number]["id"]
 
 export default function OnboardingPage() {
   const { data: session, status: sessionStatus } = useSession()
+  const { isAuthenticated, isMetaAuth } = useAuth()
   const router = useRouter()
-  const isConnected = !!session?.metaAccessToken
+  const isConnected = isAuthenticated
   const { data: accountsData, isLoading: accountsLoading } = useAdAccounts()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const setSelectedAdAccountId = useAppStore((s) => s.setSelectedAdAccountId)
@@ -69,7 +72,7 @@ export default function OnboardingPage() {
       {/* Welcome header */}
       <div className="mb-6 text-center">
         <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Welcome to Adsflow{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+          Welcome to Adsflow
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Let's get your Meta ads dashboard set up. It takes about 2 minutes.
@@ -269,7 +272,7 @@ function StepCrm({
 }) {
   const connectZoho = async () => {
     if (!adAccountId) return
-    const res = await fetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
+    const res = await apiFetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
     const data = await res.json()
     if (data.url) {
       window.location.href = data.url

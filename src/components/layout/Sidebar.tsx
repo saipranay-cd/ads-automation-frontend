@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   BarChart3,
@@ -20,51 +21,78 @@ import {
   Target,
   Compass,
   GitCommitVertical,
+  FolderOpen,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePlatform } from "@/hooks/use-platform";
+import { useCanEdit } from "@/hooks/use-role";
+import { PlatformSwitcher } from "@/components/layout/PlatformSwitcher";
+import { OrgSwitcher } from "@/components/layout/OrgSwitcher";
 
-const navSections = [
-  {
-    label: "OVERVIEW",
-    items: [
-      { label: "Dashboard", href: "/", icon: LayoutDashboard },
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "MANAGE",
-    items: [
-      { label: "Campaigns", href: "/campaigns", icon: Megaphone },
-      { label: "Ad Sets", href: "/ad-sets", icon: Layers },
-      { label: "Ads", href: "/ads", icon: FileText },
-      { label: "Audiences", href: "/audiences", icon: Users },
-    ],
-  },
-  {
-    label: "INTELLIGENCE",
-    items: [
-      { label: "Insights", href: "/insights", icon: Sparkles },
-      { label: "Lead Quality", href: "/lead-quality", icon: Target },
-      { label: "Funnel", href: "/funnel", icon: GitCommitVertical },
-      { label: "Creatives", href: "/creatives", icon: FileText },
-      { label: "AI Chat", href: "/chat", icon: MessageCircle },
-      // { label: "Automation", href: "/automation", icon: Zap },
-      { label: "Create Ad", href: "/create", icon: PlusCircle },
-    ],
-  },
-  {
-    label: "SYSTEM",
-    items: [
-      { label: "Onboarding", href: "/onboarding", icon: Compass },
-      { label: "Settings", href: "/settings", icon: Settings },
-    ],
-  },
+const metaManageItems = [
+  { label: "Campaigns", href: "/campaigns", icon: Megaphone },
+  { label: "Ad Sets", href: "/ad-sets", icon: Layers },
+  { label: "Ads", href: "/ads", icon: FileText },
+  { label: "Audiences", href: "/audiences", icon: Users },
 ];
+
+const googleManageItems = [
+  { label: "Campaigns", href: "/google/campaigns", icon: Megaphone },
+  { label: "Ad Groups", href: "/google/ad-groups", icon: FolderOpen },
+  { label: "Ads", href: "/google/ads", icon: FileText },
+  { label: "Keywords", href: "/google/keywords", icon: KeyRound },
+];
+
+function getNavSections(platform: "meta" | "google") {
+  return [
+    {
+      label: "OVERVIEW",
+      items: [
+        { label: "Dashboard", href: "/", icon: LayoutDashboard },
+        { label: "Analytics", href: "/analytics", icon: BarChart3 },
+      ],
+    },
+    {
+      label: "MANAGE",
+      items: platform === "google" ? googleManageItems : metaManageItems,
+    },
+    {
+      label: "INTELLIGENCE",
+      items: platform === "google"
+        ? [
+            { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "Lead Quality", href: "/google/lead-quality", icon: Target },
+            { label: "Funnel", href: "/google/funnel", icon: GitCommitVertical },
+            { label: "AI Chat", href: "/chat", icon: MessageCircle },
+            { label: "Create Campaign", href: "/google/create", icon: PlusCircle },
+          ]
+        : [
+            { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "Lead Quality", href: "/lead-quality", icon: Target },
+            { label: "Funnel", href: "/funnel", icon: GitCommitVertical },
+            { label: "Creatives", href: "/creatives", icon: FileText },
+            { label: "AI Chat", href: "/chat", icon: MessageCircle },
+            { label: "Create Campaign", href: "/create", icon: PlusCircle },
+          ],
+    },
+    {
+      label: "SYSTEM",
+      items: [
+        { label: "Team", href: "/team", icon: Users },
+        { label: "Onboarding", href: "/onboarding", icon: Compass },
+        { label: "Settings", href: "/settings", icon: Settings },
+      ],
+    },
+  ];
+}
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const user = session?.user;
+  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth();
+  const { platform } = usePlatform();
+  const canEdit = useCanEdit();
+  const navSections = getNavSections(platform);
 
   return (
     <aside
@@ -108,9 +136,17 @@ export function Sidebar() {
             className="whitespace-nowrap font-mono text-[10px] leading-tight"
             style={{ color: "var(--text-tertiary)" }}
           >
-            Meta Ads Platform
+            Ads Platform
           </span>
         </div>
+      </div>
+
+      {/* Org Switcher */}
+      <OrgSwitcher />
+
+      {/* Platform Switcher */}
+      <div className="px-2.5 pb-2">
+        <PlatformSwitcher />
       </div>
 
       {/* Nav */}
@@ -123,7 +159,11 @@ export function Sidebar() {
             >
               {section.label}
             </span>
-            {section.items.map((item) => {
+            {section.items.filter((item) => {
+              // Hide "Create Campaign" for read-only users
+              if (!canEdit && (item.href === "/create" || item.href === "/google/create")) return false;
+              return true;
+            }).map((item) => {
               const isActive =
                 item.href === "/"
                   ? pathname === "/"
@@ -182,12 +222,12 @@ export function Sidebar() {
         className="flex items-center justify-between border-t px-4 py-3 sm:justify-center sm:px-2 lg:justify-between lg:px-4"
         style={{ borderColor: "var(--border-subtle)" }}
       >
-        {user ? (
+        {isAuthenticated && authUser ? (
           <>
             <div className="flex items-center gap-2.5">
-              {user.image ? (
+              {authUser.image ? (
                 <img
-                  src={user.image}
+                  src={authUser.image}
                   alt=""
                   className="h-7 w-7 shrink-0 rounded-full"
                 />
@@ -199,7 +239,7 @@ export function Sidebar() {
                     color: "var(--acc-text)",
                   }}
                 >
-                  {user.name?.[0]?.toUpperCase() || "U"}
+                  {authUser.name?.[0]?.toUpperCase() || "U"}
                 </div>
               )}
               <div className="hidden flex-col group-hover/sidebar:sm:flex lg:flex">
@@ -207,18 +247,26 @@ export function Sidebar() {
                   className="max-w-[100px] truncate text-xs font-medium"
                   style={{ color: "var(--text-primary)" }}
                 >
-                  {user.name || "User"}
+                  {authUser.name || "User"}
                 </span>
                 <span
                   className="text-[10px]"
                   style={{ color: "var(--text-tertiary)" }}
                 >
-                  Connected
+                  {isMetaAuth ? "Connected" : "Signed in"}
                 </span>
               </div>
             </div>
             <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => {
+                if (isMetaAuth) {
+                  signOut({ callbackUrl: "/login" });
+                } else {
+                  localStorage.removeItem("org-token");
+                  localStorage.removeItem("org-user");
+                  window.location.href = "/org-login";
+                }
+              }}
               className="hidden h-7 w-7 items-center justify-center rounded-md transition-colors group-hover/sidebar:sm:flex lg:flex"
               style={{ color: "var(--text-tertiary)" }}
               onMouseEnter={(e) =>
@@ -227,15 +275,15 @@ export function Sidebar() {
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "transparent")
               }
-              title="Disconnect"
-              aria-label="Disconnect account"
+              title="Sign out"
+              aria-label="Sign out"
             >
               <LogOut size={14} aria-hidden="true" />
             </button>
           </>
         ) : (
           <Link
-            href="/login"
+            href="/org-login"
             className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors sm:justify-center sm:px-0 lg:justify-start lg:px-1"
             style={{ color: "var(--acc-text)" }}
           >
@@ -249,7 +297,7 @@ export function Sidebar() {
               <LogIn size={13} />
             </div>
             <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
-              Connect Meta
+              Sign In
             </span>
           </Link>
         )}

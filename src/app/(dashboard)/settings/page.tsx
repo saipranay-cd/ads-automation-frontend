@@ -1,15 +1,23 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { apiFetch } from "@/lib/api-fetch"
 import { useSession, signOut } from "next-auth/react"
+import { useAuth } from "@/hooks/use-auth"
+import { useSearchParams } from "next/navigation"
 import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X } from "lucide-react"
 import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
 import type { AiModelOption } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { usePlatform } from "@/hooks/use-platform"
+import type { Platform } from "@/hooks/use-platform"
+import { useGoogleAuthStatus } from "@/hooks/use-google"
 import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useZohoFields, useUpdateFieldMap } from "@/hooks/use-crm"
+import { useIsAdmin } from "@/hooks/use-role"
 
 export default function SettingsPage() {
   const { data: session } = useSession()
+  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth()
   const { data: accountsData } = useAdAccounts()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const accounts = accountsData?.data || []
@@ -31,8 +39,8 @@ export default function SettingsPage() {
           Account
         </h2>
         <div className="space-y-3">
-          <Row label="Email" value={session?.user?.email || "—"} />
-          <Row label="Name" value={session?.user?.name || "—"} />
+          <Row label="Email" value={authUser?.email || session?.user?.email || "—"} />
+          <Row label="Name" value={authUser?.name || session?.user?.name || "—"} />
           <div className="flex items-center justify-between">
             <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Meta Connection
@@ -40,15 +48,18 @@ export default function SettingsPage() {
             <span
               className="rounded-full px-2 py-0.5 text-[11px] font-medium"
               style={{
-                background: session?.metaAccessToken ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
-                color: session?.metaAccessToken ? "#4ade80" : "#f87171",
+                background: isMetaAuth ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
+                color: isMetaAuth ? "#4ade80" : "#f87171",
               }}
             >
-              {session?.metaAccessToken ? "Connected" : "Not connected"}
+              {isMetaAuth ? "Connected" : "Not connected"}
             </span>
           </div>
         </div>
       </div>
+
+      {/* Google Ads */}
+      <GoogleAdsConnection />
 
       {/* Ad Account */}
       {selectedAccount && (
@@ -167,9 +178,11 @@ export default function SettingsPage() {
 // ── Model Switcher ──────────────────────────────────────────
 
 function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
-  const { data, isLoading } = useSkillPrompt(adAccountId)
+  const { platform } = usePlatform()
+  const { data, isLoading } = useSkillPrompt(adAccountId, platform)
   const updateMutation = useUpdateSkillPrompt()
   const [saved, setSaved] = useState(false)
+  const isAdmin = useIsAdmin()
 
   const currentModel = data?.aiModel || "gpt-4.1-mini"
   const models: AiModelOption[] = data?.availableModels || []
@@ -177,7 +190,7 @@ function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
   const handleSelect = (modelId: string) => {
     if (modelId === currentModel) return
     updateMutation.mutate(
-      { adAccountId, aiModel: modelId },
+      { adAccountId, aiModel: modelId, platform },
       {
         onSuccess: () => {
           setSaved(true)
@@ -230,12 +243,13 @@ function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
               <button
                 key={m.id}
                 onClick={() => handleSelect(m.id)}
-                disabled={updateMutation.isPending}
+                disabled={updateMutation.isPending || !isAdmin}
                 className="rounded-lg px-3.5 py-3 text-left transition-all"
                 style={{
                   background: active ? "var(--acc-subtle, rgba(139, 92, 246, 0.08))" : "var(--bg-muted)",
                   border: active ? "1.5px solid var(--acc)" : "1.5px solid transparent",
-                  opacity: updateMutation.isPending ? 0.6 : 1,
+                  opacity: updateMutation.isPending || !isAdmin ? 0.6 : 1,
+                  cursor: !isAdmin ? "not-allowed" : undefined,
                 }}
               >
                 <div className="flex items-center justify-between">
@@ -264,27 +278,55 @@ function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
   )
 }
 
+// ── Agent lists per platform ────────────────────────────────
+
+const META_AGENTS = [
+  "budget-sentinel",
+  "audience-architect",
+  "creative-fatigue",
+  "bid-optimizer",
+  "lead-quality",
+  "performance-prophet",
+]
+
+const GOOGLE_AGENTS = [
+  "keyword-optimizer",
+  "quality-score-improver",
+  "bid-strategist",
+  "negative-keyword-finder",
+  "ad-copy-tester",
+]
+
 // ── Skill Prompt Editor ─────────────────────────────────────
 
 function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
-  const { data, isLoading } = useSkillPrompt(adAccountId)
+  const { platform: activePlatform } = usePlatform()
+  const [promptPlatform, setPromptPlatform] = useState<Platform>(activePlatform)
+  const { data, isLoading } = useSkillPrompt(adAccountId, promptPlatform)
   const updateMutation = useUpdateSkillPrompt()
   const [localPrompt, setLocalPrompt] = useState("")
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
+  const isAdmin = useIsAdmin()
 
-  // Sync from server
+  // Sync from server when data or platform changes
   useEffect(() => {
     if (data?.prompt) {
       setLocalPrompt(data.prompt)
     }
   }, [data?.prompt])
 
+  // Reset saved indicator when switching platforms
+  useEffect(() => {
+    setSaved(false)
+  }, [promptPlatform])
+
   const hasChanges = localPrompt !== (data?.prompt || "")
+  const agents = promptPlatform === "google" ? GOOGLE_AGENTS : META_AGENTS
 
   const handleSave = () => {
     updateMutation.mutate(
-      { adAccountId, prompt: localPrompt },
+      { adAccountId, prompt: localPrompt, platform: promptPlatform },
       {
         onSuccess: () => {
           setSaved(true)
@@ -336,19 +378,41 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
           }}
         >
           {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {expanded ? "Collapse" : "View & Edit"}
+          {expanded ? "Collapse" : isAdmin ? "View & Edit" : "View"}
         </button>
       </div>
 
       {expanded && (
         <div className="mt-4">
+          {/* Platform tabs */}
+          <div className="mb-3 flex gap-1 rounded-md p-0.5" style={{ background: "var(--bg-muted)" }}>
+            {(["meta", "google"] as const).map((p) => {
+              const active = promptPlatform === p
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPromptPlatform(p)}
+                  className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{
+                    background: active ? "var(--bg-base)" : "transparent",
+                    color: active ? "var(--text-primary)" : "var(--text-tertiary)",
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  {p === "meta" ? "Meta Ads Prompt" : "Google Ads Prompt"}
+                </button>
+              )
+            })}
+          </div>
+
           {isLoading ? (
             <div className="h-40 animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} />
           ) : (
             <>
               <textarea
                 value={localPrompt}
-                onChange={(e) => setLocalPrompt(e.target.value)}
+                onChange={(e) => isAdmin && setLocalPrompt(e.target.value)}
+                readOnly={!isAdmin}
                 className="w-full rounded-md p-3 font-mono text-xs leading-relaxed outline-none"
                 style={{
                   background: "var(--bg-muted)",
@@ -356,9 +420,36 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
                   color: "var(--text-primary)",
                   minHeight: "300px",
                   resize: "vertical",
+                  opacity: !isAdmin ? 0.7 : 1,
+                  cursor: !isAdmin ? "not-allowed" : undefined,
                 }}
                 spellCheck={false}
               />
+              {!isAdmin && (
+                <p className="mt-1 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                  Only admins can edit the AI skill prompt
+                </p>
+              )}
+
+              {/* Agent badges */}
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "var(--text-tertiary)", lineHeight: "22px" }}>
+                  Agents:
+                </span>
+                {agents.map((agent) => (
+                  <span
+                    key={agent}
+                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      background: promptPlatform === "google" ? "rgba(96, 165, 250, 0.1)" : "rgba(192, 132, 252, 0.1)",
+                      color: promptPlatform === "google" ? "#60a5fa" : "#c084fc",
+                    }}
+                  >
+                    {agent}
+                  </span>
+                ))}
+              </div>
+
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                   {localPrompt.length.toLocaleString()} characters
@@ -380,15 +471,15 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
                   )}
                   <button
                     onClick={handleSave}
-                    disabled={!hasChanges || updateMutation.isPending}
+                    disabled={!hasChanges || updateMutation.isPending || !isAdmin}
                     className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-all"
                     style={{
                       background: saved ? "#4ade80" : "var(--acc)",
-                      opacity: !hasChanges || updateMutation.isPending ? 0.5 : 1,
+                      opacity: !hasChanges || updateMutation.isPending || !isAdmin ? 0.5 : 1,
                     }}
                   >
                     {saved ? <Check size={12} /> : <Save size={12} />}
-                    {saved ? "Saved" : updateMutation.isPending ? "Saving…" : "Save Changes"}
+                    {saved ? "Saved" : updateMutation.isPending ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </div>
@@ -414,7 +505,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
 
   const handleConnect = async () => {
     try {
-      const res = await fetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
       const data = await res.json()
       if (data.authUrl) {
         window.location.href = data.authUrl
@@ -427,7 +518,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
   const handleDisconnect = async () => {
     if (!connection) return
     try {
-      await fetch(`/api/crm/connections?id=${connection.id}`, { method: "DELETE" })
+      await apiFetch(`/api/crm/connections?id=${connection.id}`, { method: "DELETE" })
       refetch()
     } catch {
       // Handle error
@@ -1084,6 +1175,180 @@ function QualityMappingEditor({ connectionId }: { connectionId: string }) {
             {saved ? <Check size={12} /> : <Save size={12} />}
             {saved ? "Saved" : updateMutation.isPending ? "Saving..." : "Save Mappings"}
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Google Ads Connection ────────────────────────────────────
+
+function GoogleAdsConnection() {
+  const { data: authStatus, isLoading, refetch } = useGoogleAuthStatus()
+  const searchParams = useSearchParams()
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  const connected = authStatus?.connected ?? false
+
+  // Show toast based on URL params
+  useEffect(() => {
+    const googleParam = searchParams.get("google")
+    if (googleParam === "connected") {
+      setToast({ type: "success", message: "Google Ads connected successfully" })
+      refetch()
+    } else if (googleParam === "conflict") {
+      const orgName = searchParams.get("orgName") || "another workspace"
+      setToast({ type: "error", message: `This Google Ads account is already managed by "${orgName}". Ask the admin to invite you instead.` })
+    } else if (googleParam === "not_configured") {
+      setToast({ type: "error", message: "Google Ads not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file." })
+    } else if (googleParam === "error") {
+      setToast({ type: "error", message: "Failed to connect Google Ads. Please try again." })
+    }
+
+    if (googleParam) {
+      // Clean up URL params
+      const url = new URL(window.location.href)
+      url.searchParams.delete("google")
+      url.searchParams.delete("orgName")
+      window.history.replaceState({}, "", url.toString())
+
+      // Auto-dismiss toast
+      const timer = setTimeout(() => setToast(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, refetch])
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true)
+    try {
+      const res = await apiFetch("/api/google/auth/disconnect", { method: "POST" })
+      if (res.ok) {
+        setToast({ type: "success", message: "Google Ads disconnected" })
+        refetch()
+      } else {
+        setToast({ type: "error", message: "Failed to disconnect Google Ads" })
+      }
+    } catch {
+      setToast({ type: "error", message: "Failed to disconnect Google Ads" })
+    } finally {
+      setDisconnecting(false)
+      setTimeout(() => setToast(null), 4000)
+    }
+  }
+
+  const sectionStyle = {
+    background: "var(--bg-base)" as const,
+    border: "1px solid var(--border-default)" as const,
+  }
+
+  return (
+    <div className="rounded-lg p-5" style={sectionStyle}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "rgba(66, 133, 244, 0.12)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1Z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84Z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#EA4335" />
+            </svg>
+          </div>
+          <div>
+            <h2
+              className="text-[10px] font-medium uppercase tracking-[0.06em]"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Google Ads
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Connect your Google Ads account for cross-platform management
+            </p>
+          </div>
+        </div>
+        {connected && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+            style={{ background: "rgba(74, 222, 128, 0.1)", color: "#4ade80" }}
+          >
+            Connected
+          </span>
+        )}
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className="mt-3 flex items-center justify-between rounded-md px-3 py-2 text-xs"
+          style={{
+            background: toast.type === "success" ? "rgba(74, 222, 128, 0.08)" : "rgba(248, 113, 113, 0.08)",
+            color: toast.type === "success" ? "#4ade80" : "#f87171",
+          }}
+        >
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="mt-4 h-12 animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} />
+      ) : connected ? (
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full" style={{ background: "rgb(34,197,94)" }} />
+            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Google Ads account linked
+              {authStatus?.email && (
+                <span className="ml-1.5 font-mono text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                  ({authStatus.email})
+                </span>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+            style={{
+              border: "1px solid rgba(248, 113, 113, 0.3)",
+              color: "#f87171",
+              opacity: disconnecting ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248, 113, 113, 0.08)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
+          >
+            {disconnecting ? <Loader2 size={12} className="animate-spin" /> : <Unlink size={12} />}
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4">
+          <a
+            href="/api/google/auth"
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-white transition-all"
+            style={{
+              background: "#4285F4",
+              boxShadow: "0 1px 3px rgba(66, 133, 244, 0.3)",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#3367D6" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#4285F4" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1Z" fill="#fff" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23Z" fill="#fff" opacity="0.8" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84Z" fill="#fff" opacity="0.6" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53Z" fill="#fff" opacity="0.9" />
+            </svg>
+            Connect Google Ads
+          </a>
+          <p className="mt-2 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+            You&apos;ll be redirected to Google to authorize access to your Ads account.
+          </p>
         </div>
       )}
     </div>

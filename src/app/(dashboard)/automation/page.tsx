@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Plus, Zap, Trash2, ToggleLeft, ToggleRight, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
 import { EmptyState } from "@/components/ui/empty-state"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
@@ -42,7 +43,7 @@ function useAlertRules(adAccountId: string | null) {
   return useQuery<{ data: AlertRule[] }>({
     queryKey: ["alert-rules", adAccountId],
     queryFn: async () => {
-      const res = await fetch(`/api/meta/alert-rules?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/alert-rules?adAccountId=${adAccountId}`)
       return res.json()
     },
     enabled: !!adAccountId,
@@ -53,7 +54,7 @@ function useRuleExecutions(ruleId: string | null) {
   return useQuery<{ data: RuleExecution[] }>({
     queryKey: ["rule-executions", ruleId],
     queryFn: async () => {
-      const res = await fetch(`/api/meta/alert-rules/${ruleId}/executions`)
+      const res = await apiFetch(`/api/meta/alert-rules/${ruleId}/executions`)
       return res.json()
     },
     enabled: !!ruleId,
@@ -96,7 +97,7 @@ export default function AutomationPage() {
 
   const toggleRule = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      await fetch(`/api/meta/alert-rules/${id}`, {
+      await apiFetch(`/api/meta/alert-rules/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive }),
@@ -107,7 +108,7 @@ export default function AutomationPage() {
 
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/meta/alert-rules/${id}`, { method: "DELETE" })
+      await apiFetch(`/api/meta/alert-rules/${id}`, { method: "DELETE" })
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
   })
@@ -240,7 +241,7 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
       if (actionType === "reduce_budget" || actionType === "increase_budget") {
         body.actionParams = { budget_change_pct: actionType === "reduce_budget" ? -parseInt(budgetPct) : parseInt(budgetPct) }
       }
-      const res = await fetch("/api/meta/alert-rules", {
+      const res = await apiFetch("/api/meta/alert-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

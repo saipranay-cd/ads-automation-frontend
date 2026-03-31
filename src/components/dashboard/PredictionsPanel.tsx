@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
 import { TrendingUp, TrendingDown, Clock, AlertCircle, AlertTriangle, Info, Users } from "lucide-react"
 
@@ -35,7 +36,7 @@ export function PredictionsPanel() {
   const { data, isLoading } = useQuery<{ data: Prediction[] }>({
     queryKey: ["predictions", adAccountId],
     queryFn: async () => {
-      const res = await fetch(`/api/meta/predictions?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/predictions?adAccountId=${adAccountId}`)
       return res.json()
     },
     enabled: !!adAccountId,

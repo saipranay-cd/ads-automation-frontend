@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Bell, AlertTriangle, Info, AlertCircle, Check } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 
 interface Notification {
   id: string
@@ -41,7 +42,7 @@ export function NotificationCenter() {
   const { data } = useQuery<{ data: Notification[] }>({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const res = await fetch("/api/meta/notifications?limit=30")
+      const res = await apiFetch("/api/meta/notifications?limit=30")
       return res.json()
     },
     refetchInterval: 60_000, // Poll every minute
@@ -49,7 +50,7 @@ export function NotificationCenter() {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      await fetch("/api/meta/notifications", { method: "PUT" })
+      await apiFetch("/api/meta/notifications", { method: "PUT" })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] })

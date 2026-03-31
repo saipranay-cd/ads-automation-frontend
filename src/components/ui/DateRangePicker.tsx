@@ -5,12 +5,43 @@ import { Calendar, ChevronDown } from "lucide-react"
 import type { DateRange } from "@/hooks/use-campaigns"
 
 const PRESETS = [
-  { label: "7d", days: 7 },
-  { label: "14d", days: 14 },
-  { label: "30d", days: 30 },
-  { label: "60d", days: 60 },
-  { label: "90d", days: 90 },
+  { label: "Today", days: 0 },
+  { label: "Yesterday", days: 1 },
+  { label: "Last 7d", days: 7 },
+  { label: "Last 14d", days: 14 },
+  { label: "Last 30d", days: 30 },
+  { label: "Last 90d", days: 90 },
 ] as const
+
+/**
+ * Date preset logic matching Google Ads / Zoho:
+ * - "Today" = today only
+ * - "Yesterday" = yesterday only
+ * - "Last 7d" = 7 days ago through yesterday (excludes today's partial data)
+ * - "Last 30d" = 30 days ago through yesterday
+ */
+export function presetRange(days: number): { since: string; until: string } {
+  const now = new Date()
+  if (days === 0) {
+    const t = now.toISOString().split("T")[0]
+    return { since: t, until: t }
+  }
+  if (days === 1) {
+    const y = new Date(now)
+    y.setDate(y.getDate() - 1)
+    const yStr = y.toISOString().split("T")[0]
+    return { since: yStr, until: yStr }
+  }
+  // "Last N days" = N days ago through yesterday
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const from = new Date(now)
+  from.setDate(from.getDate() - days)
+  return {
+    since: from.toISOString().split("T")[0],
+    until: yesterday.toISOString().split("T")[0],
+  }
+}
 
 function daysAgo(n: number): string {
   const d = new Date()
@@ -30,6 +61,8 @@ function formatLabel(days: number | null, dateRange: DateRange | undefined): str
     }
     return `${fmt(dateRange.since)} – ${fmt(dateRange.until)}`
   }
+  if (days === 0) return "Today"
+  if (days === 1) return "Yesterday"
   if (days) return `Last ${days} days`
   return "Last 30 days"
 }

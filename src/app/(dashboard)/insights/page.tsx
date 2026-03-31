@@ -9,8 +9,12 @@ import {
   TrendingDown, Lightbulb, Search, Wrench, ArrowUpRight, Download,
 } from "lucide-react"
 import { useAppStore } from "@/lib/store"
+import { usePlatform } from "@/hooks/use-platform"
 import { useProposals, useProposalStats, useScanProposals, useUpdateProposal, useImpactStats, useMeasureProposals } from "@/hooks/use-campaigns"
 import type { AiProposal, ExecutionResult, ProposalAction, EntityMetrics, ImpactStats } from "@/hooks/use-campaigns"
+import { useGoogleProposals, useGoogleProposalStats, useScanGoogleProposals } from "@/hooks/use-google"
+import { EmptyState } from "@/components/ui/empty-state"
+import { useCanEdit } from "@/hooks/use-role"
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -27,14 +31,27 @@ interface AgentConfig {
 
 // ── Agents ─────────────────────────────────────────────────
 
-const agents: AgentConfig[] = [
-  { id: "budget-sentinel", name: "Budget Sentinel", shortName: "Budget", icon: IndianRupee, color: "#34d399" },
-  { id: "audience-architect", name: "Audience Architect", shortName: "Audience", icon: Users, color: "#60a5fa" },
-  { id: "creative-fatigue", name: "Creative Fatigue", shortName: "Creative", icon: Eye, color: "#f472b6" },
-  { id: "bid-optimizer", name: "Bid Optimizer", shortName: "Bids", icon: TrendingUp, color: "#fbbf24" },
-  { id: "lead-quality", name: "Lead Quality", shortName: "Leads", icon: Target, color: "#a78bfa" },
-  { id: "performance-prophet", name: "Perf. Prophet", shortName: "Perf.", icon: BarChart3, color: "#fb923c" },
+// Meta agents
+const metaAgents: AgentConfig[] = [
+  { id: "budget-sentinel" as AgentId, name: "Budget Sentinel", shortName: "Budget", icon: IndianRupee, color: "#34d399" },
+  { id: "audience-architect" as AgentId, name: "Audience Architect", shortName: "Audience", icon: Users, color: "#60a5fa" },
+  { id: "creative-fatigue" as AgentId, name: "Creative Fatigue", shortName: "Creative", icon: Eye, color: "#f472b6" },
+  { id: "bid-optimizer" as AgentId, name: "Bid Optimizer", shortName: "Bids", icon: TrendingUp, color: "#fbbf24" },
+  { id: "lead-quality" as AgentId, name: "Lead Quality", shortName: "Leads", icon: Target, color: "#a78bfa" },
+  { id: "performance-prophet" as AgentId, name: "Perf. Prophet", shortName: "Perf.", icon: BarChart3, color: "#fb923c" },
 ]
+
+// Google agents
+const googleAgents: AgentConfig[] = [
+  { id: "keyword-optimizer" as AgentId, name: "Keyword Optimizer", shortName: "Keywords", icon: Search, color: "#34d399" },
+  { id: "quality-score-improver" as AgentId, name: "Quality Score", shortName: "QS", icon: Target, color: "#60a5fa" },
+  { id: "bid-strategist" as AgentId, name: "Bid Strategist", shortName: "Bids", icon: TrendingUp, color: "#fbbf24" },
+  { id: "negative-keyword-finder" as AgentId, name: "Neg. Keywords", shortName: "Negatives", icon: XCircle, color: "#f472b6" },
+  { id: "ad-copy-tester" as AgentId, name: "Ad Copy Tester", shortName: "Copy", icon: Eye, color: "#a78bfa" },
+  { id: "budget-rebalancer" as AgentId, name: "Budget Rebalancer", shortName: "Budget", icon: IndianRupee, color: "#fb923c" },
+]
+
+const agents = [...metaAgents, ...googleAgents]
 
 const agentMap: Record<string, AgentConfig> = Object.fromEntries(agents.map((a) => [a.id, a]))
 
@@ -95,19 +112,40 @@ function proxyUrl(url: string): string {
 // ── Page ───────────────────────────────────────────────────
 
 export default function InsightsPage() {
+  const { platform } = usePlatform()
   const adAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const { data: proposalsData, isLoading: proposalsLoading } = useProposals(adAccountId)
-  const { data: stats, isLoading: statsLoading } = useProposalStats(adAccountId)
-  const { data: impactData } = useImpactStats(adAccountId)
-  const scanMutation = useScanProposals()
+  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
+  const accountId = platform === "google" ? selectedGoogleAccountId : adAccountId
+  const isGoogle = platform === "google"
+
+  // Meta hooks
+  const { data: metaProposalsData, isLoading: metaProposalsLoading } = useProposals(isGoogle ? null : accountId)
+  const { data: metaStats, isLoading: metaStatsLoading } = useProposalStats(isGoogle ? null : accountId)
+  const metaScanMutation = useScanProposals()
+
+  // Google hooks
+  const { data: googleProposalsData, isLoading: googleProposalsLoading } = useGoogleProposals(isGoogle ? accountId : null)
+  const { data: googleStats, isLoading: googleStatsLoading } = useGoogleProposalStats(isGoogle ? accountId : null)
+  const googleScanMutation = useScanGoogleProposals()
+
+  // Unified: pick the right data source based on platform
+  const proposalsData = isGoogle ? googleProposalsData : metaProposalsData
+  const proposalsLoading = isGoogle ? googleProposalsLoading : metaProposalsLoading
+  const stats = isGoogle ? googleStats : metaStats
+  const statsLoading = isGoogle ? googleStatsLoading : metaStatsLoading
+  const scanMutation = isGoogle ? googleScanMutation : metaScanMutation
+
+  const { data: impactData } = useImpactStats(isGoogle ? null : accountId)
   const updateMutation = useUpdateProposal()
   const measureMutation = useMeasureProposals()
+  const canEdit = useCanEdit()
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all")
   const [executingId, setExecutingId] = useState<string | null>(null)
   const [lastExecution, setLastExecution] = useState<{ id: string; result: ExecutionResult } | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAgents, setShowAgents] = useState(false)
+  const [scanBackground, setScanBackground] = useState(false)
 
   const impact = impactData?.data
 
@@ -130,7 +168,22 @@ export default function InsightsPage() {
     return proposals.filter((p) => p.status === activeFilter)
   }, [proposals, activeFilter])
 
-  const handleScan = (t: "quick" | "daily") => { if (adAccountId) scanMutation.mutate({ adAccountId, scanType: t }) }
+  const handleScan = (t: "quick" | "daily") => {
+    if (!accountId) return
+    setScanBackground(false)
+    scanMutation.mutate(
+      { adAccountId: accountId, scanType: t },
+      {
+        onSuccess: (data: any) => {
+          if (data?.isBackground) {
+            setScanBackground(true)
+            // Auto-dismiss after 3 minutes
+            setTimeout(() => setScanBackground(false), 180_000)
+          }
+        },
+      }
+    )
+  }
 
   const handleApprove = (id: string) => {
     setExecutingId(id); setLastExecution(null)
@@ -274,6 +327,8 @@ ${items.map((p, i) => {
     })
   }
 
+  // Google Ads AI Insights now supported — no early return
+
   if (proposalsLoading || statsLoading) {
     return (
       <div className="flex flex-col gap-4">
@@ -290,7 +345,10 @@ ${items.map((p, i) => {
       {/* ── Header ──────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>AI Insights</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>AI Insights</h1>
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "rgba(24,119,242,0.10)", color: "#1877f2" }}>Meta Ads</span>
+          </div>
           <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
             {stats?.lastScan ? `Last scan ${timeAgo(stats.lastScan)}` : "Run a scan to analyze your ads"}
           </p>
@@ -333,26 +391,75 @@ ${items.map((p, i) => {
               </div>
             </div>
           )}
-          <button
-            onClick={() => handleScan("quick")}
-            disabled={scanMutation.isPending}
-            className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all"
-            style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)", color: "var(--text-primary)", opacity: scanMutation.isPending ? 0.6 : 1 }}
-          >
-            {scanMutation.isPending ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />}
-            {scanMutation.isPending ? "Scanning…" : "Quick Scan"}
-          </button>
-          <button
-            onClick={() => handleScan("daily")}
-            disabled={scanMutation.isPending}
-            className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium text-white transition-all"
-            style={{ background: "var(--acc)", opacity: scanMutation.isPending ? 0.6 : 1 }}
-          >
-            <Play size={12} fill="white" />
-            Full Review
-          </button>
+          {canEdit ? (
+            <>
+              <button
+                onClick={() => handleScan("quick")}
+                disabled={scanMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all"
+                style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)", color: "var(--text-primary)", opacity: scanMutation.isPending ? 0.6 : 1 }}
+              >
+                {scanMutation.isPending ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />}
+                {scanMutation.isPending ? "Scanning…" : "Quick Scan"}
+              </button>
+              <button
+                onClick={() => handleScan("daily")}
+                disabled={scanMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium text-white transition-all"
+                style={{ background: "var(--acc)", opacity: scanMutation.isPending ? 0.6 : 1 }}
+              >
+                <Play size={12} fill="white" />
+                Full Review
+              </button>
+            </>
+          ) : (
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] font-medium"
+              style={{ background: "var(--bg-muted)", color: "var(--text-tertiary)" }}
+            >
+              View only
+            </span>
+          )}
         </div>
       </div>
+
+      {/* ── Background scan banner ─────────────────── */}
+      {scanBackground && (
+        <div
+          className="flex items-center gap-3 rounded-lg px-4 py-3"
+          style={{ background: "rgba(96, 165, 250, 0.08)", border: "1px solid rgba(96, 165, 250, 0.2)" }}
+        >
+          <RefreshCw size={14} className="animate-spin shrink-0" style={{ color: "#60a5fa" }} />
+          <div className="flex-1">
+            <span className="text-[12px] font-medium" style={{ color: "#60a5fa" }}>
+              AI scan is running in the background
+            </span>
+            <span className="text-[11px] ml-2" style={{ color: "rgba(96, 165, 250, 0.7)" }}>
+              This can take 1-2 minutes. New proposals will appear automatically when ready.
+            </span>
+          </div>
+          <button
+            onClick={() => setScanBackground(false)}
+            className="text-[10px] font-medium rounded px-2 py-1 transition-colors"
+            style={{ color: "#60a5fa" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Scan error banner */}
+      {scanMutation.isError && !scanBackground && (
+        <div
+          className="flex items-center gap-3 rounded-lg px-4 py-3"
+          style={{ background: "var(--red-bg)", border: "1px solid rgba(248, 113, 113, 0.2)" }}
+        >
+          <AlertTriangle size={14} style={{ color: "var(--red-text)" }} />
+          <span className="text-[12px] font-medium" style={{ color: "var(--red-text)" }}>
+            {scanMutation.error?.message || "Scan failed. Try again."}
+          </span>
+        </div>
+      )}
 
       {/* ── Impact summary ───────────────────────────── */}
       {impact && impact.executed > 0 && (
@@ -472,6 +579,7 @@ ${items.map((p, i) => {
               onReject={() => handleReject(p.id)}
               onRetry={() => handleRetry(p.id)}
               onUndo={() => handleUndo(p.id)}
+              canEdit={canEdit}
             />
           ))}
         </div>
@@ -513,7 +621,7 @@ ${items.map((p, i) => {
               </div>
             </>
           )}
-          {!proposals.length && (
+          {!proposals.length && canEdit && (
             <button
               onClick={() => handleScan("quick")}
               disabled={scanMutation.isPending}
@@ -548,11 +656,12 @@ function StatPill({ label, value, color }: { label: string; value: number | stri
 // ── Proposal card ──────────────────────────────────────────
 
 function ProposalCard({
-  proposal: p, expanded, onToggle, isExecuting, lastExecution, onApprove, onReject, onRetry, onUndo,
+  proposal: p, expanded, onToggle, isExecuting, lastExecution, onApprove, onReject, onRetry, onUndo, canEdit = true,
 }: {
   proposal: AiProposal; expanded: boolean; onToggle: () => void
   isExecuting: boolean; lastExecution: ExecutionResult | null
   onApprove: () => void; onReject: () => void; onRetry: () => void; onUndo?: () => void
+  canEdit?: boolean
 }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const agent = agentMap[p.agentId] || agents[0]
@@ -779,45 +888,53 @@ function ProposalCard({
 
           {/* Buttons */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {p.status === "pending" && !showConfirm && (
+            {canEdit ? (
               <>
-                <button
-                  onClick={onReject} disabled={isExecuting}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all hover:bg-[rgba(255,255,255,0.04)]"
-                  style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)" }}
-                >
-                  <ThumbsDown size={11} />
-                  Reject
-                </button>
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white transition-all"
-                  style={{ background: "var(--acc)" }}
-                >
-                  <ThumbsUp size={11} />
-                  Approve & Execute
-                </button>
+                {p.status === "pending" && !showConfirm && (
+                  <>
+                    <button
+                      onClick={onReject} disabled={isExecuting}
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all hover:bg-[rgba(255,255,255,0.04)]"
+                      style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)" }}
+                    >
+                      <ThumbsDown size={11} />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => setShowConfirm(true)}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white transition-all"
+                      style={{ background: "var(--acc)" }}
+                    >
+                      <ThumbsUp size={11} />
+                      Approve & Execute
+                    </button>
+                  </>
+                )}
+                {p.status === "failed" && (
+                  <button
+                    onClick={onRetry} disabled={isExecuting}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all"
+                    style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)", opacity: isExecuting ? 0.6 : 1 }}
+                  >
+                    {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                    {isExecuting ? "Retrying…" : "Retry"}
+                  </button>
+                )}
+                {p.status === "executed" && onUndo && (
+                  <button
+                    onClick={onUndo} disabled={isExecuting}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all"
+                    style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)", opacity: isExecuting ? 0.6 : 1 }}
+                  >
+                    {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <ArrowRight size={11} style={{ transform: "rotate(180deg)" }} />}
+                    Undo
+                  </button>
+                )}
               </>
-            )}
-            {p.status === "failed" && (
-              <button
-                onClick={onRetry} disabled={isExecuting}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all"
-                style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)", opacity: isExecuting ? 0.6 : 1 }}
-              >
-                {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                {isExecuting ? "Retrying…" : "Retry"}
-              </button>
-            )}
-            {p.status === "executed" && onUndo && (
-              <button
-                onClick={onUndo} disabled={isExecuting}
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all"
-                style={{ color: "var(--text-tertiary)", border: "1px solid var(--border-default)", opacity: isExecuting ? 0.6 : 1 }}
-              >
-                {isExecuting ? <RefreshCw size={11} className="animate-spin" /> : <ArrowRight size={11} style={{ transform: "rotate(180deg)" }} />}
-                Undo
-              </button>
+            ) : (
+              p.status === "pending" && (
+                <span className="text-[10px] font-medium" style={{ color: "var(--text-tertiary)" }}>View only</span>
+              )
             )}
             {p.status === "undone" && (
               <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium" style={{ background: "rgba(251,191,36,0.10)", color: "#fbbf24" }}>

@@ -23,10 +23,11 @@ import {
 } from "lucide-react"
 import { useAiChat, type ChatMessage } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { usePlatform } from "@/hooks/use-platform"
 
 // ── Suggested prompts with icons + categories ──────────
 
-const SUGGESTED_PROMPTS = [
+const META_PROMPTS = [
   {
     icon: Activity,
     label: "Account health",
@@ -61,6 +62,45 @@ const SUGGESTED_PROMPTS = [
     icon: Megaphone,
     label: "City breakdown",
     prompt: "Which cities are giving me the best results? Break down performance by region.",
+    color: "rgb(168,85,247)",
+  },
+]
+
+const GOOGLE_PROMPTS = [
+  {
+    icon: DollarSign,
+    label: "Highest CPC",
+    prompt: "Which Google campaigns have the highest CPC?",
+    color: "rgb(234,179,8)",
+  },
+  {
+    icon: Target,
+    label: "Quality score",
+    prompt: "What keywords have the lowest quality score?",
+    color: "rgb(59,130,246)",
+  },
+  {
+    icon: PauseCircle,
+    label: "Pause ad groups",
+    prompt: "Which ad groups should I pause?",
+    color: "rgb(239,68,68)",
+  },
+  {
+    icon: Activity,
+    label: "Account health",
+    prompt: "Give me a full summary of my Google Ads account health.",
+    color: "rgb(34,197,94)",
+  },
+  {
+    icon: TrendingUp,
+    label: "Top performers",
+    prompt: "Which Google campaigns are performing best? Show me the data.",
+    color: "var(--acc)",
+  },
+  {
+    icon: BarChart3,
+    label: "Conversion tracking",
+    prompt: "How are my conversion actions performing across campaigns?",
     color: "rgb(168,85,247)",
   },
 ]
@@ -296,8 +336,12 @@ function TypingDots() {
 // ── Chat page component ────────────────────────────────
 
 export default function ChatPage() {
+  const { platform } = usePlatform()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
+  const accountId = platform === "google" ? selectedGoogleAccountId : selectedAdAccountId
   const chatMutation = useAiChat()
+  const SUGGESTED_PROMPTS = platform === "google" ? GOOGLE_PROMPTS : META_PROMPTS
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
@@ -337,7 +381,7 @@ export default function ChatPage() {
 
   async function sendMessage(text?: string) {
     const msg = text || input.trim()
-    if (!msg || !selectedAdAccountId) return
+    if (!msg || !accountId) return
 
     const userMsg: ChatMessage = { role: "user", content: msg }
     const newMessages = [...messages, userMsg]
@@ -352,7 +396,8 @@ export default function ChatPage() {
         message: msg,
         contextAreas: ["campaigns", "adsets", "audiences", "analytics", "proposals"],
         history: messages,
-        adAccountId: selectedAdAccountId,
+        adAccountId: accountId,
+        platform,
       })
       setMessages([...newMessages, { role: "assistant", content: result.reply }])
     } catch (err: any) {
@@ -403,10 +448,12 @@ export default function ChatPage() {
                 <Zap size={26} color="white" />
               </div>
               <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                Adsflow AI
+                AI Chat — {platform === "google" ? "Google Ads" : "Meta Ads"}
               </h2>
               <p className="max-w-md text-center text-xs leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
-                I can analyze your campaigns, compare audiences, find budget leaks, and give you actionable recommendations — all from live Meta data.
+                {platform === "google"
+                  ? "I can analyze your Google campaigns, keywords, quality scores, and give you actionable recommendations — all from live Google Ads data."
+                  : "I can analyze your campaigns, compare audiences, find budget leaks, and give you actionable recommendations — all from live Meta data."}
               </p>
             </div>
 
@@ -444,7 +491,7 @@ export default function ChatPage() {
                   <button
                     key={item.label}
                     onClick={() => sendMessage(item.prompt)}
-                    disabled={!selectedAdAccountId}
+                    disabled={!accountId}
                     className="group flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-all disabled:opacity-30"
                     style={{
                       borderColor: "var(--border-default)",
@@ -550,7 +597,7 @@ export default function ChatPage() {
                   >
                     <Loader2 size={13} className="animate-spin" style={{ color: "var(--acc)" }} />
                     <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                      Pulling data from Meta and analyzing...
+                      Pulling data from {platform === "google" ? "Google" : "Meta"} and analyzing...
                     </span>
                     <TypingDots />
                   </div>
@@ -580,7 +627,7 @@ export default function ChatPage() {
 
       {/* ── Input area ───────────────────────────────── */}
       <div className="px-4 pb-3 pt-2">
-        {!selectedAdAccountId ? (
+        {!accountId ? (
           <div
             className="flex items-center justify-center rounded-xl py-3"
             style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-default)" }}
@@ -648,7 +695,7 @@ export default function ChatPage() {
             </div>
 
             <p className="mt-2 text-center text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-              Adsflow AI pulls live data from Meta to answer your questions. Responses may vary.
+              Adsflow AI pulls live data from {platform === "google" ? "Google Ads" : "Meta"} to answer your questions. Responses may vary.
             </p>
           </div>
         )}

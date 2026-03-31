@@ -35,6 +35,7 @@ export function AccountSelector() {
   const setSelectedId = useAppStore((s) => s.setSelectedAdAccountId)
 
   const accounts = accountsData?.data || []
+  const isRateLimited = (accountsData as any)?.error?.includes?.("rate limit")
   const selected = accounts.find((a) => a.id === selectedId)
 
   // Auto-select first account
@@ -113,13 +114,13 @@ export function AccountSelector() {
       <div
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px]"
         style={{
-          background: "var(--bg-subtle)",
-          border: "1px solid var(--border-default)",
-          color: "var(--text-tertiary)",
+          background: isRateLimited ? "var(--amber-bg)" : "var(--bg-subtle)",
+          border: `1px solid ${isRateLimited ? "var(--amber-solid)" : "var(--border-default)"}`,
+          color: isRateLimited ? "var(--amber-text)" : "var(--text-tertiary)",
         }}
       >
         <Building2 size={12} />
-        No account connected
+        {isRateLimited ? "Rate limited — wait a few min" : "Sync to load accounts"}
       </div>
     )
   }

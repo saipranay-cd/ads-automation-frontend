@@ -63,17 +63,23 @@ export const authOptions: NextAuthOptions = {
         token.metaTokenExpiry = account.expires_at
       }
 
-      // Check token expiry and refresh if within 7 days
-      if (token.metaAccessToken && token.metaTokenExpiry) {
-        const expiresAtMs = token.metaTokenExpiry * 1000
+      // Token refresh: only if we have a clearly valid expiry (Unix seconds, after 2024)
+      const expiry = token.metaTokenExpiry
+      if (token.metaAccessToken && typeof expiry === "number" && expiry > 1704067200) {
+        const expiresAtMs = expiry * 1000
         const now = Date.now()
 
         if (now > expiresAtMs) {
-          // Token already expired, mark for re-auth
-          token.metaAccessToken = undefined
-          token.metaTokenExpiry = undefined
+          // Expired — try to refresh before giving up
+          const refreshed = await refreshMetaToken(token.metaAccessToken)
+          if (refreshed) {
+            token.metaAccessToken = refreshed.token
+            token.metaTokenExpiry = refreshed.expiresAt
+          } else {
+            token.metaAccessToken = undefined
+            token.metaTokenExpiry = undefined
+          }
         } else if (expiresAtMs - now < SEVEN_DAYS_MS) {
-          // Within 7 days of expiry, try to refresh
           const refreshed = await refreshMetaToken(token.metaAccessToken)
           if (refreshed) {
             token.metaAccessToken = refreshed.token
@@ -81,12 +87,13 @@ export const authOptions: NextAuthOptions = {
           }
         }
       }
+      // If expiry is missing/invalid, keep the token as-is (don't clear it)
 
       return token
     },
     async session({ session, token }) {
       session.metaAccessToken = token.metaAccessToken
-      session.metaTokenExpired = !token.metaAccessToken && !token.metaTokenExpiry ? false : !token.metaAccessToken
+      session.metaTokenExpired = !!token.metaTokenExpiry && !token.metaAccessToken
       return session
     },
   },

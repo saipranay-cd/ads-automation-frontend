@@ -5,7 +5,9 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ThemeToggle } from "./ThemeToggle"
 import { AccountSelector } from "./AccountSelector"
+import { GoogleAccountSelector } from "./GoogleAccountSelector"
 import { NotificationCenter } from "./NotificationCenter"
+import { usePlatform } from "@/hooks/use-platform"
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -16,8 +18,12 @@ const pageTitles: Record<string, string> = {
   "/audiences": "Audiences",
   "/insights": "Insights",
   "/chat": "AI Chat",
-  "/create": "Create Ad",
+  "/create": "Create Campaign",
   "/settings": "Settings",
+  "/google/campaigns": "Google Campaigns",
+  "/google/ad-groups": "Google Ad Groups",
+  "/google/ads": "Google Ads",
+  "/google/keywords": "Google Keywords",
 }
 
 interface TopbarProps {
@@ -27,6 +33,7 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname()
   const title = pageTitles[pathname] || "Dashboard"
+  const { platform } = usePlatform()
 
   return (
     <header
@@ -54,7 +61,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         >
           {title}
         </h1>
-        <AccountSelector />
+        {platform === "google" ? <GoogleAccountSelector /> : <AccountSelector />}
       </div>
 
       {/* Right: Actions */}

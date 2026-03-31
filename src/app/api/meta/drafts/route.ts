@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getBackendAuth } from "@/app/api/_helpers/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
@@ -12,13 +11,13 @@ function authHeaders(token?: string) {
 }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
-  const email = session.user?.email
-  const token = session.metaAccessToken
+  const email = auth.email
+  const token = auth.token
 
   const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
@@ -35,7 +34,7 @@ export async function GET(req: Request) {
   }
 
   if (!email) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   try {
@@ -51,17 +50,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken || !session?.user?.email) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth || !auth.email) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
-  const email = session.user.email!
+  const email = auth.email!
 
   try {
     const body = await req.json()
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/drafts`, {
       method: "POST",
-      headers: authHeaders(session?.metaAccessToken),
+      headers: authHeaders(auth.token),
       body: JSON.stringify({ ...body, userId: email }),
     })
     const data = await res.json()
@@ -72,9 +71,9 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.metaAccessToken) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  const auth = await getBackendAuth(req)
+  if (!auth) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   try {
@@ -85,7 +84,7 @@ export async function PUT(req: Request) {
     }
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/drafts/${id}`, {
       method: "PUT",
-      headers: authHeaders(session?.metaAccessToken),
+      headers: authHeaders(auth.token),
       body: JSON.stringify(data),
     })
     const result = await res.json()

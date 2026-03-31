@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
 import {
   Trophy, AlertTriangle, TrendingDown, TrendingUp, Image,
@@ -68,7 +69,7 @@ export default function CreativesPage() {
   const { data, isLoading } = useQuery<{ data: Creative[] }>({
     queryKey: ["creatives", adAccountId],
     queryFn: async () => {
-      const res = await fetch(`/api/meta/creatives?adAccountId=${adAccountId}`)
+      const res = await apiFetch(`/api/meta/creatives?adAccountId=${adAccountId}`)
       return res.json()
     },
     enabled: !!adAccountId,

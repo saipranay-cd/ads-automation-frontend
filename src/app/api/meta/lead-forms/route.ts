@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getBackendAuth } from "@/app/api/_helpers/auth"
 
 const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
+  const auth = await getBackendAuth(req)
 
-  if (!session?.metaAccessToken) {
-    return NextResponse.json({ error: "Not authenticated with Meta" }, { status: 401 })
+  if (!auth) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
@@ -22,7 +21,7 @@ export async function GET(req: Request) {
     const res = await fetch(
       `${BACKEND_URL}/api/v1/adsflow/lead-forms?adAccountId=${adAccountId}`,
       {
-        headers: { Authorization: `Bearer ${session.metaAccessToken}` },
+        headers: { Authorization: `Bearer ${auth.token}` },
       }
     )
     const data = await res.json()
