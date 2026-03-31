@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { apiFetch } from "@/lib/api-fetch"
 import { useSession, signOut } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
@@ -15,7 +15,15 @@ import { useGoogleAuthStatus } from "@/hooks/use-google"
 import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useZohoFields, useUpdateFieldMap } from "@/hooks/use-crm"
 import { useIsAdmin } from "@/hooks/use-role"
 
-export default function SettingsPage() {
+export default function SettingsPageWrapper() {
+  return (
+    <Suspense>
+      <SettingsPage />
+    </Suspense>
+  )
+}
+
+function SettingsPage() {
   const { data: session } = useSession()
   const { user: authUser, isAuthenticated, isMetaAuth } = useAuth()
   const { data: accountsData } = useAdAccounts()
