@@ -965,8 +965,11 @@ function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, en
           </thead>
           <tbody>
             {leads.map((lead) => {
-              const tier = tierConfig[lead.qualityTier || "unknown"] || tierConfig.unknown
+              const bestTierKey = lead.bestQualityTier || lead.qualityTier || "unknown"
+              const currentTierKey = lead.qualityTier || "unknown"
+              const tier = tierConfig[bestTierKey] || tierConfig.unknown
               const TierIcon = tier.icon
+              const showBestBadge = lead.bestQualityTier && lead.bestQualityTier !== lead.qualityTier
               const pm = platformMeta[lead.adPlatform || "unknown"] || platformMeta.unknown
               return (
                 <tr
@@ -997,6 +1000,11 @@ function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, en
                       <TierIcon size={9} />
                       {tier.label}
                     </span>
+                    {showBestBadge && (
+                      <span className="ml-1 text-[9px]" style={{ color: "var(--text-disabled)" }} title={`Current stage: ${lead.crmStage} (${currentTierKey})`}>
+                        best
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     {lead.adPlatform ? (

@@ -960,13 +960,20 @@ function SearchSelect({
   )
 }
 
-// ── Field Mapping Editor (Zoho → Meta IDs) ─────────────────
+// ── Field Mapping Editor (Zoho → Ad Platform IDs) ─────────────────
 
 const META_FIELDS = [
   { key: "campaign_id", label: "Campaign ID", description: "Zoho field containing the Meta Campaign ID" },
   { key: "adset_id", label: "Ad Set ID", description: "Zoho field containing the Meta Ad Set ID" },
   { key: "ad_id", label: "Ad ID", description: "Zoho field containing the Meta Ad ID" },
 ] as const
+
+const GOOGLE_FIELDS = [
+  { key: "google_campaign_id", label: "Campaign ID", description: "Zoho field containing the Google Campaign ID (default: UTM_Campaign)" },
+  { key: "google_adgroup_id", label: "Ad Group ID", description: "Zoho field containing the Google Ad Group ID (default: UTM_Content)" },
+] as const
+
+const ALL_MAPPING_FIELDS = [...META_FIELDS, ...GOOGLE_FIELDS]
 
 function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const { data: fieldMapData, isLoading: mapLoading } = useFieldMap(connectionId)
@@ -977,6 +984,8 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
     campaign_id: "",
     adset_id: "",
     ad_id: "",
+    google_campaign_id: "",
+    google_adgroup_id: "",
   })
   const [saved, setSaved] = useState(false)
 
@@ -990,7 +999,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const [syncedFieldMap, setSyncedFieldMap] = useState(fieldMapData?.data)
   if (fieldMapData?.data && fieldMapData.data !== syncedFieldMap) {
     setSyncedFieldMap(fieldMapData.data)
-    const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "" }
+    const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "", google_campaign_id: "", google_adgroup_id: "" }
     for (const m of fieldMapData.data) {
       map[m.metaField] = m.zohoField
     }
@@ -998,7 +1007,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   }
 
   const handleSave = () => {
-    const mappings = META_FIELDS.map(f => ({
+    const mappings = ALL_MAPPING_FIELDS.map(f => ({
       metaField: f.key,
       zohoField: localMappings[f.key] || "",
     }))
@@ -1016,9 +1025,10 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
 
   return (
     <div className="space-y-3 pt-2">
+      {/* Meta field mappings */}
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
-          Map Zoho fields that contain Meta ad IDs for direct lead matching
+          Meta — map Zoho fields that contain Meta ad IDs
         </span>
       </div>
 
@@ -1040,6 +1050,38 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
             <SearchSelect
               value={localMappings[mf.key] || ""}
               onChange={(val) => setLocalMappings(prev => ({ ...prev, [mf.key]: val }))}
+              options={fieldOptions}
+              placeholder="Search Zoho fields..."
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Google field mappings */}
+      <div className="flex items-center justify-between pt-3">
+        <span className="text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
+          Google Ads — optional overrides (defaults to UTM_Campaign / UTM_Content)
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {GOOGLE_FIELDS.map((gf) => (
+          <div
+            key={gf.key}
+            className="flex items-center gap-3 rounded-md px-3 py-2.5"
+            style={{ background: "var(--bg-muted)" }}
+          >
+            <div className="min-w-[100px]">
+              <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                {gf.label}
+              </span>
+              <p className="text-[9px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
+                {gf.description}
+              </p>
+            </div>
+            <SearchSelect
+              value={localMappings[gf.key] || ""}
+              onChange={(val) => setLocalMappings(prev => ({ ...prev, [gf.key]: val }))}
               options={fieldOptions}
               placeholder="Search Zoho fields..."
             />
