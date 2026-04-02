@@ -26,6 +26,8 @@ export interface CrmLead {
   crmStage: string | null
   qualityScore: number | null
   qualityTier: string | null
+  bestQualityScore: number | null
+  bestQualityTier: string | null
   adPlatform: string | null
   campaignId: string | null
   matchMethod: string | null
@@ -243,6 +245,48 @@ export function useEntityQuality(
       return res.json()
     },
     enabled: !!adAccountId && !!level,
+  })
+}
+
+// ── History Config ────────────────────────────────────
+
+export interface HistoryConfig {
+  historyRelatedList: string | null
+  historyStageField: string | null
+}
+
+export function useHistoryConfig(connectionId?: string) {
+  return useQuery<{ data: HistoryConfig | null }>({
+    queryKey: ["crm-history-config", connectionId],
+    queryFn: async () => {
+      if (!connectionId) return { data: null }
+      const res = await apiFetch(`/api/crm/connections?action=get-history-config&connectionId=${connectionId}`)
+      if (!res.ok) return { data: null }
+      return res.json()
+    },
+    enabled: !!connectionId,
+  })
+}
+
+export function useUpdateHistoryConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { connectionId: string; historyRelatedList: string | null; historyStageField: string | null }) => {
+      const res = await apiFetch("/api/crm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update-history-config",
+          connectionId: params.connectionId,
+          historyRelatedList: params.historyRelatedList,
+          historyStageField: params.historyStageField,
+        }),
+      })
+      return res.json()
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["crm-history-config", vars.connectionId] })
+    },
   })
 }
 

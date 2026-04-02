@@ -22,7 +22,7 @@ export default function CampaignsPage() {
   const { data: campaignsData, isLoading, error, refetch } = useCampaigns(selectedAdAccountId)
   const sync = useSync()
 
-  const campaigns = campaignsData?.data || []
+  const campaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
 
   const filtered = useMemo(() => {
     return campaigns.filter((c) => {

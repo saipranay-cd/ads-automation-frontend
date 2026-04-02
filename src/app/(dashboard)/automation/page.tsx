@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Zap, Trash2, ToggleLeft, ToggleRight, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { Plus, Zap, Trash2, ToggleLeft, ToggleRight, Clock, CheckCircle, XCircle } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
@@ -237,7 +237,7 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
 
   const create = useMutation({
     mutationFn: async () => {
-      const body: any = { adAccountId, name, metric, operator, threshold: parseFloat(threshold), actionType }
+      const body: Record<string, unknown> = { adAccountId, name, metric, operator, threshold: parseFloat(threshold), actionType }
       if (actionType === "reduce_budget" || actionType === "increase_budget") {
         body.actionParams = { budget_change_pct: actionType === "reduce_budget" ? -parseInt(budgetPct) : parseInt(budgetPct) }
       }

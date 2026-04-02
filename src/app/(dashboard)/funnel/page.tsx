@@ -10,7 +10,7 @@ import { DateRangePicker, presetRange } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
 import {
   ArrowDown, Filter, Eye, MousePointerClick, UserCheck,
-  TrendingUp, ChevronRight, ChevronDown, IndianRupee, Users,
+  TrendingUp, ChevronRight, ChevronDown, Users,
   Search, Facebook, Globe,
 } from "lucide-react"
 
@@ -122,7 +122,6 @@ function getStageConfig(stage: string) {
 
 export default function FunnelPage() {
   const adAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
   const { platform } = usePlatform()
 
   const isGoogle = platform === "google"
@@ -163,13 +162,13 @@ export default function FunnelPage() {
     to: dateTo,
   })
 
-  const funnel = data?.data?.funnel || []
-  const breakdown = data?.data?.campaignBreakdown || []
+  const funnel = useMemo(() => data?.data?.funnel || [], [data])
+  const breakdown = useMemo(() => data?.data?.campaignBreakdown || [], [data])
   const totals = data?.data?.totals
-  const allLeads = leadsData?.data || []
+  const allLeads = useMemo(() => leadsData?.data || [], [leadsData])
 
-  const metaStages = funnel.filter((s) => !CRM_TIERS.has(s.stage))
-  const crmStages = funnel.filter((s) => CRM_TIERS.has(s.stage))
+  const metaStages = useMemo(() => funnel.filter((s) => !CRM_TIERS.has(s.stage)), [funnel])
+  const crmStages = useMemo(() => funnel.filter((s) => CRM_TIERS.has(s.stage)), [funnel])
   const metaMax = Math.max(...metaStages.map((s) => s.count), 1)
   const crmMax = Math.max(...crmStages.map((s) => s.count), 1)
 
@@ -197,25 +196,25 @@ export default function FunnelPage() {
   const [stageView, setStageView] = useState<"crmStage" | "tier">("crmStage")
 
   // Actual CRM stages from backend (e.g., Dead, Qualified, Contacted, New)
-  const backendCrmStages = data?.data?.crmStages || []
+  const backendCrmStages = useMemo(() => data?.data?.crmStages || [], [data])
 
   // Build CRM stage rows based on selected view
   const crmStageRows = useMemo(() => {
     if (stageView === "crmStage") {
       // Use actual CRM stages from backend or derive from leads
       const stagesSource = backendCrmStages.length > 0
-        ? backendCrmStages.map((s: any) => ({ stage: s.stage, count: s.count }))
+        ? backendCrmStages.map((s: { stage: string; count: number }) => ({ stage: s.stage, count: s.count }))
         : Object.entries(leadsByStage).map(([stage, leads]) => ({ stage, count: leads.length }))
 
-      const total = stagesSource.reduce((sum: number, s: any) => sum + s.count, 0)
+      const total = stagesSource.reduce((sum: number, s: { stage: string; count: number }) => sum + s.count, 0)
       return stagesSource
-        .map((s: any) => ({
+        .map((s: { stage: string; count: number }) => ({
           stage: s.stage,
           count: s.count,
           pct: total > 0 ? (s.count / total) * 100 : 0,
           color: getStageColor(s.stage),
         }))
-        .sort((a: any, b: any) => b.count - a.count)
+        .sort((a, b) => b.count - a.count)
     } else {
       // Quality tier view (High/Medium/Low/Junk)
       const totalCount = crmStages.reduce((sum, s) => sum + s.count, 0)
@@ -250,7 +249,7 @@ export default function FunnelPage() {
         (l.email && l.email.toLowerCase().includes(q)) ||
         (l.phone && l.phone.includes(q))
     )
-  }, [expandedStage, allLeads, leadSearch])
+  }, [expandedStage, allLeads, leadSearch, stageView])
 
   const pipelineLabel = isGoogle ? "Google Ads Pipeline" : "Meta Ads Pipeline"
   const crmLabel = isGoogle ? "CRM Quality (Google Leads)" : "CRM Quality (Meta Leads)"
@@ -377,7 +376,7 @@ export default function FunnelPage() {
                   <div className="mb-4">
                     <div className="flex h-10 overflow-hidden rounded-lg">
                       {(stageView === "crmStage" ? crmStageRows : crmStages.map(s => ({ stage: s.stage, count: s.count, pct: 0, color: tierColors[s.stage] || "#9ca3af" }))).map((s, i) => {
-                        const total = (stageView === "crmStage" ? crmStageRows : crmStages).reduce((sum: number, x: any) => sum + x.count, 0)
+                        const total = (stageView === "crmStage" ? crmStageRows : crmStages).reduce((sum: number, x: { count: number }) => sum + x.count, 0)
                         const pct = total > 0 ? (s.count / total) * 100 : 0
                         if (s.count === 0) return null
                         const color = s.color || getStageColor(s.stage, i)
@@ -426,7 +425,6 @@ export default function FunnelPage() {
               >
                 {crmStageRows.map((row) => {
                   const isExpanded = expandedStage === row.stage
-                  const stageLeadCount = (leadsByStage[row.stage] || []).length
                   const barWidth = Math.max(4, row.pct)
 
                   return (
@@ -638,13 +636,12 @@ function FunnelRow({
   stage,
   maxCount,
   prevCount,
-  isLast,
   compact = false,
 }: {
   stage: FunnelStage
   maxCount: number
   prevCount: number
-  isLast: boolean
+  isLast?: boolean
   compact?: boolean
 }) {
   const cfg = getStageConfig(stage.stage)

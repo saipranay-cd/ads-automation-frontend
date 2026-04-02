@@ -48,8 +48,6 @@ export interface OAuthConnectionInfo {
 
 // ── Hooks ───────────────────────────────────────────────
 
-const BACKEND = ""  // proxied through Next.js API routes
-
 export interface OrgInfo {
   id: string
   name: string
@@ -137,7 +135,7 @@ export function useRemoveMember(orgId?: string) {
 }
 
 export function useSyncStatuses(orgId?: string | null) {
-  return useQuery<{ data: SyncStatusInfo[] }>({
+  return useQuery<{ data: { statuses: SyncStatusInfo[]; tokenHealth: unknown } }>({
     queryKey: ["sync-statuses", orgId],
     queryFn: async () => {
       const res = await apiFetch(`/api/org/${orgId}/sync-status`)
@@ -164,7 +162,7 @@ export function useTriggerSync(orgId?: string) {
 }
 
 export function useAuditLog(orgId?: string | null, page = 1) {
-  return useQuery<{ data: AuditLogEntry[]; total: number }>({
+  return useQuery<{ data: { logs: AuditLogEntry[]; pagination: { total: number; totalPages: number } } }>({
     queryKey: ["audit-log", orgId, page],
     queryFn: async () => {
       const res = await apiFetch(`/api/org/${orgId}/audit-log?page=${page}`)

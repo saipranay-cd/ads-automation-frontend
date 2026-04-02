@@ -5,17 +5,18 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function POST(req: Request) {
   const auth = await getBackendAuth(req)
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-
-  if (auth) {
-    headers.Authorization = `Bearer ${auth.token}`
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const body = await req.json()
 
   const res = await fetch(`${BACKEND_URL}/api/v1/org/switch`, {
     method: "POST",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${auth.token}`,
+    },
     body: JSON.stringify(body),
   })
 

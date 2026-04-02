@@ -45,7 +45,8 @@ export function NotificationCenter() {
       const res = await apiFetch("/api/meta/notifications?limit=30")
       return res.json()
     },
-    refetchInterval: 60_000, // Poll every minute
+    refetchInterval: 5 * 60 * 1000, // Poll every 5 minutes
+    refetchIntervalInBackground: false,
   })
 
   const markAllRead = useMutation({

@@ -70,7 +70,7 @@ export class MetaAPI {
       const res = await fetch(nextUrl)
       const page = await res.json() as MetaPaginatedResponse<T>
       if (!res.ok) {
-        throw new MetaAPIError(res.status, page as unknown as { error: { message: string; type: string; code: number } } & any)
+        throw new MetaAPIError(res.status, (page as unknown as { error: { message: string; type: string; code: number } }).error)
       }
       allData.push(...page.data)
       nextUrl = page.paging?.next

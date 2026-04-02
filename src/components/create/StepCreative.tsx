@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import Image from "next/image"
 import { useWizardStore } from "@/lib/wizard-store"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,10 +67,13 @@ export function StepCreative() {
         <Label>Upload Creative</Label>
         <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-input px-6 py-8 transition-colors hover:border-primary/50 hover:bg-primary/5">
           {creative.imagePreview ? (
-            <img
+            <Image
               src={creative.imagePreview}
               alt="Preview"
+              width={400}
+              height={192}
               className="max-h-48 rounded-lg object-contain"
+              unoptimized
             />
           ) : (
             <>

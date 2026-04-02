@@ -60,6 +60,22 @@ export async function GET(req: Request) {
     }
   }
 
+  // GET history config for a specific connection
+  if (action === "get-history-config") {
+    const connectionId = searchParams.get("connectionId")
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/history-config`,
+        { headers: { Authorization: `Bearer ${auth.token}` } }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+  }
+
   // GET quality map for a specific connection
   if (action === "get-quality-map") {
     const connectionId = searchParams.get("connectionId")
@@ -240,6 +256,29 @@ export async function POST(req: Request) {
       return NextResponse.json(data)
     } catch {
       return NextResponse.json({ error: "Source update failed" }, { status: 500 })
+    }
+  }
+
+  if (action === "update-history-config" && connectionId) {
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/history-config`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            historyRelatedList: body.historyRelatedList,
+            historyStageField: body.historyStageField,
+          }),
+        }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "History config update failed" }, { status: 500 })
     }
   }
 

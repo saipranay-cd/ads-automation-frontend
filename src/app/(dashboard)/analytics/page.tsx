@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
-import { Download, ChevronDown, ChevronRight, FileSpreadsheet, BarChart3, Users, MapPin, Layers, FileDown, ArrowUp, ArrowDown, Target, Megaphone, LayoutGrid, Image, Settings2, X, Search, TrendingUp, TrendingDown } from "lucide-react"
+import { Download, ChevronDown, ChevronRight, FileSpreadsheet, BarChart3, Users, MapPin, Layers, ArrowUp, ArrowDown, Target, Megaphone, LayoutGrid, Image, Settings2, X } from "lucide-react"
 import {
   AreaChart,
   Area,
@@ -15,7 +15,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  Legend,
 } from "recharts"
 import {
   useCampaigns,
@@ -42,11 +41,7 @@ import { ExportBuilder } from "@/components/export/ExportBuilder"
 import {
   useGoogleAnalyticsMetrics,
   useGoogleEntityInsights,
-  useGoogleAdGroups,
-  type GoogleAnalyticsMetric,
-  type GoogleEntityInsight,
 } from "@/hooks/use-google"
-import { formatPercent } from "@/lib/utils"
 
 // ── Constants ────────────────────────────────────────────
 
@@ -113,8 +108,6 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 type GoogleMetricKey = "spend" | "conversions" | "cpc" | "ctr" | "costPerConversion" | "impressions" | "clicks" | "cpm"
 
-type GoogleBreakdownKey = "cpc" | "ctr" | "costPerConversion" | "cpm"
-
 const GOOGLE_KPI_CARDS: {
   key: GoogleMetricKey
   label: string
@@ -130,16 +123,7 @@ const GOOGLE_KPI_CARDS: {
   { key: "cpm", label: "CPM", good: "down" },
 ]
 
-const GOOGLE_BREAKDOWN_METRICS: { key: GoogleBreakdownKey; label: string }[] = [
-  { key: "cpc", label: "CPC" },
-  { key: "ctr", label: "CTR" },
-  { key: "costPerConversion", label: "Cost/Conv." },
-  { key: "cpm", label: "CPM" },
-]
-
 const DONUT_COLORS = ["#2dd4bf", "#fbbf24", "#a78bfa", "#4ade80", "#fb923c", "#818cf8"]
-
-type GoogleTableSortKey = "name" | "status" | "campaignType" | "spend" | "conversions" | "ctr" | "cpc" | "costPerConversion" | "impressions"
 
 function fmtGoogleVal(key: GoogleMetricKey, value: number): string {
   switch (key) {
@@ -155,11 +139,134 @@ function fmtGoogleVal(key: GoogleMetricKey, value: number): string {
   }
 }
 
+// ── Extracted tooltip/sort components (outside render) ───
+
+interface TooltipPayloadItem {
+  payload?: Record<string, number>
+}
+
+interface ChartTooltipProps {
+  active?: boolean
+  payload?: readonly TooltipPayloadItem[]
+  label?: string | number
+}
+
+function GoogleChartTooltipComponent({ active, payload, label, selectedMetric }: ChartTooltipProps & { selectedMetric: GoogleMetricKey }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload || {}
+  return (
+    <div
+      className="rounded-lg px-3 py-2.5 text-xs"
+      style={{
+        background: "#1a1a22",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+      }}
+    >
+      <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
+        {label}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {GOOGLE_KPI_CARDS.map(({ key, label: l }) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <span style={{ color: key === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
+            <span
+              className="font-mono font-semibold"
+              style={{ color: key === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
+            >
+              {fmtGoogleVal(key, row[key] ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MetaChartTooltipComponent({ active, payload, label, selectedMetric }: ChartTooltipProps & { selectedMetric: MetricKey }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload || {}
+  return (
+    <div
+      className="rounded-lg px-3 py-2.5 text-xs"
+      style={{
+        background: "#1a1a22",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+      }}
+    >
+      <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
+        {label}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {([
+          { k: "spend" as MetricKey, l: "Spend" },
+          { k: "leads" as MetricKey, l: "Leads" },
+          { k: "cpl" as MetricKey, l: "CPL" },
+          { k: "impressions" as MetricKey, l: "Impr." },
+          { k: "ctr" as MetricKey, l: "CTR" },
+          { k: "cpc" as MetricKey, l: "CPC" },
+        ] as const).map(({ k, l }) => (
+          <div key={k} className="flex items-center justify-between gap-4">
+            <span style={{ color: k === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
+            <span
+              className="font-mono font-semibold"
+              style={{ color: k === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
+            >
+              {fmtVal(k, row[k] ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BreakdownTooltipComponent({ active, payload, label, selectedMetric }: ChartTooltipProps & { selectedMetric: MetricKey }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload || {}
+  return (
+    <div
+      className="rounded-lg px-3 py-2 text-xs"
+      style={{
+        background: "#1a1a22",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+      }}
+    >
+      <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
+        {label}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {([
+          { k: "spend" as MetricKey, l: "Spend" },
+          { k: "leads" as MetricKey, l: "Leads" },
+          { k: "cpl" as MetricKey, l: "CPL" },
+          { k: "impressions" as MetricKey, l: "Impr." },
+          { k: "ctr" as MetricKey, l: "CTR" },
+        ] as const).map(({ k, l }) => (
+          <div key={k} className="flex items-center justify-between gap-4">
+            <span style={{ color: k === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
+            <span
+              className="font-mono font-semibold"
+              style={{ color: k === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
+            >
+              {fmtVal(k, row[k] ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+type GoogleSortKey = "name" | "status" | "campaignType" | "spend" | "conversions" | "ctr" | "cpc" | "costPerConversion" | "impressions"
+
 function GoogleAnalyticsView() {
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedMetric, setSelectedMetric] = useState<GoogleMetricKey>("spend")
-  const [sortKey, setSortKey] = useState<"spend" | "conversions" | "cpc" | "ctr" | "name">("spend")
+  const [sortKey, setSortKey] = useState<GoogleSortKey>("spend")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
 
   const googleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
@@ -190,8 +297,8 @@ function GoogleAnalyticsView() {
   const sortedEntities = useMemo(() => {
     if (!entityData?.length) return []
     return [...entityData].sort((a, b) => {
-      let av: any = (a as any)[sortKey] ?? 0
-      let bv: any = (b as any)[sortKey] ?? 0
+      let av: string | number = (a as unknown as Record<string, string | number>)[sortKey] ?? 0
+      let bv: string | number = (b as unknown as Record<string, string | number>)[sortKey] ?? 0
       if (typeof av === "string") av = av.toLowerCase()
       if (typeof bv === "string") bv = bv.toLowerCase()
       if (av < bv) return sortDir === "asc" ? -1 : 1
@@ -214,37 +321,9 @@ function GoogleAnalyticsView() {
     }))
   }, [metricsData])
 
-  function GoogleChartTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null
-    const row = payload[0]?.payload || {}
-    return (
-      <div
-        className="rounded-lg px-3 py-2.5 text-xs"
-        style={{
-          background: "#1a1a22",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-        }}
-      >
-        <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
-          {label}
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {GOOGLE_KPI_CARDS.map(({ key, label: l }) => (
-            <div key={key} className="flex items-center justify-between gap-4">
-              <span style={{ color: key === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
-              <span
-                className="font-mono font-semibold"
-                style={{ color: key === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
-              >
-                {fmtGoogleVal(key, row[key] ?? 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const googleTooltip = useCallback((props: ChartTooltipProps) => (
+    <GoogleChartTooltipComponent {...props} selectedMetric={selectedMetric} />
+  ), [selectedMetric])
 
   const SortIcon = ({ k }: { k: typeof sortKey }) => {
     if (sortKey !== k) return null
@@ -364,7 +443,7 @@ function GoogleAnalyticsView() {
                   selectedMetric === "ctr" ? `${v}%` : selectedMetric === "conversions" ? String(v) : formatCurrency(v)
                 }
               />
-              <Tooltip content={<GoogleChartTooltip />} cursor={{ stroke: "rgba(255,255,255,0.06)" }} />
+              <Tooltip content={googleTooltip} cursor={{ stroke: "rgba(255,255,255,0.06)" }} />
               <Area
                 type="monotone"
                 dataKey={selectedMetric}
@@ -415,7 +494,7 @@ function GoogleAnalyticsView() {
                       className="cursor-pointer select-none whitespace-nowrap px-4 py-2.5 font-medium"
                       style={{
                         color: sortKey === col.key ? "var(--acc-text)" : "var(--text-tertiary)",
-                        textAlign: col.align as any,
+                        textAlign: col.align as "left" | "right",
                       }}
                     >
                       <span className="inline-flex items-center gap-1">
@@ -524,7 +603,7 @@ function GoogleAnalyticsView() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: any) => [formatCurrency(Number(value || 0)), "Spend"]}
+                      formatter={(value) => [formatCurrency(Number(value || 0)), "Spend"]}
                       contentStyle={{
                         background: "var(--bg-raised, #1a1a22)",
                         border: "1px solid rgba(255,255,255,0.1)",
@@ -624,16 +703,12 @@ export default function AnalyticsPage() {
 
   const adAccountId = useAppStore((s) => s.selectedAdAccountId)
 
-  if (platform === "google") {
-    return <GoogleAnalyticsView />
-  }
-
   // Entity table data (campaigns / ad sets / ads) — fetched when on entity tabs
   const entityParentId = viewLevel === "adset" && drillCampaign ? drillCampaign.id
     : viewLevel === "ad" && drillAdSet ? drillAdSet.id
     : undefined
   const { data: entityData, isLoading: entityLoading } = useEntityInsights(
-    viewLevel !== "account" ? adAccountId : null,
+    viewLevel !== "account" && platform !== "google" ? adAccountId : null,
     viewLevel !== "account" ? viewLevel as InsightLevel : undefined,
     days,
     dateRange,
@@ -653,13 +728,23 @@ export default function AnalyticsPage() {
   const insightsSourceId = viewLevel === "account" ? adAccountId : selectedEntityId
 
   // Chart + breakdown data — always fetched, scoped to insightsSourceId
-  const { data: metricsData, isLoading: metricsLoading } = useAggregatedMetrics(insightsSourceId, days, dateRange)
-  const { data: rawPlacements, isLoading: placementsLoading } = usePlacementBreakdown(insightsSourceId, days, dateRange)
-  const { data: ageGenderData, isLoading: ageGenderLoading } = useAgeGenderBreakdown(insightsSourceId, days, dateRange)
-  const { data: rawCities, isLoading: citiesLoading } = useCityBreakdown(insightsSourceId, days, dateRange)
-  const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(adAccountId)
-  const { data: adSetsData } = useAdSets(adAccountId)
-  const { data: adsData } = useAds(adAccountId)
+  const { data: metricsData, isLoading: metricsLoading } = useAggregatedMetrics(
+    platform !== "google" ? insightsSourceId : null, days, dateRange
+  )
+  const { data: rawPlacements, isLoading: placementsLoading } = usePlacementBreakdown(
+    platform !== "google" ? insightsSourceId : null, days, dateRange
+  )
+  const { data: ageGenderData, isLoading: ageGenderLoading } = useAgeGenderBreakdown(
+    platform !== "google" ? insightsSourceId : null, days, dateRange
+  )
+  const { data: rawCities, isLoading: citiesLoading } = useCityBreakdown(
+    platform !== "google" ? insightsSourceId : null, days, dateRange
+  )
+  const { data: campaignsData, isLoading: campaignsLoading } = useCampaigns(
+    platform !== "google" ? adAccountId : null
+  )
+  const { data: adSetsData } = useAdSets(platform !== "google" ? adAccountId : null)
+  const { data: adsData } = useAds(platform !== "google" ? adAccountId : null)
 
   // Deduplicate placements by name
   const placementsData = useMemo(() => {
@@ -741,8 +826,8 @@ export default function AnalyticsPage() {
   const sortedEntities = useMemo(() => {
     if (!entityData?.length) return []
     return [...entityData].sort((a, b) => {
-      let av = (a as any)[entitySortKey] ?? 0
-      let bv = (b as any)[entitySortKey] ?? 0
+      let av: string | number = (a as unknown as Record<string, string | number>)[entitySortKey] ?? 0
+      let bv: string | number = (b as unknown as Record<string, string | number>)[entitySortKey] ?? 0
       if (typeof av === "string") av = av.toLowerCase()
       if (typeof bv === "string") bv = bv.toLowerCase()
       if (av < bv) return entitySortDir === "asc" ? -1 : 1
@@ -782,16 +867,20 @@ export default function AnalyticsPage() {
     else { setSortKey(key); setSortDir("desc") }
   }
 
+  // Stabilize || [] references via useMemo
+  const allCampaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
+  const allAdSets = useMemo(() => adSetsData?.data || [], [adSetsData])
+  const allAds = useMemo(() => adsData?.data || [], [adsData])
+
   // Compute ctr/cpc for sorting since they're not on CampaignTableRow
   function getCampaignVal(c: (typeof allCampaigns)[number], key: SortKey): number | string {
     if (key === "ctr") return c.impressions > 0 ? (c.linkClicks / c.impressions) * 100 : 0
     if (key === "cpc") return c.linkClicks > 0 ? c.amountSpent / c.linkClicks : 0
-    return (c as any)[key] ?? 0
+    return (c as unknown as Record<string, number | string>)[key] ?? 0
   }
 
   const sortedCampaigns = useMemo(() => {
-    const all = campaignsData?.data || []
-    return [...all].sort((a, b) => {
+    return [...allCampaigns].sort((a, b) => {
       let av = getCampaignVal(a, sortKey)
       let bv = getCampaignVal(b, sortKey)
       if (typeof av === "string") av = av.toLowerCase()
@@ -801,7 +890,7 @@ export default function AnalyticsPage() {
       return 0
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignsData, sortKey, sortDir])
+  }, [allCampaigns, sortKey, sortDir])
 
   // ── Export Helpers ──────────────────────────────────────
   const [exportOpen, setExportOpen] = useState(false)
@@ -837,20 +926,20 @@ export default function AnalyticsPage() {
     }
   }, [viewLevel, selectedEntity])
 
-  const ctxH = entityCtx?.headers || []
-  const ctxV = entityCtx?.values || []
+  const ctxH = useMemo(() => entityCtx?.headers || [], [entityCtx])
+  const ctxV = useMemo(() => entityCtx?.values || [], [entityCtx])
 
-  const metricsHeaders = [...ctxH, "Date", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const metricsHeaders = useMemo(() => [...ctxH, "Date", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"], [ctxH])
   const metricsRows = useMemo(() =>
     (metricsData || []).map((m) => [...ctxV, m.date, m.spend, m.leads, m.cpl, m.impressions, m.clicks, m.reach, m.ctr, m.cpc].map(String)),
   [metricsData, ctxV])
 
-  const placementHeaders = [...ctxH, "Placement", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const placementHeaders = useMemo(() => [...ctxH, "Placement", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"], [ctxH])
   const placementRows = useMemo(() =>
     placementsData.map((p) => [...ctxV, p.name, p.spend, p.leads, p.cpl, p.impressions, p.clicks, p.reach, p.ctr, p.cpc].map(String)),
   [placementsData, ctxV])
 
-  const ageGenderHeaders = [...ctxH, "Age", "Male Spend", "Male Leads", "Male CPL", "Male Impr.", "Male Clicks", "Male CTR %", "Male CPC", "Female Spend", "Female Leads", "Female CPL", "Female Impr.", "Female Clicks", "Female CTR %", "Female CPC"]
+  const ageGenderHeaders = useMemo(() => [...ctxH, "Age", "Male Spend", "Male Leads", "Male CPL", "Male Impr.", "Male Clicks", "Male CTR %", "Male CPC", "Female Spend", "Female Leads", "Female CPL", "Female Impr.", "Female Clicks", "Female CTR %", "Female CPC"], [ctxH])
   const ageGenderRows = useMemo(() =>
     (ageGenderData || []).map((r) => [
       ...ctxV, r.age,
@@ -859,13 +948,12 @@ export default function AnalyticsPage() {
     ].map(String)),
   [ageGenderData, ctxV])
 
-  const regionHeaders = [...ctxH, "Region", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"]
+  const regionHeaders = useMemo(() => [...ctxH, "Region", "Spend", "Leads", "CPL", "Impressions", "Clicks", "Reach", "CTR %", "CPC"], [ctxH])
   const regionRows = useMemo(() =>
     citiesData.map((c) => [...ctxV, c.city, c.spend, c.leads, c.cpl, c.impressions, c.clicks, c.reach, c.ctr, c.cpc].map(String)),
   [citiesData, ctxV])
 
-  const allCampaigns = campaignsData?.data || []
-  const campaignHeaders = ["Campaign ID", "Campaign", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
+  const campaignHeaders = useMemo(() => ["Campaign ID", "Campaign", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"], [])
   const campaignRows = useMemo(() =>
     allCampaigns.map((c) => {
       const ctr = c.impressions > 0 ? Math.round((c.linkClicks / c.impressions) * 10000) / 100 : 0
@@ -874,8 +962,7 @@ export default function AnalyticsPage() {
     }),
   [allCampaigns])
 
-  const allAdSets = adSetsData?.data || []
-  const adSetHeaders = ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"]
+  const adSetHeaders = useMemo(() => ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM", "Daily Budget"], [])
   const adSetRows = useMemo(() =>
     allAdSets.map((a) => [a.campaignId, a.campaignName, a.id, a.name, a.status, a.amountSpent, a.leads, a.costPerLead ?? 0, a.impressions, a.reach, a.clicks, a.ctr, a.cpc, a.cpm, a.dailyBudget].map(String)),
   [allAdSets])
@@ -887,8 +974,7 @@ export default function AnalyticsPage() {
     return m
   }, [allAdSets])
 
-  const allAds = adsData?.data || []
-  const adHeaders = ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Ad ID", "Ad", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM"]
+  const adHeaders = useMemo(() => ["Campaign ID", "Campaign", "Ad Set ID", "Ad Set", "Ad ID", "Ad", "Status", "Spend", "Leads", "CPL", "Impressions", "Reach", "Clicks", "CTR %", "CPC", "CPM"], [])
   const adRows = useMemo(() =>
     allAds.map((a) => {
       const parent = adSetCampaignMap.get(a.adSetId)
@@ -926,12 +1012,12 @@ export default function AnalyticsPage() {
 
   const hasAnyData = metricsRows.length > 0 || placementRows.length > 0 || (ageGenderData?.length ?? 0) > 0 || regionRows.length > 0 || campaignRows.length > 0 || adSetRows.length > 0 || adRows.length > 0
 
-  const exportOptions = [
+  const exportOptions = useMemo(() => [
     { key: "daily", label: "Daily Performance", icon: BarChart3, disabled: !metricsRows.length, desc: `${metricsRows.length} days + entity data`, action: () => exportXlsx(`${filePrefix}_daily.xlsx`, [{ name: "Daily Performance", headers: metricsHeaders, rows: metricsRows }]) },
     { key: "placement", label: "Placement Breakdown", icon: Layers, disabled: !placementRows.length, desc: `${placementRows.length} placements + entity data`, action: () => exportXlsx(`${filePrefix}_placements.xlsx`, [{ name: "Placements", headers: placementHeaders, rows: placementRows }]) },
     { key: "demographics", label: "Age & Gender", icon: Users, disabled: !ageGenderRows.length, desc: `${ageGenderRows.length} age groups + entity data`, action: () => exportXlsx(`${filePrefix}_demographics.xlsx`, [{ name: "Age & Gender", headers: ageGenderHeaders, rows: ageGenderRows }]) },
     { key: "region", label: "Region Breakdown", icon: MapPin, disabled: !regionRows.length, desc: `${regionRows.length} regions + entity data`, action: () => exportXlsx(`${filePrefix}_regions.xlsx`, [{ name: "Regions", headers: regionHeaders, rows: regionRows }]) },
-    { key: "divider1" } as any,
+    { key: "divider1", label: "", icon: BarChart3, disabled: true, desc: "", action: () => {} },
     {
       key: "full", label: "Full Report", icon: FileSpreadsheet, disabled: !hasAnyData,
       desc: "All breakdowns + campaigns, ad sets & ads",
@@ -942,7 +1028,7 @@ export default function AnalyticsPage() {
         { name: "Regions", headers: regionHeaders, rows: regionRows },
       ]),
     },
-  ]
+  ], [metricsRows, placementRows, ageGenderRows, regionRows, hasAnyData, exportXlsx, filePrefix, metricsHeaders, placementHeaders, ageGenderHeaders, regionHeaders])
 
   // ── Custom Export: record-based group data ──────────────
   // Each group stores rows as Record<dataPointKey, stringValue>[] for flexible column picking.
@@ -1035,82 +1121,18 @@ export default function AnalyticsPage() {
     })
   }, [allGroupData, filePrefix])
 
-  // ── Tooltip ─────────────────────────────────────────────
-  function ChartTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null
-    const row = payload[0]?.payload || {}
-    return (
-      <div
-        className="rounded-lg px-3 py-2.5 text-xs"
-        style={{
-          background: "#1a1a22",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-        }}
-      >
-        <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
-          {label}
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {([
-            { k: "spend" as MetricKey, l: "Spend" },
-            { k: "leads" as MetricKey, l: "Leads" },
-            { k: "cpl" as MetricKey, l: "CPL" },
-            { k: "impressions" as MetricKey, l: "Impr." },
-            { k: "ctr" as MetricKey, l: "CTR" },
-            { k: "cpc" as MetricKey, l: "CPC" },
-          ] as const).map(({ k, l }) => (
-            <div key={k} className="flex items-center justify-between gap-4">
-              <span style={{ color: k === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
-              <span
-                className="font-mono font-semibold"
-                style={{ color: k === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
-              >
-                {fmtVal(k, row[k] ?? 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  // ── Tooltip callbacks ─────────────────────────────────────
+  const chartTooltip = useCallback((props: ChartTooltipProps) => (
+    <MetaChartTooltipComponent {...props} selectedMetric={selectedMetric} />
+  ), [selectedMetric])
 
-  function BreakdownTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null
-    const row = payload[0]?.payload || {}
-    return (
-      <div
-        className="rounded-lg px-3 py-2 text-xs"
-        style={{
-          background: "#1a1a22",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-        }}
-      >
-        <div className="mb-1.5 font-medium" style={{ color: "#ededf0" }}>
-          {label}
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {([
-            { k: "spend" as MetricKey, l: "Spend" },
-            { k: "leads" as MetricKey, l: "Leads" },
-            { k: "cpl" as MetricKey, l: "CPL" },
-            { k: "impressions" as MetricKey, l: "Impr." },
-            { k: "ctr" as MetricKey, l: "CTR" },
-          ] as const).map(({ k, l }) => (
-            <div key={k} className="flex items-center justify-between gap-4">
-              <span style={{ color: k === selectedMetric ? "#ededf0" : "#6b6b78" }}>{l}</span>
-              <span
-                className="font-mono font-semibold"
-                style={{ color: k === selectedMetric ? "#2dd4bf" : "#a0a0aa" }}
-              >
-                {fmtVal(k, row[k] ?? 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+  const breakdownTooltip = useCallback((props: ChartTooltipProps) => (
+    <BreakdownTooltipComponent {...props} selectedMetric={selectedMetric} />
+  ), [selectedMetric])
+
+  // ── Early return for Google platform ──────────────────────
+  if (platform === "google") {
+    return <GoogleAnalyticsView />
   }
 
   return (
@@ -1398,7 +1420,6 @@ export default function AnalyticsPage() {
                 <tbody>
                   {sortedEntities.map((entity, i) => {
                     const isSelected = entity.id === selectedEntityId
-                    const canDrill = viewLevel === "campaign" || viewLevel === "adset"
                     return (
                       <tr
                         key={entity.id}
@@ -1553,7 +1574,7 @@ export default function AnalyticsPage() {
                   selectedMetric === "ctr" ? `${v}%` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
                 }
               />
-              <Tooltip content={<ChartTooltip />} />
+              <Tooltip content={chartTooltip} />
               <Area
                 type="monotone"
                 dataKey={selectedMetric}
@@ -1606,7 +1627,7 @@ export default function AnalyticsPage() {
                   axisLine={false}
                   width={110}
                 />
-                <Tooltip content={<BreakdownTooltip />} />
+                <Tooltip content={breakdownTooltip} />
                 <Bar dataKey={selectedMetric} radius={[0, 4, 4, 0]} fill="#a78bfa" />
               </BarChart>
             </ResponsiveContainer>
@@ -1691,7 +1712,7 @@ export default function AnalyticsPage() {
                   width={40}
                   tickFormatter={(v: number) => selectedMetric === "ctr" ? `${v}%` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                 />
-                <Tooltip content={<BreakdownTooltip />} />
+                <Tooltip content={breakdownTooltip} />
                 <Bar dataKey={selectedMetric} radius={[4, 4, 0, 0]}>
                   {citiesData.map((_, i) => (
                     <Cell key={i} fill={CITY_COLORS[i % CITY_COLORS.length]} />

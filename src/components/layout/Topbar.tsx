@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Plus, Menu } from "lucide-react"
+import { Plus, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ThemeToggle } from "./ThemeToggle"

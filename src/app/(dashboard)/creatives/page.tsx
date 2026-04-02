@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
+import NextImage from "next/image"
 import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
 import {
@@ -75,10 +76,10 @@ export default function CreativesPage() {
     enabled: !!adAccountId,
   })
 
-  const creatives = data?.data || []
+  const creatives = useMemo(() => data?.data || [], [data])
 
   const filtered = useMemo(() => {
-    let list = creatives.filter((c) => {
+    const list = creatives.filter((c) => {
       if (filter === "winners") return c.isWinner
       if (filter === "fatigued") return c.isFatigued
       return true
@@ -267,12 +268,15 @@ function CreativeMedia({
     return (
       <div className={`relative overflow-hidden ${className}`} style={{ background: "var(--bg-subtle)" }}>
         {displayUrl && !imgError ? (
-          <img
+          <NextImage
             src={displayUrl}
             alt={c.name}
-            className="h-full w-full cursor-pointer object-cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="cursor-pointer object-cover"
             onError={() => setImgError(true)}
             onClick={onClick}
+            unoptimized
           />
         ) : (
           <NoPreview />
@@ -307,12 +311,15 @@ function CreativeMedia({
     <div className={`relative overflow-hidden ${className}`} style={{ background: "var(--bg-subtle)" }}>
       {displayUrl && !imgError ? (
         <>
-          <img
+          <NextImage
             src={displayUrl}
             alt={c.name}
-            className="h-full w-full cursor-pointer object-cover transition-transform hover:scale-[1.02]"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="cursor-pointer object-cover transition-transform hover:scale-[1.02]"
             onError={() => setImgError(true)}
             onClick={onClick}
+            unoptimized
           />
           {/* Video overlay — clicking opens lightbox */}
           {c.isVideo && !c.videoSourceUrl && (
@@ -596,15 +603,6 @@ function StatusPill({ status, className = "" }: { status: string; className?: st
       style={{ background: status === "ACTIVE" ? "rgba(74,222,128,0.9)" : "rgba(0,0,0,0.5)", color: "white" }}>
       {status}
     </span>
-  )
-}
-
-function MetricCell({ label, value, highlight }: { label: string; value: string; highlight?: "good" | "bad" }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-[9px] font-medium uppercase tracking-wider" style={{ color: "var(--text-disabled)" }}>{label}</span>
-      <span className="font-mono text-[12px] font-semibold" style={{ color: highlight === "good" ? "#4ade80" : highlight === "bad" ? "#f87171" : "var(--text-primary)" }}>{value}</span>
-    </div>
   )
 }
 

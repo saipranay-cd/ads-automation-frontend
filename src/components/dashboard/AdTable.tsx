@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { CampaignToggle } from "@/components/campaigns/CampaignToggle"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -145,9 +146,11 @@ export function AdTable({
                   >
                     <div className="flex items-center gap-2">
                       {row.thumbnailUrl && (
-                        <img
+                        <Image
                           src={row.thumbnailUrl}
                           alt=""
+                          width={32}
+                          height={32}
                           className="h-8 w-8 shrink-0 rounded object-cover"
                           style={{ border: "1px solid var(--border-subtle)" }}
                         />

@@ -18,8 +18,8 @@ import { MetricCard } from "@/components/dashboard/MetricCard"
 import { PredictionsPanel } from "@/components/dashboard/PredictionsPanel"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
-import { useCampaigns, useDashboard, useAggregatedMetrics, type DateRange } from "@/hooks/use-campaigns"
-import { useGoogleDashboard, useGoogleAuthStatus } from "@/hooks/use-google"
+import { useCampaigns, useDashboard, useAggregatedMetrics, useProposals, type DateRange } from "@/hooks/use-campaigns"
+import { useGoogleDashboard, useGoogleAuthStatus, useGoogleAnalyticsMetrics, useGoogleCampaigns } from "@/hooks/use-google"
 import { useAppStore } from "@/lib/store"
 import { formatCurrency, formatNumber } from "@/lib/utils"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
@@ -69,24 +69,86 @@ export default function DashboardPage() {
   const [platformFilter, setPlatformFilter] = useState<"all" | "meta" | "google">("all")
   const { data: dashboardData, error: dashboardError, refetch: refetchDashboard } = useDashboard(selectedAdAccountId)
   const { data: googleDashboard } = useGoogleDashboard(selectedGoogleAccountId)
-  const { data: googleAuth } = useGoogleAuthStatus()
-  const googleConnected = googleAuth?.connected ?? false
-  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch: refetchCampaigns } = useCampaigns(selectedAdAccountId, 5)
+  useGoogleAuthStatus()
+  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError, refetch: refetchCampaigns } = useCampaigns(selectedAdAccountId)
+  const { data: googleCampaignsData, isLoading: googleCampaignsLoading } = useGoogleCampaigns(selectedGoogleAccountId)
 
   const { data: metricsRaw } = useAggregatedMetrics(selectedAdAccountId, chartDays, chartDateRange)
-  const campaigns = campaignsData?.data || []
+  const { data: googleMetricsRaw } = useGoogleAnalyticsMetrics(selectedGoogleAccountId, chartDays, chartDateRange)
+  const allCampaigns = useMemo(() => campaignsData?.data || [], [campaignsData?.data])
+  const allGoogleCampaigns = useMemo(() => googleCampaignsData?.data || [], [googleCampaignsData?.data])
 
-  // Backend returns { data: [...] } but hook types as PerformanceMetric[]
-  const metricsData = Array.isArray(metricsRaw) ? metricsRaw : (metricsRaw as any)?.data || []
+  // Normalized campaign type for unified table
+  interface UnifiedCampaign {
+    id: string; name: string; platform: "meta" | "google"; type: string
+    status: string; isActive: boolean; dailyBudget: number
+    spend: number; results: number; resultLabel: string
+    cpr: number | null; impressions: number; clicks: number; cpc: number
+  }
+
+  // Filter to campaigns with activity, sorted by spend
+  const metaCampaigns = useMemo(() => {
+    const active = allCampaigns.filter((c) => c.amountSpent > 0 || c.leads > 0 || c.impressions > 0)
+    const sorted = active.length > 0 ? active : allCampaigns
+    return [...sorted].sort((a, b) => b.amountSpent - a.amountSpent).slice(0, 5)
+  }, [allCampaigns])
+
+  // Unified campaigns for "All Platforms" and "Google" views
+  const unifiedCampaigns = useMemo((): UnifiedCampaign[] => {
+    const meta: UnifiedCampaign[] = allCampaigns.map((c) => ({
+      id: `meta-${c.id}`, name: c.name, platform: "meta", type: c.objective || "OUTCOME_LEADS",
+      status: c.status, isActive: c.status === "ACTIVE", dailyBudget: c.dailyBudget,
+      spend: c.amountSpent, results: c.leads, resultLabel: "Leads",
+      cpr: c.costPerLead, impressions: c.impressions, clicks: c.linkClicks || 0,
+      cpc: c.linkClicks > 0 ? c.amountSpent / c.linkClicks : 0,
+    }))
+    const google: UnifiedCampaign[] = allGoogleCampaigns.map((c) => ({
+      id: `google-${c.id}`, name: c.name, platform: "google", type: c.campaignType || "SEARCH",
+      status: c.status === "ENABLED" ? "ACTIVE" : c.status, isActive: c.status === "ENABLED",
+      dailyBudget: c.dailyBudget, spend: c.spend, results: c.conversions,
+      resultLabel: "Conv", cpr: c.costPerConversion,
+      impressions: c.impressions, clicks: c.clicks, cpc: c.cpc,
+    }))
+    const all = [...meta, ...google]
+    const active = all.filter((c) => c.spend > 0 || c.results > 0 || c.impressions > 0)
+    const sorted = active.length > 0 ? active : all
+    return [...sorted].sort((a, b) => b.spend - a.spend).slice(0, 5)
+  }, [allCampaigns, allGoogleCampaigns])
 
   const chartData = useMemo(() => {
-    if (!metricsData || metricsData.length === 0) return []
-    return metricsData.map((d: any) => ({
-      date: d.date.slice(5), // "MM-DD"
-      spend: d.spend,
-      leads: d.leads,
-    }))
-  }, [metricsData])
+    const showMeta = platformFilter === "all" || platformFilter === "meta"
+    const showGoogle = platformFilter === "all" || platformFilter === "google"
+
+    const metaData = showMeta ? (metricsRaw || []) : []
+    const googleData = showGoogle ? (googleMetricsRaw || []) : []
+
+    // Merge by date
+    const byDate = new Map<string, { spend: number; leads: number }>()
+    for (const d of metaData) {
+      const key = d.date.slice(0, 10)
+      const existing = byDate.get(key) || { spend: 0, leads: 0 }
+      existing.spend += d.spend
+      existing.leads += d.leads
+      byDate.set(key, existing)
+    }
+    for (const d of googleData) {
+      const key = typeof d.date === "string" ? d.date.slice(0, 10) : ""
+      if (!key) continue
+      const existing = byDate.get(key) || { spend: 0, leads: 0 }
+      existing.spend += d.spend ?? 0
+      existing.leads += d.conversions ?? 0
+      byDate.set(key, existing)
+    }
+
+    if (byDate.size === 0) return []
+    return Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, agg]) => ({
+        date: date.slice(5), // "MM-DD"
+        spend: Math.round(agg.spend * 100) / 100,
+        leads: agg.leads,
+      }))
+  }, [metricsRaw, googleMetricsRaw, platformFilter])
 
   const metrics = useMemo(() => {
     const meta = dashboardData
@@ -374,67 +436,163 @@ export default function DashboardPage() {
                 View all
               </a>
             </div>
-            {platformFilter === "google" ? (
-              <div
-                className="flex h-24 items-center justify-center rounded-lg"
-                style={{
-                  background: "var(--bg-base)",
-                  border: "1px solid var(--border-default)",
-                }}
-              >
-                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  Switch to{" "}
-                  <Link href="/google/campaigns" className="font-medium" style={{ color: "var(--acc)" }}>
-                    Google Campaigns
-                  </Link>{" "}
-                  for campaign details
-                </span>
-              </div>
-            ) : campaignsError ? (
-              <ErrorBanner
-                message={campaignsError.message || "Failed to load campaigns"}
-                onRetry={() => refetchCampaigns()}
-              />
-            ) : campaignsLoading ? (
+            {(campaignsLoading || googleCampaignsLoading) ? (
               <TableSkeleton rows={5} columns={5} />
-            ) : campaigns.length > 0 ? (
-              <CampaignTable
-                campaigns={campaigns}
-                isLoading={campaignsLoading}
-              />
+            ) : platformFilter === "meta" ? (
+              campaignsError ? (
+                <ErrorBanner message={campaignsError.message || "Failed to load campaigns"} onRetry={() => refetchCampaigns()} />
+              ) : metaCampaigns.length > 0 ? (
+                <CampaignTable campaigns={metaCampaigns} isLoading={false} />
+              ) : (
+                <EmptyState icon={LayoutDashboard} title="No Meta campaigns" description="Sync your ad account to see campaigns" />
+              )
             ) : (
-              <EmptyState
-                icon={LayoutDashboard}
-                title="No campaigns yet"
-                description="Sync your ad account to see your campaigns here"
-                actionLabel="Sync Now"
-              />
+              /* "All Platforms" and "Google" use the unified table */
+              (() => {
+                const rows = platformFilter === "google" ? unifiedCampaigns.filter((c) => c.platform === "google") : unifiedCampaigns
+                if (rows.length === 0) return (
+                  <EmptyState icon={LayoutDashboard} title="No campaigns yet" description="Sync your ad accounts to see campaigns here" />
+                )
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                          {["Campaign", "Platform", "Status", "Budget", "Spend", "Results", "CPR", "Clicks", "CPC"].map((h) => (
+                            <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider" style={{ color: "var(--text-tertiary)", fontSize: "10px" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((c) => (
+                          <tr key={c.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                            <td className="px-3 py-3">
+                              <div className="font-medium" style={{ color: "var(--text-primary)" }}>{c.name}</div>
+                              <div className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>{c.type}</div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{
+                                background: c.platform === "meta" ? "rgba(59,130,246,0.12)" : "rgba(234,179,8,0.12)",
+                                color: c.platform === "meta" ? "#60a5fa" : "#facc15",
+                              }}>
+                                {c.platform === "meta" ? "Meta" : "Google"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{
+                                background: c.isActive ? "rgba(34,197,94,0.15)" : "rgba(161,161,170,0.15)",
+                                color: c.isActive ? "rgb(34,197,94)" : "rgb(161,161,170)",
+                              }}>
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "currentColor" }} />
+                                {c.isActive ? "Active" : "Paused"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>{c.dailyBudget > 0 ? formatCurrency(c.dailyBudget) : "—"}</td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>{c.spend > 0 ? formatCurrency(c.spend) : "—"}</td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>
+                              {c.results > 0 ? <>{formatNumber(c.results)} <span className="text-[9px]" style={{ color: "var(--text-tertiary)" }}>{c.resultLabel}</span></> : "—"}
+                            </td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>{c.cpr != null && c.cpr > 0 ? formatCurrency(c.cpr) : "—"}</td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>{c.clicks > 0 ? formatNumber(c.clicks) : "—"}</td>
+                            <td className="px-3 py-3" style={{ color: "var(--text-secondary)" }}>{c.cpc > 0 ? formatCurrency(c.cpc) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()
             )}
           </div>
         </div>
 
         {/* Right: AI Insights */}
-        <div className="w-[320px] shrink-0">
-          <h2
-            className="mb-2 text-sm font-medium"
-            style={{ color: "var(--text-primary)" }}
+        <DashboardInsights adAccountId={selectedAdAccountId} />
+      </div>
+    </div>
+  )
+}
+
+// ── AI Insights Sidebar ───────────────────────────────
+
+const riskColors = { low: "#22c55e", medium: "#f59e0b", high: "#ef4444" } as const
+const statusColors: Record<string, string> = { pending: "#60a5fa", approved: "#22c55e", executed: "#a78bfa", rejected: "#71717a", failed: "#ef4444", superseded: "#71717a", undone: "#71717a" }
+
+function DashboardInsights({ adAccountId }: { adAccountId: string | null }) {
+  const { data: proposalsData } = useProposals(adAccountId)
+  const proposals = useMemo(() => proposalsData?.data || [], [proposalsData?.data])
+
+  // Show the most relevant: pending first, then recent executed/approved
+  const sorted = useMemo(() => {
+    const order: Record<string, number> = { pending: 0, approved: 1, executed: 2, failed: 3, rejected: 4, superseded: 5, undone: 5 }
+    return [...proposals]
+      .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5)
+  }, [proposals])
+
+  return (
+    <div className="w-[320px] shrink-0">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          AI Insights
+        </h2>
+        {proposals.length > 0 && (
+          <Link href="/insights" className="text-xs font-medium" style={{ color: "var(--acc)" }}>
+            View all
+          </Link>
+        )}
+      </div>
+      <div className="flex flex-col gap-2">
+        {sorted.length === 0 ? (
+          <div
+            className="flex h-24 items-center justify-center rounded-lg"
+            style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
           >
-            AI Insights
-          </h2>
-          <div className="flex flex-col gap-3">
-            <div
-              className="flex h-24 items-center justify-center rounded-lg"
-              style={{
-                background: "var(--bg-base)",
-                border: "1px solid var(--border-default)",
-              }}
-            >
-              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                No insights yet — sync and analyze campaigns to get AI recommendations
-              </span>
-            </div>
+            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              No insights yet — sync and analyze campaigns to get AI recommendations
+            </span>
           </div>
-        </div>
+        ) : (
+          sorted.map((p) => (
+            <Link
+              key={p.id}
+              href="/insights"
+              className="group rounded-lg p-3 transition-colors"
+              style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
+            >
+              <div className="flex items-start gap-2">
+                <div
+                  className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: riskColors[p.risk] || "#71717a" }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      {p.title}
+                    </span>
+                    <span
+                      className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase"
+                      style={{ background: `${statusColors[p.status] || "#71717a"}20`, color: statusColors[p.status] || "#71717a" }}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
+                    {p.description}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>{p.campaignName}</span>
+                    {p.estimatedSavings != null && p.estimatedSavings > 0 && (
+                      <span className="text-[10px] font-medium" style={{ color: "#22c55e" }}>
+                        Save {formatCurrency(p.estimatedSavings)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))
+        )}
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Users, PlusCircle, XIcon, CheckCircle2, MinusCircle, CircleDot } from "lucide-react"
+import { useState } from "react"
+import { Search, Users, PlusCircle, CheckCircle2 } from "lucide-react"
 import { useAudiences, type MetaAudience, type MetaAudienceTargeting } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"

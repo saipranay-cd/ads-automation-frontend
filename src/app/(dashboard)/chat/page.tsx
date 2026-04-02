@@ -8,7 +8,6 @@ import {
   Users,
   BarChart3,
   Sparkles,
-  Bot,
   Loader2,
   MessageSquarePlus,
   ArrowDown,
@@ -400,10 +399,11 @@ export default function ChatPage() {
         platform,
       })
       setMessages([...newMessages, { role: "assistant", content: result.reply }])
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Please try again."
       setMessages([
         ...newMessages,
-        { role: "assistant", content: `Something went wrong: ${err.message || "Please try again."}` },
+        { role: "assistant", content: `Something went wrong: ${message}` },
       ])
     }
   }

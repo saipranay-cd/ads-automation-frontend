@@ -6,7 +6,7 @@ import { useSession, signIn } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
 import {
-  CheckCircle, Circle, ArrowRight, ArrowLeft, SkipForward,
+  CheckCircle, ArrowRight, ArrowLeft, SkipForward,
   Loader2, Facebook, Database, Link2, LayoutDashboard,
 } from "lucide-react"
 import { useAdAccounts, type AdAccount } from "@/hooks/use-campaigns"
@@ -22,13 +22,11 @@ const STEPS = [
   { id: "done", label: "See Dashboard", icon: LayoutDashboard, skippable: false },
 ] as const
 
-type StepId = (typeof STEPS)[number]["id"]
-
 // ── Main ─────────────────────────────────────────────────
 
 export default function OnboardingPage() {
-  const { data: session, status: sessionStatus } = useSession()
-  const { isAuthenticated, isMetaAuth } = useAuth()
+  const { status: sessionStatus } = useSession()
+  const { isAuthenticated } = useAuth()
   const router = useRouter()
   const isConnected = isAuthenticated
   const { data: accountsData, isLoading: accountsLoading } = useAdAccounts()
@@ -75,7 +73,7 @@ export default function OnboardingPage() {
           Welcome to Adsflow
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Let's get your Meta ads dashboard set up. It takes about 2 minutes.
+          Let&apos;s get your Meta ads dashboard set up. It takes about 2 minutes.
         </p>
       </div>
 
@@ -342,7 +340,7 @@ function StepDone({ onGo }: { onGo: () => void }) {
         <CheckCircle size={32} style={{ color: "#4ade80" }} />
       </div>
       <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-        You're all set!
+        You&apos;re all set!
       </h2>
       <p className="text-center text-sm" style={{ color: "var(--text-secondary)" }}>
         Your data is syncing in the background. Head to the dashboard to see your campaigns, insights, and CPQL metrics.

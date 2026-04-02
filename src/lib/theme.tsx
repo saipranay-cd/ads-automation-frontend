@@ -23,14 +23,14 @@ const ThemeContext = createContext<ThemeContextValue>({
 })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("obsidian")
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "obsidian"
+    return (localStorage.getItem("adsflow-theme") as Theme) ?? "obsidian"
+  })
 
   useEffect(() => {
-    const stored = localStorage.getItem("adsflow-theme") as Theme | null
-    const initial = stored ?? "obsidian"
-    setTheme(initial)
-    document.documentElement.dataset.theme = initial
-  }, [])
+    document.documentElement.dataset.theme = theme
+  }, [theme])
 
   const toggle = useCallback(() => {
     setTheme((prev) => {

@@ -28,6 +28,7 @@ export function useGoogleAccounts() {
       if (!res.ok) throw new Error("Failed to fetch Google accounts")
       return res.json()
     },
+    staleTime: 30 * 60 * 1000,
   })
 }
 
@@ -41,6 +42,7 @@ export function useGoogleAuthStatus() {
       if (!res.ok) return { connected: false }
       return res.json()
     },
+    staleTime: 60_000,
   })
 }
 
@@ -65,6 +67,7 @@ export function useGoogleCampaigns(googleAccountId?: string | null, days = 30, d
       return res.json()
     },
     enabled: !!googleAccountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -80,6 +83,7 @@ export function useGoogleAdGroups(googleAccountId?: string | null, days = 30, da
       return res.json()
     },
     enabled: !!googleAccountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -95,6 +99,7 @@ export function useGoogleAds(googleAccountId?: string | null, days = 30, dateRan
       return res.json()
     },
     enabled: !!googleAccountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -110,6 +115,7 @@ export function useGoogleKeywords(googleAccountId?: string | null, days = 30, da
       return res.json()
     },
     enabled: !!googleAccountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -146,6 +152,7 @@ export function useGoogleAnalyticsMetrics(
       return json.data || []
     },
     enabled: !!accountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -187,6 +194,7 @@ export function useGoogleEntityInsights(
       return json.data || []
     },
     enabled: !!accountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -204,12 +212,13 @@ export function useGoogleDashboard(googleAccountId?: string | null) {
   return useQuery<GoogleDashboardMetrics>({
     queryKey: ["google-dashboard", googleAccountId],
     queryFn: async () => {
-      if (!googleAccountId) return null as any
+      if (!googleAccountId) throw new Error("No Google account ID")
       const res = await apiFetch(`/api/google/dashboard?accountId=${googleAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch Google dashboard")
       return res.json()
     },
     enabled: !!googleAccountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -237,6 +246,7 @@ export function useGoogleSync() {
       queryClient.invalidateQueries({ queryKey: ["google-ads"] })
       queryClient.invalidateQueries({ queryKey: ["google-keywords"] })
       queryClient.invalidateQueries({ queryKey: ["google-accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["google-dashboard"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
     },
   })
@@ -254,6 +264,7 @@ export function useGoogleProposals(accountId?: string | null) {
       return res.json()
     },
     enabled: !!accountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -267,6 +278,7 @@ export function useGoogleProposalStats(accountId?: string | null) {
       return res.json()
     },
     enabled: !!accountId,
+    staleTime: 5 * 60 * 1000,
   })
 }
 

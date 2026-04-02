@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import { apiFetch } from "@/lib/api-fetch"
 import { useSession, signOut } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
@@ -12,7 +12,8 @@ import { useAppStore } from "@/lib/store"
 import { usePlatform } from "@/hooks/use-platform"
 import type { Platform } from "@/hooks/use-platform"
 import { useGoogleAuthStatus } from "@/hooks/use-google"
-import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useZohoFields, useUpdateFieldMap } from "@/hooks/use-crm"
+import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useZohoFields, useUpdateFieldMap, useHistoryConfig, useUpdateHistoryConfig } from "@/hooks/use-crm"
+import type { CrmConnection, QualityMapping, SourceMapping, ZohoField } from "@/hooks/use-crm"
 import { useIsAdmin } from "@/hooks/use-role"
 
 export default function SettingsPageWrapper() {
@@ -25,7 +26,7 @@ export default function SettingsPageWrapper() {
 
 function SettingsPage() {
   const { data: session } = useSession()
-  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth()
+  const { user: authUser, isMetaAuth } = useAuth()
   const { data: accountsData } = useAdAccounts()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const accounts = accountsData?.data || []
@@ -313,21 +314,23 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
   const { data, isLoading } = useSkillPrompt(adAccountId, promptPlatform)
   const updateMutation = useUpdateSkillPrompt()
   const [localPrompt, setLocalPrompt] = useState("")
+  const [syncedPrompt, setSyncedPrompt] = useState<string | undefined>(undefined)
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [savedPlatform, setSavedPlatform] = useState<Platform>(promptPlatform)
   const isAdmin = useIsAdmin()
 
-  // Sync from server when data or platform changes
-  useEffect(() => {
-    if (data?.prompt) {
-      setLocalPrompt(data.prompt)
-    }
-  }, [data?.prompt])
+  // Sync from server when data changes (React-recommended: adjust state during render)
+  if (data?.prompt && data.prompt !== syncedPrompt) {
+    setSyncedPrompt(data.prompt)
+    setLocalPrompt(data.prompt)
+  }
 
   // Reset saved indicator when switching platforms
-  useEffect(() => {
+  if (promptPlatform !== savedPlatform) {
+    setSavedPlatform(promptPlatform)
     setSaved(false)
-  }, [promptPlatform])
+  }
 
   const hasChanges = localPrompt !== (data?.prompt || "")
   const agents = promptPlatform === "google" ? GOOGLE_AGENTS : META_AGENTS
@@ -504,14 +507,15 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
 function CrmIntegration({ adAccountId }: { adAccountId: string }) {
   const { data: connData, isLoading, refetch } = useCrmConnection(adAccountId)
   const syncMutation = useSyncCrm()
-  const discoverMutation = useDiscoverStages()
   const [expanded, setExpanded] = useState(false)
   const [sourceExpanded, setSourceExpanded] = useState(false)
   const [fieldExpanded, setFieldExpanded] = useState(false)
+  const isAdmin = useIsAdmin()
 
-  const connection = connData?.data?.find((c: any) => c.isActive)
+  const connection = connData?.data?.find((c: CrmConnection) => c.isActive)
 
   const handleConnect = async () => {
+    if (!isAdmin) return
     try {
       const res = await apiFetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
       const data = await res.json()
@@ -524,7 +528,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
   }
 
   const handleDisconnect = async () => {
-    if (!connection) return
+    if (!connection || !isAdmin) return
     try {
       await apiFetch(`/api/crm/connections?id=${connection.id}`, { method: "DELETE" })
       refetch()
@@ -534,7 +538,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
   }
 
   const handleSync = () => {
-    if (!connection) return
+    if (!connection || !isAdmin) return
     syncMutation.mutate(connection.id, { onSuccess: () => refetch() })
   }
 
@@ -667,6 +671,9 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
             </span>
           </div>
           {fieldExpanded && <FieldMappingEditor connectionId={connection.id} />}
+
+          {/* Lead Status History Config */}
+          <HistoryConfigEditor connectionId={connection.id} />
         </div>
       ) : (
         <div className="mt-4">
@@ -682,6 +689,120 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
             Connect Zoho CRM
           </button>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Lead Status History Config ───────────────────────────────
+
+function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
+  const { data } = useHistoryConfig(connectionId)
+  const updateMutation = useUpdateHistoryConfig()
+  const isAdmin = useIsAdmin()
+  const [relatedList, setRelatedList] = useState("")
+  const [stageField, setStageField] = useState("")
+  const [saved, setSaved] = useState(false)
+  const [initialized, setInitialized] = useState(false)
+
+  // Sync from server
+  if (data?.data && !initialized) {
+    setRelatedList(data.data.historyRelatedList || "")
+    setStageField(data.data.historyStageField || "")
+    setInitialized(true)
+  }
+
+  const hasChanges =
+    relatedList !== (data?.data?.historyRelatedList || "") ||
+    stageField !== (data?.data?.historyStageField || "")
+
+  const handleSave = () => {
+    if (!isAdmin) return
+    updateMutation.mutate(
+      {
+        connectionId,
+        historyRelatedList: relatedList.trim() || null,
+        historyStageField: stageField.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          setSaved(true)
+          setTimeout(() => setSaved(false), 2000)
+        },
+      }
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-md p-3" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-subtle)" }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
+          Lead Status History
+        </span>
+        <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+          Track the best stage a lead ever reached, even if it later moved to Dead
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <label className="block text-[10px] mb-1" style={{ color: "var(--text-tertiary)" }}>
+            Related List API Name
+          </label>
+          <input
+            type="text"
+            value={relatedList}
+            onChange={(e) => isAdmin && setRelatedList(e.target.value)}
+            readOnly={!isAdmin}
+            placeholder="e.g. Lead_Status_History"
+            className="w-full rounded-md px-2.5 py-1.5 text-[11px]"
+            style={{
+              background: "var(--bg-base)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-primary)",
+              opacity: !isAdmin ? 0.7 : 1,
+            }}
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-[10px] mb-1" style={{ color: "var(--text-tertiary)" }}>
+            Stage Field Name
+          </label>
+          <input
+            type="text"
+            value={stageField}
+            onChange={(e) => isAdmin && setStageField(e.target.value)}
+            readOnly={!isAdmin}
+            placeholder="e.g. Lead_Status"
+            className="w-full rounded-md px-2.5 py-1.5 text-[11px]"
+            style={{
+              background: "var(--bg-base)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-primary)",
+              opacity: !isAdmin ? 0.7 : 1,
+            }}
+          />
+        </div>
+        {isAdmin && (
+          <div className="self-end">
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges || updateMutation.isPending}
+              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-[11px] font-medium text-white transition-all"
+              style={{
+                background: saved ? "#4ade80" : "var(--acc)",
+                opacity: !hasChanges || updateMutation.isPending ? 0.5 : 1,
+              }}
+            >
+              {saved ? <Check size={11} /> : <Save size={11} />}
+              {saved ? "Saved" : "Save"}
+            </button>
+          </div>
+        )}
+      </div>
+      {!relatedList && (
+        <p className="mt-1.5 text-[10px]" style={{ color: "var(--text-disabled)" }}>
+          Not configured. Without this, best quality stage is based on current CRM stage only.
+        </p>
       )}
     </div>
   )
@@ -722,8 +843,10 @@ function SearchSelect({
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  useEffect(() => {
-    if (open) {
+  const handleToggle = useCallback(() => {
+    const willOpen = !open
+    setOpen(willOpen)
+    if (willOpen) {
       setQuery("")
       setTimeout(() => inputRef.current?.focus(), 0)
     }
@@ -734,7 +857,7 @@ function SearchSelect({
       {/* Trigger */}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
         className="w-full flex items-center justify-between rounded-md px-2.5 py-1.5 text-[11px] text-left"
         style={{
           background: "var(--bg-base)",
@@ -849,6 +972,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const { data: fieldMapData, isLoading: mapLoading } = useFieldMap(connectionId)
   const { data: zohoFieldsData, isLoading: fieldsLoading } = useZohoFields(connectionId)
   const updateMutation = useUpdateFieldMap()
+  const isAdmin = useIsAdmin()
   const [localMappings, setLocalMappings] = useState<Record<string, string>>({
     campaign_id: "",
     adset_id: "",
@@ -857,21 +981,21 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const [saved, setSaved] = useState(false)
 
   const zohoFields = zohoFieldsData?.data || []
-  const fieldOptions = zohoFields.map((zf: any) => ({
+  const fieldOptions = zohoFields.map((zf: ZohoField) => ({
     value: zf.apiName,
     label: zf.displayLabel,
     sub: zf.dataType,
   }))
 
-  useEffect(() => {
-    if (fieldMapData?.data) {
-      const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "" }
-      for (const m of fieldMapData.data) {
-        map[m.metaField] = m.zohoField
-      }
-      setLocalMappings(map)
+  const [syncedFieldMap, setSyncedFieldMap] = useState(fieldMapData?.data)
+  if (fieldMapData?.data && fieldMapData.data !== syncedFieldMap) {
+    setSyncedFieldMap(fieldMapData.data)
+    const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "" }
+    for (const m of fieldMapData.data) {
+      map[m.metaField] = m.zohoField
     }
-  }, [fieldMapData?.data])
+    setLocalMappings(map)
+  }
 
   const handleSave = () => {
     const mappings = META_FIELDS.map(f => ({
@@ -954,14 +1078,15 @@ function SourceMappingEditor({ connectionId }: { connectionId: string }) {
   const { data: mapData, isLoading } = useSourceMap(connectionId)
   const updateMutation = useUpdateSourceMap()
   const discoverMutation = useDiscoverSources()
+  const isAdmin = useIsAdmin()
   const [localMappings, setLocalMappings] = useState<{ crmSource: string; adPlatform: string }[]>([])
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    if (mapData?.data) {
-      setLocalMappings(mapData.data.map((m: any) => ({ crmSource: m.crmSource, adPlatform: m.adPlatform })))
-    }
-  }, [mapData?.data])
+  const [syncedSourceMap, setSyncedSourceMap] = useState(mapData?.data)
+  if (mapData?.data && mapData.data !== syncedSourceMap) {
+    setSyncedSourceMap(mapData.data)
+    setLocalMappings(mapData.data.map((m: SourceMapping) => ({ crmSource: m.crmSource, adPlatform: m.adPlatform })))
+  }
 
   const handleDiscover = () => discoverMutation.mutate(connectionId)
 
@@ -1066,23 +1191,24 @@ function QualityMappingEditor({ connectionId }: { connectionId: string }) {
   const { data: mapData, isLoading } = useCrmQualityMap(connectionId)
   const updateMutation = useUpdateQualityMap()
   const discoverMutation = useDiscoverStages()
+  const isAdmin = useIsAdmin()
   const [localMappings, setLocalMappings] = useState<
     { crmStage: string; qualityScore: number; qualityTier: string; sortOrder: number }[]
   >([])
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
-    if (mapData?.data) {
-      setLocalMappings(
-        mapData.data.map((m: any) => ({
-          crmStage: m.crmStage,
-          qualityScore: m.qualityScore,
-          qualityTier: m.qualityTier,
-          sortOrder: m.sortOrder,
-        }))
-      )
-    }
-  }, [mapData?.data])
+  const [syncedQualityMap, setSyncedQualityMap] = useState(mapData?.data)
+  if (mapData?.data && mapData.data !== syncedQualityMap) {
+    setSyncedQualityMap(mapData.data)
+    setLocalMappings(
+      mapData.data.map((m: QualityMapping) => ({
+        crmStage: m.crmStage,
+        qualityScore: m.qualityScore,
+        qualityTier: m.qualityTier,
+        sortOrder: m.sortOrder,
+      }))
+    )
+  }
 
   const handleDiscover = () => {
     discoverMutation.mutate(connectionId)
@@ -1196,6 +1322,7 @@ function GoogleAdsConnection() {
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
+  const isAdmin = useIsAdmin()
 
   const connected = authStatus?.connected ?? false
 
@@ -1228,6 +1355,7 @@ function GoogleAdsConnection() {
   }, [searchParams, refetch])
 
   const handleDisconnect = async () => {
+    if (!isAdmin) return
     setDisconnecting(true)
     try {
       const res = await apiFetch("/api/google/auth/disconnect", { method: "POST" })

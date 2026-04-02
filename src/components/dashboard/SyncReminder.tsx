@@ -1,10 +1,18 @@
 "use client"
 
+"use client"
+
 import { RefreshCw, AlertTriangle } from "lucide-react"
 import { useAdAccounts, useSync } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 
 const TEN_MINUTES = 10 * 60 * 1000
+
+function isSyncStale(syncedAtStr: string | null | undefined): boolean {
+  if (!syncedAtStr) return true
+  const syncedAt = new Date(syncedAtStr).getTime()
+  return globalThis.Date.now() - syncedAt > TEN_MINUTES
+}
 
 export function SyncReminder() {
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
@@ -14,12 +22,10 @@ export function SyncReminder() {
   const accounts = accountsData?.data || []
   const selected = accounts.find((a) => a.id === selectedAdAccountId)
 
+  const isStale = isSyncStale(selected?.syncedAt)
+  const neverSynced = !selected?.syncedAt
+
   if (!selected) return null
-
-  const syncedAt = selected.syncedAt ? new Date(selected.syncedAt).getTime() : null
-  const isStale = syncedAt ? Date.now() - syncedAt > TEN_MINUTES : true
-  const neverSynced = !syncedAt
-
   if (!isStale) return null
 
   const bg = neverSynced ? "rgba(239, 68, 68, 0.15)" : "rgba(251, 191, 36, 0.12)"

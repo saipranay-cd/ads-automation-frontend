@@ -9,12 +9,15 @@ export async function DELETE(
 ) {
   const { orgId, userId } = await params
   const auth = await getBackendAuth(_req)
-  const authHeaders: Record<string, string> = auth ? { Authorization: `Bearer ${auth.token}` } : {}
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const res = await fetch(
     `${BACKEND_URL}/api/v1/org/${orgId}/members/${userId}`,
     {
       method: "DELETE",
-      headers: { ...authHeaders },
+      headers: { Authorization: `Bearer ${auth.token}` },
     }
   )
   const data = await res.json()

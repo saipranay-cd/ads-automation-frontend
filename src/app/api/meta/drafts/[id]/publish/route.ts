@@ -23,8 +23,8 @@ export async function POST(
         Authorization: `Bearer ${auth.token}`,
       },
       body: JSON.stringify({
-        status: body.status,
-        imageBase64: body.imageBase64,
+        ...body,
+        ...(auth.source === "meta" && { accessToken: auth.token }),
       }),
     })
     const data = await res.json()

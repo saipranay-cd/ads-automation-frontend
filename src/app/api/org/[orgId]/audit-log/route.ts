@@ -8,14 +8,17 @@ export async function GET(
   { params }: { params: Promise<{ orgId: string }> }
 ) {
   const { orgId } = await params
+  const auth = await getBackendAuth(req)
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const page = searchParams.get("page") || "1"
-  const auth = await getBackendAuth(req)
-  const authHeaders: Record<string, string> = auth ? { Authorization: `Bearer ${auth.token}` } : {}
   const res = await fetch(
     `${BACKEND_URL}/api/v1/org/${orgId}/audit-log?page=${page}`,
     {
-      headers: { ...authHeaders },
+      headers: { Authorization: `Bearer ${auth.token}` },
     }
   )
   const data = await res.json()

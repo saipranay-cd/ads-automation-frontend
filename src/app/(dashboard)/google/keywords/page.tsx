@@ -81,7 +81,7 @@ export default function GoogleKeywordsPage() {
   const { data: keywordsData, isLoading, error, refetch } = useGoogleKeywords(selectedGoogleAccountId, days, dateRange)
   const sync = useGoogleSync()
 
-  const keywords = keywordsData?.data || []
+  const keywords = useMemo(() => keywordsData?.data || [], [keywordsData])
 
   const filtered = useMemo(() => {
     return keywords.filter((k: GoogleKeywordRow) => {

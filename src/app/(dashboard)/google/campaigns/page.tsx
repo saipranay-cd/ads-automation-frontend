@@ -42,7 +42,6 @@ function statusMap(s: string) {
 
 const stickyCol =
   "sticky left-0 z-20 px-3 py-2.5 min-w-[220px] max-w-[280px]"
-const stickyColBg = { background: "var(--bg-base)" }
 const stickyHeaderBg = { background: "var(--bg-muted)" }
 const thClass =
   "whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-[0.06em]"
@@ -62,7 +61,7 @@ export default function GoogleCampaignsPage() {
   const { data: campaignsData, isLoading, error, refetch } = useGoogleCampaigns(selectedGoogleAccountId, days, dateRange)
   const sync = useGoogleSync()
 
-  const campaigns = campaignsData?.data || []
+  const campaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
 
   const filtered = useMemo(() => {
     return campaigns.filter((c: GoogleCampaignRow) => {

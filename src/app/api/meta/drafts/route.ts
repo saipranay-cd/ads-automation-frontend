@@ -33,15 +33,13 @@ export async function GET(req: Request) {
     }
   }
 
-  if (!email) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-  }
-
   try {
-    const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/drafts/user/${encodeURIComponent(email)}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
+    const url = email
+      ? `${BACKEND_URL}/api/v1/adsflow/drafts/user/${encodeURIComponent(email)}`
+      : `${BACKEND_URL}/api/v1/adsflow/drafts`
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
     const data = await res.json()
     return NextResponse.json(data)
   } catch {
@@ -51,17 +49,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const auth = await getBackendAuth(req)
-  if (!auth || !auth.email) {
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
-  const email = auth.email!
 
   try {
     const body = await req.json()
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/drafts`, {
       method: "POST",
       headers: authHeaders(auth.token),
-      body: JSON.stringify({ ...body, userId: email }),
+      body: JSON.stringify({
+        ...body,
+        ...(auth.email && { userId: auth.email }),
+      }),
     })
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })

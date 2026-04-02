@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import {
   Target, Users, IndianRupee, TrendingUp, ArrowUpRight,
   ArrowDownRight, RefreshCw, ChevronLeft, ChevronRight,
-  Circle, AlertTriangle, CheckCircle, XCircle, Minus,
+  Circle, CheckCircle, XCircle, Minus,
   Link2, Search, SlidersHorizontal,
   Megaphone, Layers, Image, BarChart3, Info, X,
 } from "lucide-react"
@@ -27,7 +27,6 @@ import {
   useEntityQuality,
   type CrmLead,
   type CampaignQualityMetrics,
-  type EntityQualityMetrics,
   type EntityLevel,
   type QualityBreakdown,
   type PlatformBreakdown as PlatformBreakdownType,
@@ -132,7 +131,7 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
 
 // ── Quality Distribution ────────────────────────────────
 
-function QualityDistribution({ breakdown, total }: { breakdown: QualityBreakdown[]; total: number }) {
+function QualityDistribution({ breakdown }: { breakdown: QualityBreakdown[] }) {
   const sorted = [...breakdown].sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))
 
   return (
@@ -188,6 +187,7 @@ function QualityDistribution({ breakdown, total }: { breakdown: QualityBreakdown
 
 // ── Platform Breakdown ──────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PlatformCard({ platforms }: { platforms: PlatformBreakdownType[] }) {
   if (!platforms.length) return null
   const maxCount = Math.max(...platforms.map(p => p.count), 1)
@@ -369,11 +369,12 @@ function QualityTrendChart({ adAccountId, dateRange }: {
 
 // ── Improvement #3: Junk Lead Alert Banner ──────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function JunkAlertBanner({ campaigns }: { campaigns: CampaignQualityMetrics[] }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
-  const getId = (c: any) => c.campaignId || c.entityId || c.entityId || ''
-  const getName = (c: any) => c.campaignName || c.entityName || 'Unknown' || c.entityName || 'Unknown'
+  const getId = (c: CampaignQualityMetrics) => c.campaignId || c.entityId || ''
+  const getName = (c: CampaignQualityMetrics) => c.campaignName || c.entityName || 'Unknown'
 
   const highJunk = campaigns
     .filter(c => c.junkPercentage > 40 && !dismissed.has(getId(c)))
@@ -416,6 +417,7 @@ function JunkAlertBanner({ campaigns }: { campaigns: CampaignQualityMetrics[] })
 
 // ── Improvement #2: CPQL Comparison Bars ────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CpqlComparisonBars({ campaigns }: { campaigns: CampaignQualityMetrics[] }) {
   const withCpql = campaigns.filter(c => c.cpql != null && c.cpql > 0).slice(0, 8)
   if (withCpql.length === 0) return null
@@ -485,6 +487,7 @@ function CpqlComparisonBars({ campaigns }: { campaigns: CampaignQualityMetrics[]
 
 // ── Improvement #5: Top Keywords by Quality (Google only) ──
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TopKeywordsByQuality({ leads }: { leads: CrmLead[] }) {
   const keywordData = useMemo(() => {
     const map = new Map<string, { total: number; quality: number; junk: number }>()
@@ -493,8 +496,8 @@ function TopKeywordsByQuality({ leads }: { leads: CrmLead[] }) {
       if (!kw) continue
       const entry = map.get(kw) || { total: 0, quality: 0, junk: 0 }
       entry.total++
-      if (lead.qualityScore != null && lead.qualityScore >= 70) entry.quality++
-      if (lead.qualityTier === "junk") entry.junk++
+      if ((lead.bestQualityScore ?? lead.qualityScore ?? 0) >= 70) entry.quality++
+      if ((lead.bestQualityTier ?? lead.qualityTier) === "junk") entry.junk++
       map.set(kw, entry)
     }
     return [...map.entries()]
@@ -621,8 +624,8 @@ function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntit
       const kw = lead.utmTerm || "(not set)"
       const entry = byKeyword.get(kw) || { total: 0, quality: 0, junk: 0, campaignIds: new Map() }
       entry.total++
-      if ((lead.qualityScore ?? 0) >= 70) entry.quality++
-      if (lead.qualityTier === "junk") entry.junk++
+      if ((lead.bestQualityScore ?? lead.qualityScore ?? 0) >= 70) entry.quality++
+      if ((lead.bestQualityTier ?? lead.qualityTier) === "junk") entry.junk++
       // Track which campaign this keyword is in (most common one becomes parent)
       if (lead.campaignId) {
         entry.campaignIds.set(lead.campaignId, (entry.campaignIds.get(lead.campaignId) || 0) + 1)
@@ -656,7 +659,7 @@ function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntit
       })
   }, [level, leads, campaignMetrics])
 
-  const entities = level === "keyword" ? keywordEntities : (entityData?.data || [])
+  const entities = useMemo(() => level === "keyword" ? keywordEntities : (entityData?.data || []), [level, keywordEntities, entityData])
 
   // Improvement #6: Estimate spend for ad sets/ad groups by proportioning campaign spend
   const estimatedSpend = useMemo(() => {
@@ -697,7 +700,7 @@ function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntit
     else { setSortKey(key); setSortDir("desc") }
   }
 
-  const SortIcon = ({ k }: { k: typeof sortKey }) => {
+  const renderSortIcon = (k: string) => {
     if (sortKey !== k) return null
     return sortDir === "desc"
       ? <ArrowDownRight size={10} style={{ marginLeft: 2 }} />
@@ -766,17 +769,17 @@ function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntit
                   <th className={thStyle} style={{ color: "var(--text-tertiary)" }}>Parent</th>
                 )}
                 <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 70 }} onClick={() => toggleSort("totalLeads")}>
-                  <span className="inline-flex items-center">Total <SortIcon k="totalLeads" /></span>
+                  <span className="inline-flex items-center">Total {renderSortIcon("totalLeads")}</span>
                 </th>
                 <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 80 }} onClick={() => toggleSort("qualityLeads")}>
-                  <span className="inline-flex items-center">Quality <SortIcon k="qualityLeads" /></span>
+                  <span className="inline-flex items-center">Quality {renderSortIcon("qualityLeads")}</span>
                 </th>
                 <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 80 }} onClick={() => toggleSort("junkPercentage")}>
-                  <span className="inline-flex items-center">Junk % <SortIcon k="junkPercentage" /></span>
+                  <span className="inline-flex items-center">Junk % {renderSortIcon("junkPercentage")}</span>
                 </th>
                 {level === "campaign" && (
                   <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 90 }} onClick={() => toggleSort("cpql")}>
-                    <span className="inline-flex items-center">CPQL <SortIcon k="cpql" /></span>
+                    <span className="inline-flex items-center">CPQL {renderSortIcon("cpql")}</span>
                   </th>
                 )}
                 {level === "campaign" && (
@@ -789,7 +792,7 @@ function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntit
                   <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 90 }}>Est. CPL</th>
                 )}
                 <th className={thStyle} style={{ color: "var(--text-tertiary)", width: 130 }} onClick={() => toggleSort("qualityRatio")}>
-                  <span className="inline-flex items-center">Quality Ratio <SortIcon k="qualityRatio" /></span>
+                  <span className="inline-flex items-center">Quality Ratio {renderSortIcon("qualityRatio")}</span>
                 </th>
               </tr>
             </thead>
@@ -1132,7 +1135,6 @@ export default function LeadQualityPage() {
   const { platform } = usePlatform()
   const isGoogle = platform === "google"
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
-  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
   // CRM data is always stored under the Meta ad account ID.
   // Platform filter ("meta" or "google") distinguishes which leads to show.
   const { data: connData } = useCrmConnection(selectedAdAccountId)
@@ -1176,7 +1178,7 @@ export default function LeadQualityPage() {
     : paginatedLeads
   const syncMutation = useSyncCrm()
 
-  const connection = connData?.data?.find((c: any) => c.isActive)
+  const connection = connData?.data?.find((c: { isActive: boolean }) => c.isActive)
   const insights = insightsData?.data
   const leads = filteredByKeyword
   const leadsTotal = entityFilter?.level === "keyword" ? filteredByKeyword.length : (leadsData?.total || 0)
@@ -1305,7 +1307,7 @@ export default function LeadQualityPage() {
 
       {/* Quality Distribution */}
       {insights && insights.qualityBreakdown.length > 0 && (
-        <QualityDistribution breakdown={insights.qualityBreakdown} total={insights.totalLeads} />
+        <QualityDistribution breakdown={insights.qualityBreakdown} />
       )}
 
       {/* Improvement #1: Quality Trend Chart */}

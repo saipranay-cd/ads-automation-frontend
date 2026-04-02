@@ -12,11 +12,6 @@ export function OrgSwitcher() {
   const [switching, setSwitching] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Only render if user has 2+ orgs
-  if (orgs.length < 2) return null
-
-  const currentOrg = orgs[0]
-
   // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -25,6 +20,11 @@ export function OrgSwitcher() {
     if (open) document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
   }, [open])
+
+  // Only render if user has 2+ orgs
+  if (orgs.length < 2) return null
+
+  const currentOrg = orgs[0]
 
   async function handleSwitch(org: OrgInfo) {
     if (org.id === currentOrg.id) {

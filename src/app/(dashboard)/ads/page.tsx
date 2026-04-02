@@ -20,7 +20,7 @@ export default function AdsPage() {
   const { data: adsData, isLoading, error, refetch } = useAds(selectedAdAccountId)
   const sync = useSync()
 
-  const ads = adsData?.data || []
+  const ads = useMemo(() => adsData?.data || [], [adsData])
 
   const filtered = useMemo(() => {
     return ads.filter((a) => {

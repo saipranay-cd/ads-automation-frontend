@@ -5,16 +5,19 @@ const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
 
 export async function GET(req: Request) {
   const auth = await getBackendAuth(req)
-  if (!auth || !auth.email) {
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   const { searchParams } = new URL(req.url)
   const adAccountId = searchParams.get("adAccountId") || ""
 
+  const params = new URLSearchParams({ adAccountId })
+  if (auth.email) params.set("userId", auth.email)
+
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${auth.email!}&adAccountId=${adAccountId}`,
+      `${BACKEND_URL}/api/v1/adsflow/alert-rules?${params.toString()}`,
       { headers: { Authorization: `Bearer ${auth.token}` } }
     )
     return NextResponse.json(await res.json())
@@ -25,15 +28,18 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const auth = await getBackendAuth(req)
-  if (!auth || !auth.email) {
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
   const body = await req.json()
 
+  const params = new URLSearchParams()
+  if (auth.email) params.set("userId", auth.email)
+
   try {
     const res = await fetch(
-      `${BACKEND_URL}/api/v1/adsflow/alert-rules?userId=${auth.email!}`,
+      `${BACKEND_URL}/api/v1/adsflow/alert-rules?${params.toString()}`,
       {
         method: "POST",
         headers: {

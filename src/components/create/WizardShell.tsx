@@ -21,8 +21,9 @@ import type { WizardDraft } from "@/types/adsflow"
 
 // Map wizard draft to database-compatible fields
 function mapDraftToDb(draft: WizardDraft & { currentStep: number }): Record<string, unknown> {
-  const rawCreative = (draft.creativeJson || {}) as Record<string, unknown>
-  const { imagePreview, ...cleanCreative } = rawCreative
+  const rawCreative = { ...(draft.creativeJson || {}) } as Record<string, unknown>
+  delete rawCreative.imagePreview
+  const cleanCreative = rawCreative
 
   // Build targeting JSON from wizard fields
   const targetingJson: Record<string, unknown> = {

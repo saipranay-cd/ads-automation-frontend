@@ -20,7 +20,7 @@ export default function AdSetsPage() {
   const { data: adSetsData, isLoading, error, refetch } = useAdSets(selectedAdAccountId)
   const sync = useSync()
 
-  const adSets = adSetsData?.data || []
+  const adSets = useMemo(() => adSetsData?.data || [], [adSetsData])
 
   const filtered = useMemo(() => {
     return adSets.filter((a) => {

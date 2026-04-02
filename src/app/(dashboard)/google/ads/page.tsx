@@ -61,7 +61,7 @@ export default function GoogleAdsPage() {
   const { data: adsData, isLoading, error, refetch } = useGoogleAds(selectedGoogleAccountId, days, dateRange)
   const sync = useGoogleSync()
 
-  const ads = adsData?.data || []
+  const ads = useMemo(() => adsData?.data || [], [adsData])
 
   const filtered = useMemo(() => {
     return ads.filter((a: GoogleAdRow) => {

@@ -23,8 +23,9 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${auth.token}`,
       },
       body: JSON.stringify({
-        userId: auth.email,
-        adAccountId: body.adAccountId,
+        ...(auth.email && { userId: auth.email }),
+        ...(auth.source === "meta" && { accessToken: auth.token }),
+        adAccountId: body.adAccountId || undefined,
       }),
     })
     const data = await res.json()

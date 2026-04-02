@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
 import { useAppStore } from "@/lib/store"
-import { TrendingUp, TrendingDown, Clock, AlertCircle, AlertTriangle, Info, Users } from "lucide-react"
+import { TrendingUp, Clock, AlertCircle, AlertTriangle, Info, Users } from "lucide-react"
 
 interface Prediction {
   type: string
@@ -41,6 +41,7 @@ export function PredictionsPanel() {
     },
     enabled: !!adAccountId,
     refetchInterval: 5 * 60 * 1000, // Every 5 min
+    refetchIntervalInBackground: false,
   })
 
   const predictions = data?.data || []

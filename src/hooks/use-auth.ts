@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { useCurrentOrg } from "./use-org"
-import { useEffect, useState } from "react"
+import { useMemo } from "react"
 
 /**
  * Unified auth hook that works for both:
@@ -34,12 +34,13 @@ function getStoredOrgUser(): { name: string; email: string } | null {
 export function useAuth() {
   const { data: session, status: sessionStatus } = useSession()
   const { data: orgData, isLoading: orgLoading } = useCurrentOrg()
-  const [hasOrgToken, setHasOrgToken] = useState(false)
-  const [orgUser, setOrgUser] = useState<{ name: string; email: string } | null>(null)
-
-  useEffect(() => {
-    setHasOrgToken(!!localStorage.getItem("org-token"))
-    setOrgUser(getStoredOrgUser())
+  const hasOrgToken = useMemo(() => {
+    if (typeof window === "undefined") return false
+    return !!localStorage.getItem("org-token")
+  }, [])
+  const orgUser = useMemo(() => {
+    if (typeof window === "undefined") return null
+    return getStoredOrgUser()
   }, [])
 
   const metaUser = session?.user

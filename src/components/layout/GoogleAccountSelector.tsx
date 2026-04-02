@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import { ChevronDown, Building2, Search, Check } from "lucide-react"
-import { useGoogleAccounts, type GoogleAdAccountInfo } from "@/hooks/use-google"
+import { useGoogleAccounts, useGoogleSync } from "@/hooks/use-google"
 import { useAppStore } from "@/lib/store"
 
 export function GoogleAccountSelector() {
@@ -11,10 +11,11 @@ export function GoogleAccountSelector() {
   const ref = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const { data: accountsData } = useGoogleAccounts()
+  const syncMutation = useGoogleSync()
   const selectedId = useAppStore((s) => s.selectedGoogleAccountId)
   const setSelectedId = useAppStore((s) => s.setSelectedGoogleAccountId)
 
-  const accounts = accountsData?.data || []
+  const accounts = useMemo(() => accountsData?.data || [], [accountsData?.data])
   const selected = accounts.find((a) => a.id === selectedId)
 
   // Auto-select first account
@@ -60,12 +61,9 @@ export function GoogleAccountSelector() {
       <button
         onClick={() => {
           // Trigger sync to discover accounts
-          fetch("/api/google/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          })
+          syncMutation.mutate(undefined)
         }}
+        disabled={syncMutation.isPending}
         className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors hover:opacity-80"
         style={{
           background: "var(--acc-subtle)",

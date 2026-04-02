@@ -34,8 +34,8 @@ export function AccountSelector() {
   const selectedId = useAppStore((s) => s.selectedAdAccountId)
   const setSelectedId = useAppStore((s) => s.setSelectedAdAccountId)
 
-  const accounts = accountsData?.data || []
-  const isRateLimited = (accountsData as any)?.error?.includes?.("rate limit")
+  const accounts = useMemo(() => accountsData?.data || [], [accountsData?.data])
+  const isRateLimited = (accountsData as { error?: string })?.error?.includes?.("rate limit") ?? false
   const selected = accounts.find((a) => a.id === selectedId)
 
   // Auto-select first account
@@ -197,7 +197,7 @@ export function AccountSelector() {
           <div className="max-h-[340px] overflow-y-auto px-1">
             {filteredGroups.length === 0 && (
               <div className="px-3 py-4 text-center text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                No accounts match "{search}"
+                No accounts match &quot;{search}&quot;
               </div>
             )}
 

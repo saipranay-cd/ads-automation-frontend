@@ -11,9 +11,8 @@ import {
 import { useAppStore } from "@/lib/store"
 import { usePlatform } from "@/hooks/use-platform"
 import { useProposals, useProposalStats, useScanProposals, useUpdateProposal, useImpactStats, useMeasureProposals } from "@/hooks/use-campaigns"
-import type { AiProposal, ExecutionResult, ProposalAction, EntityMetrics, ImpactStats } from "@/hooks/use-campaigns"
+import type { AiProposal, ExecutionResult, ProposalAction, EntityMetrics } from "@/hooks/use-campaigns"
 import { useGoogleProposals, useGoogleProposalStats, useScanGoogleProposals } from "@/hooks/use-google"
-import { EmptyState } from "@/components/ui/empty-state"
 import { useCanEdit } from "@/hooks/use-role"
 
 // ── Types ──────────────────────────────────────────────────
@@ -137,7 +136,7 @@ export default function InsightsPage() {
 
   const { data: impactData } = useImpactStats(isGoogle ? null : accountId)
   const updateMutation = useUpdateProposal()
-  const measureMutation = useMeasureProposals()
+  useMeasureProposals()
   const canEdit = useCanEdit()
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all")
@@ -149,7 +148,7 @@ export default function InsightsPage() {
 
   const impact = impactData?.data
 
-  const proposals: AiProposal[] = proposalsData?.data || []
+  const proposals: AiProposal[] = useMemo(() => proposalsData?.data || [], [proposalsData])
 
   const statusCounts = useMemo(() => {
     const c: Record<string, number> = { all: proposals.length, pending: 0, approved: 0, executed: 0, rejected: 0, failed: 0 }
@@ -174,7 +173,7 @@ export default function InsightsPage() {
     scanMutation.mutate(
       { adAccountId: accountId, scanType: t },
       {
-        onSuccess: (data: any) => {
+        onSuccess: (data: Record<string, unknown>) => {
           if (data?.isBackground) {
             setScanBackground(true)
             // Auto-dismiss after 3 minutes
@@ -220,7 +219,7 @@ export default function InsightsPage() {
         `"${(p.metadata?.recommendation || "").replace(/"/g, '""').replace(/\n/g, " | ")}"`,
         `"${(p.metadata?.expectedOutcome || p.impact || "").replace(/"/g, '""')}"`,
         p.estimatedSavings || "",
-        (p.metadata?.actions || []).map((a: any) => `${a.type}: ${a.entityName}`).join("; "),
+        (p.metadata?.actions || []).map((a: ProposalAction) => `${a.type}: ${a.entityName}`).join("; "),
       ].join(","))
     ]
     const blob = new Blob([csvRows.join("\n")], { type: "text/csv" })
@@ -277,7 +276,7 @@ export default function InsightsPage() {
   <div class="summary-item"><div class="num">${items.filter(p => p.estimatedSavings).reduce((s, p) => s + (p.estimatedSavings || 0), 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</div><div class="label">Est. Savings</div></div>
 </div>
 
-${items.map((p, i) => {
+${items.map((p) => {
   const agentColors: Record<string, string> = {
     "budget-sentinel": "#34d399", "audience-architect": "#60a5fa", "creative-fatigue": "#f472b6",
     "bid-optimizer": "#fbbf24", "lead-quality": "#a78bfa", "performance-prophet": "#fb923c",
@@ -303,7 +302,7 @@ ${items.map((p, i) => {
     ${m.cpl != null ? `<div class="metric"><span>CPL </span>₹${Math.round(m.cpl)}</div>` : ""}
     ${m.ctr != null ? `<div class="metric"><span>CTR </span>${m.ctr}%</div>` : ""}
   </div>` : ""}
-  ${(p.metadata?.actions || []).length > 0 ? `<div class="actions">${(p.metadata?.actions || []).map((a: any) => `<span class="action">${actionLabel(a)}</span>`).join("")}</div>` : ""}
+  ${(p.metadata?.actions || []).length > 0 ? `<div class="actions">${(p.metadata?.actions || []).map((a: ProposalAction) => `<span class="action">${actionLabel(a)}</span>`).join("")}</div>` : ""}
 </div>`
 }).join("")}
 
@@ -1064,14 +1063,30 @@ function ProposalCard({
         })()}
 
         {/* Impact measurement (before/after) */}
-        {p.status === "executed" && (p as any).impactStatus === "pending_measurement" && (
-          <div className="mx-4 mb-3 rounded-lg px-3 py-2 text-[11px]" style={{ background: "rgba(167,139,250,0.06)", color: "#a78bfa" }}>
-            Impact will be measured in {Math.max(0, 7 - Math.floor((Date.now() - new Date((p as any).executedAt || p.createdAt).getTime()) / (24*60*60*1000)))} days
-          </div>
-        )}
-        {((p as any).impactStatus === "improved" || (p as any).impactStatus === "degraded" || (p as any).impactStatus === "no_change") && (p as any).beforeMetrics && (p as any).afterMetrics && (
-          <ImpactCard beforeMetrics={(p as any).beforeMetrics} afterMetrics={(p as any).afterMetrics} impactStatus={(p as any).impactStatus} estimatedSavings={p.estimatedSavings} actualSavings={(p as any).actualSavings} />
-        )}
+        {(() => {
+          const ext = p as unknown as Record<string, unknown>
+          const impactStatus = ext.impactStatus as string | undefined
+          if (p.status === "executed" && impactStatus === "pending_measurement") {
+            const executedAt = (ext.executedAt as string) || p.createdAt
+            const daysSinceExec = Math.floor((new Date().getTime() - new Date(executedAt).getTime()) / (24*60*60*1000))
+            return (
+              <div className="mx-4 mb-3 rounded-lg px-3 py-2 text-[11px]" style={{ background: "rgba(167,139,250,0.06)", color: "#a78bfa" }}>
+                Impact will be measured in {Math.max(0, 7 - daysSinceExec)} days
+              </div>
+            )
+          }
+          return null
+        })()}
+        {(() => {
+          const ext = p as unknown as Record<string, unknown>
+          const impactStatus = ext.impactStatus as string | undefined
+          if ((impactStatus === "improved" || impactStatus === "degraded" || impactStatus === "no_change") && ext.beforeMetrics && ext.afterMetrics) {
+            return (
+              <ImpactCard beforeMetrics={ext.beforeMetrics as ImpactMetrics} afterMetrics={ext.afterMetrics as ImpactMetrics} impactStatus={impactStatus} estimatedSavings={p.estimatedSavings} actualSavings={ext.actualSavings as number | null | undefined} />
+            )
+          }
+          return null
+        })()}
 
         {/* Execution result */}
         {lastExecution && <ExecResult result={lastExecution} />}
@@ -1144,20 +1159,29 @@ function MiniVal({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
 
 // ── Impact card (before/after comparison) ───────────────────
 
+interface ImpactMetrics {
+  spend?: number | null
+  crm?: {
+    cpql?: number | null
+    junkPercentage?: number | null
+    qualityLeads?: number | null
+  } | null
+}
+
 function ImpactCard({ beforeMetrics, afterMetrics, impactStatus, estimatedSavings, actualSavings }: {
-  beforeMetrics: any; afterMetrics: any; impactStatus: string; estimatedSavings?: number | null; actualSavings?: number | null
+  beforeMetrics: ImpactMetrics; afterMetrics: ImpactMetrics; impactStatus: string; estimatedSavings?: number | null; actualSavings?: number | null
 }) {
   const verdictColor = impactStatus === "improved" ? "#4ade80" : impactStatus === "degraded" ? "#f87171" : "#fbbf24"
   const verdictLabel = impactStatus === "improved" ? "IMPROVED" : impactStatus === "degraded" ? "DEGRADED" : "NO CHANGE"
   const verdictIcon = impactStatus === "improved" ? "↑" : impactStatus === "degraded" ? "↓" : "→"
 
-  function delta(before: number | null, after: number | null): string {
+  function delta(before: number | null | undefined, after: number | null | undefined): string {
     if (before == null || after == null || before === 0) return ""
     const pct = Math.round(((after - before) / before) * 100)
     return pct > 0 ? `+${pct}%` : `${pct}%`
   }
 
-  function deltaColor(before: number | null, after: number | null, lowerIsBetter = false): string {
+  function deltaColor(before: number | null | undefined, after: number | null | undefined, lowerIsBetter = false): string {
     if (before == null || after == null) return "var(--text-tertiary)"
     const improved = lowerIsBetter ? after < before : after > before
     return improved ? "#4ade80" : after === before ? "var(--text-tertiary)" : "#f87171"

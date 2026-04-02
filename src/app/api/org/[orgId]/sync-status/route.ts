@@ -9,9 +9,12 @@ export async function GET(
 ) {
   const { orgId } = await params
   const auth = await getBackendAuth(req)
-  const authHeaders: Record<string, string> = auth ? { Authorization: `Bearer ${auth.token}` } : {}
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const res = await fetch(`${BACKEND_URL}/api/v1/org/${orgId}/sync-status`, {
-    headers: { ...authHeaders },
+    headers: { Authorization: `Bearer ${auth.token}` },
   })
   const data = await res.json()
   return NextResponse.json(data, { status: res.status })

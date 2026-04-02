@@ -61,7 +61,7 @@ export default function GoogleAdGroupsPage() {
   const { data: adGroupsData, isLoading, error, refetch } = useGoogleAdGroups(selectedGoogleAccountId, days, dateRange)
   const sync = useGoogleSync()
 
-  const adGroups = adGroupsData?.data || []
+  const adGroups = useMemo(() => adGroupsData?.data || [], [adGroupsData])
 
   const filtered = useMemo(() => {
     return adGroups.filter((a: GoogleAdGroupRow) => {

@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
@@ -289,9 +290,11 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 {authUser.image ? (
-                  <img
+                  <Image
                     src={authUser.image}
                     alt=""
+                    width={28}
+                    height={28}
                     className="h-7 w-7 rounded-full"
                   />
                 ) : (

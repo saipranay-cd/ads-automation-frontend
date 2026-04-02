@@ -1,22 +1,34 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
+import { showApiError } from "@/components/layout/ErrorToast"
 import type { CampaignTableRow, AdSetTableRow, AdTableRow, WizardDraft } from "@/types/adsflow"
+
+// ── Helpers ──────────────────────────────────────────────
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
 
 // ── Campaigns ──────────────────────────────────────────
 export function useCampaigns(adAccountId?: string | null, limit?: number) {
   return useQuery<{ data: CampaignTableRow[] }>({
-    queryKey: ["campaigns", adAccountId, limit],
+    queryKey: ["campaigns", adAccountId],
     queryFn: async () => {
       if (!adAccountId) return { data: [] }
       const params = new URLSearchParams({ adAccountId })
-      if (limit) params.set("limit", String(limit))
       const res = await apiFetch(`/api/meta/campaigns?${params.toString()}`)
       if (!res.ok) throw new Error("Failed to fetch campaigns")
       return res.json()
     },
     enabled: !!adAccountId,
+    select: limit ? (data) => ({ ...data, data: data.data?.slice(0, limit) }) : undefined,
   })
 }
 
@@ -33,7 +45,8 @@ export function useSync() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Sync failed")
+        const msg = typeof data.error === "string" ? data.error : data.error?.message || "Sync failed"
+        throw new Error(msg)
       }
       return res.json()
     },
@@ -41,6 +54,14 @@ export function useSync() {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
       queryClient.invalidateQueries({ queryKey: ["accounts"] })
+      queryClient.invalidateQueries({ queryKey: ["analytics"] })
+      queryClient.invalidateQueries({ queryKey: ["adsets"] })
+      queryClient.invalidateQueries({ queryKey: ["ads"] })
+      queryClient.invalidateQueries({ queryKey: ["predictions"] })
+      queryClient.invalidateQueries({ queryKey: ["creatives"] })
+    },
+    onError: (error) => {
+      showApiError(error)
     },
   })
 }
@@ -154,7 +175,7 @@ export function useDashboard(adAccountId?: string | null) {
   return useQuery<DashboardMetrics>({
     queryKey: ["dashboard", adAccountId],
     queryFn: async () => {
-      if (!adAccountId) return null as any
+      if (!adAccountId) throw new Error("No account ID")
       const res = await apiFetch(`/api/meta/dashboard?adAccountId=${adAccountId}`)
       if (!res.ok) throw new Error("Failed to fetch dashboard")
       return res.json()
@@ -323,17 +344,18 @@ export interface TargetingResult {
 }
 
 export function useTargetingSearch(type: "interest" | "location", query: string) {
+  const debouncedQuery = useDebouncedValue(query, 300)
   return useQuery<{ data: TargetingResult[] }>({
-    queryKey: ["targeting-search", type, query],
+    queryKey: ["targeting-search", type, debouncedQuery],
     queryFn: async () => {
-      if (!query || query.length < 2) return { data: [] }
+      if (!debouncedQuery || debouncedQuery.length < 2) return { data: [] }
       const res = await apiFetch(
-        `/api/meta/targeting/search?type=${type}&q=${encodeURIComponent(query)}`
+        `/api/meta/targeting/search?type=${type}&q=${encodeURIComponent(debouncedQuery)}`
       )
       if (!res.ok) throw new Error("Search failed")
       return res.json()
     },
-    enabled: query.length >= 2,
+    enabled: debouncedQuery.length >= 2,
   })
 }
 

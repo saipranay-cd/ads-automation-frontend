@@ -8,14 +8,17 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string }> }
 ) {
   const { orgId } = await params
-  const body = await req.json()
   const auth = await getBackendAuth(req)
-  const authHeaders: Record<string, string> = auth ? { Authorization: `Bearer ${auth.token}` } : {}
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const body = await req.json()
   const res = await fetch(`${BACKEND_URL}/api/v1/org/${orgId}/invite`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders,
+      Authorization: `Bearer ${auth.token}`,
     },
     body: JSON.stringify(body),
   })

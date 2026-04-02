@@ -11,11 +11,6 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  if (!auth.email) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-  }
-
-  const userId = auth.email!
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/ai/analyze`, {
@@ -24,7 +19,10 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({ ...body, userId }),
+      body: JSON.stringify({
+        ...body,
+        ...(auth.email && { userId: auth.email }),
+      }),
     })
     const data = await res.json()
     return NextResponse.json(data)

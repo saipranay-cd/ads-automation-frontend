@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import {
   Users, UserPlus, Shield, Pencil, Eye, Trash2, Copy,
   RefreshCw, CheckCircle, AlertTriangle, Clock, X,
@@ -8,8 +9,8 @@ import {
 } from "lucide-react"
 import {
   useCurrentOrg, useOrgMembers, useInviteUser, useUpdateMemberRole, useRemoveMember,
-  useSyncStatuses, useTriggerSync, useAuditLog, useOAuthConnections,
-  type OrgMember, type SyncStatusInfo, type AuditLogEntry,
+  useSyncStatuses, useTriggerSync, useAuditLog,
+  type SyncStatusInfo, type AuditLogEntry,
 } from "@/hooks/use-org"
 import { useIsAdmin } from "@/hooks/use-role"
 
@@ -117,7 +118,7 @@ export default function TeamPage() {
 function MembersTab({ orgId }: { orgId: string }) {
   const { data: membersData, isLoading } = useOrgMembers(orgId)
   const inviteMutation = useInviteUser(orgId)
-  const updateRoleMutation = useUpdateMemberRole(orgId)
+  useUpdateMemberRole(orgId)
   const removeMutation = useRemoveMember(orgId)
   const isAdmin = useIsAdmin()
 
@@ -134,7 +135,7 @@ function MembersTab({ orgId }: { orgId: string }) {
     inviteMutation.mutate(
       { email: inviteEmail, role: inviteRole, name: inviteName || undefined },
       {
-        onSuccess: (data: any) => {
+        onSuccess: (data: { data?: { emailSent?: boolean; inviteUrl?: string }; emailSent?: boolean; inviteUrl?: string }) => {
           const result = data?.data || data
           setInviteSuccess({
             message: result.emailSent ? "Invite email sent!" : "Invite created — share the link below",
@@ -281,7 +282,7 @@ function MembersTab({ orgId }: { orgId: string }) {
           <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading...</div>
         ) : members.length === 0 ? (
           <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-            No team members yet. Click "Invite Member" to add your first.
+            No team members yet. Click &quot;Invite Member&quot; to add your first.
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
@@ -295,7 +296,7 @@ function MembersTab({ orgId }: { orgId: string }) {
                 >
                   <div className="flex items-center gap-3">
                     {member.user.image ? (
-                      <img src={member.user.image} alt="" className="h-8 w-8 rounded-full" />
+                      <Image src={member.user.image} alt="" width={32} height={32} className="h-8 w-8 rounded-full" unoptimized />
                     ) : (
                       <div
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium"
@@ -353,10 +354,7 @@ function SyncTab({ orgId }: { orgId: string }) {
   const { data: syncData } = useSyncStatuses(orgId)
   const triggerSync = useTriggerSync(orgId)
 
-  const rawData = syncData?.data as any
-  const statuses: any[] = Array.isArray(rawData) ? rawData
-    : Array.isArray(rawData?.statuses) ? rawData.statuses
-    : []
+  const statuses: SyncStatusInfo[] = syncData?.data?.statuses || []
 
   return (
     <div className="flex flex-col gap-4">
@@ -433,13 +431,9 @@ function AuditTab({ orgId }: { orgId: string }) {
   const [page, setPage] = useState(1)
   const { data: auditData, isLoading } = useAuditLog(orgId, page)
 
-  const rawAudit = auditData?.data as any
-  const entries = Array.isArray(rawAudit) ? rawAudit
-    : Array.isArray(rawAudit?.logs) ? rawAudit.logs
-    : Array.isArray(rawAudit?.entries) ? rawAudit.entries
-    : []
-  const total = rawAudit?.pagination?.total || rawAudit?.total || auditData?.total || 0
-  const totalPages = Math.ceil(total / 50)
+  const entries: AuditLogEntry[] = auditData?.data?.logs || []
+  const total = auditData?.data?.pagination?.total || 0
+  const totalPages = auditData?.data?.pagination?.totalPages || Math.ceil(total / 50)
 
   return (
     <div className="flex flex-col gap-4">
@@ -456,7 +450,7 @@ function AuditTab({ orgId }: { orgId: string }) {
         ) : (
           <>
             <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
-              {entries.map((entry: { id: string; action: string; entityType?: string; entityId?: string; details?: string; createdAt: string; user: { name?: string; email: string } }) => (
+              {entries.map((entry) => (
                 <div key={entry.id} className="flex items-start gap-3 px-5 py-3">
                   <div
                     className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
