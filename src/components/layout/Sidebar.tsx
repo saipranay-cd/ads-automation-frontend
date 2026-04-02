@@ -263,10 +263,12 @@ export function Sidebar() {
             <button
               onClick={() => {
                 if (isMetaAuth) {
+                  document.cookie = "org-token=; path=/; max-age=0";
                   signOut({ callbackUrl: "/login" });
                 } else {
                   localStorage.removeItem("org-token");
                   localStorage.removeItem("org-user");
+                  document.cookie = "org-token=; path=/; max-age=0";
                   window.location.href = "/org-login";
                 }
               }}

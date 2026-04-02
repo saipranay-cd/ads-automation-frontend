@@ -61,6 +61,16 @@ export function useCurrentOrg() {
     queryFn: async () => {
       const res = await apiFetch("/api/org")
       if (!res.ok) return { data: [] }
+
+      // If the server set an org-token cookie (Meta users), sync to localStorage
+      // so apiFetch sends it as Authorization header on subsequent requests
+      if (typeof window !== "undefined" && !localStorage.getItem("org-token")) {
+        const cookie = document.cookie.split("; ").find(c => c.startsWith("org-token="))
+        if (cookie) {
+          localStorage.setItem("org-token", cookie.split("=")[1])
+        }
+      }
+
       const json = await res.json()
       return { data: Array.isArray(json.data) ? json.data : [] }
     },

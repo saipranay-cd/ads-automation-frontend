@@ -1,11 +1,13 @@
 import { getServerSession } from "next-auth"
+import { cookies } from "next/headers"
 import { authOptions } from "@/lib/auth"
 
 /**
  * Gets the auth token for backend API calls.
- * Supports both:
- * - NextAuth Meta session (preferred — backend uses this token directly for Meta API calls)
- * - JWT org-token (fallback for email/password users)
+ * Supports (in priority order):
+ * 1. NextAuth Meta session (preferred — backend uses this token directly for Meta API calls)
+ * 2. JWT from Authorization header (email/password users via apiFetch)
+ * 3. JWT from org-token cookie (set by backend for Meta users as a fallback)
  *
  * IMPORTANT: Meta session is checked FIRST because the backend controllers
  * use the token directly as a Meta access token for calling Facebook's API.
@@ -22,7 +24,7 @@ export async function getBackendAuth(
     return { token: session.metaAccessToken, source: "meta", email: session.user?.email ?? undefined }
   }
 
-  // 2. Fall back to JWT from org-token (for email/password users without Meta connection)
+  // 2. Fall back to JWT from Authorization header (apiFetch sends org-token from localStorage)
   const authHeader = req.headers.get("authorization")
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.replace("Bearer ", "")
@@ -31,6 +33,14 @@ export async function getBackendAuth(
       const email = decodeJwtEmail(token)
       return { token, source: "jwt", email }
     }
+  }
+
+  // 3. Fall back to org-token cookie (set by /api/org for Meta-authenticated users)
+  const cookieStore = await cookies()
+  const orgTokenCookie = cookieStore.get("org-token")?.value
+  if (orgTokenCookie?.includes(".")) {
+    const email = decodeJwtEmail(orgTokenCookie)
+    return { token: orgTokenCookie, source: "jwt", email }
   }
 
   return null

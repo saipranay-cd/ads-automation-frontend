@@ -51,6 +51,7 @@ function AcceptInviteForm() {
       const result = data.data || data
       if (result.token) {
         localStorage.setItem("org-token", result.token)
+        document.cookie = `org-token=${result.token}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`
       }
       // Store user info for display
       if (result.user) {
