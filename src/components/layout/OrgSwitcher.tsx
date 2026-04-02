@@ -42,12 +42,10 @@ export function OrgSwitcher() {
 
       if (res.ok) {
         const data = await res.json()
-        // If the backend returns a new JWT, store it
         if (data?.data?.token) {
-          // Store the new token — the proxy routes will pick it up on reload
-          document.cookie = `org-token=${data.data.token}; path=/; max-age=${60 * 60 * 24 * 30}`
+          localStorage.setItem("org-token", data.data.token)
+          document.cookie = `org-token=${data.data.token}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`
         }
-        // Reload to apply the org switch across all components
         window.location.reload()
       }
     } catch {
