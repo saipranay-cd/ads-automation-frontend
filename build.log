@@ -1,0 +1,130 @@
+
+> frontend@0.1.0 build
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/saipranay/Developer/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/saipranay/Developer/ads-automation/frontend/pnpm-lock.yaml
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.7s
+  Running TypeScript ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/79) ...
+  Generating static pages using 9 workers (19/79) 
+  Generating static pages using 9 workers (39/79) 
+  Generating static pages using 9 workers (59/79) 
+✓ Generating static pages using 9 workers (79/79) in 230.0ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /accept-invite
+├ ○ /ad-sets
+├ ○ /ads
+├ ○ /analytics
+├ ƒ /api/analytics
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/crm/connections
+├ ƒ /api/crm/insights
+├ ƒ /api/crm/insights/funnel
+├ ƒ /api/crm/leads
+├ ƒ /api/crm/zoho/auth
+├ ƒ /api/crm/zoho/callback
+├ ƒ /api/google/accounts
+├ ƒ /api/google/ad-groups
+├ ƒ /api/google/ads
+├ ƒ /api/google/analytics/entity-insights
+├ ƒ /api/google/analytics/metrics
+├ ƒ /api/google/auth
+├ ƒ /api/google/auth/callback
+├ ƒ /api/google/auth/disconnect
+├ ƒ /api/google/auth/status
+├ ƒ /api/google/campaigns
+├ ƒ /api/google/create
+├ ƒ /api/google/dashboard
+├ ƒ /api/google/keywords
+├ ƒ /api/google/proposals
+├ ƒ /api/google/proposals/scan
+├ ƒ /api/google/proposals/stats
+├ ƒ /api/google/sync
+├ ƒ /api/meta/accounts
+├ ƒ /api/meta/ads
+├ ƒ /api/meta/adsets
+├ ƒ /api/meta/alert-rules
+├ ƒ /api/meta/alert-rules/[id]
+├ ƒ /api/meta/alert-rules/[id]/executions
+├ ƒ /api/meta/audiences
+├ ƒ /api/meta/audiences/[id]
+├ ƒ /api/meta/bulk-action
+├ ƒ /api/meta/campaigns
+├ ƒ /api/meta/chat
+├ ƒ /api/meta/creatives
+├ ƒ /api/meta/dashboard
+├ ƒ /api/meta/drafts
+├ ƒ /api/meta/drafts/[id]/publish
+├ ƒ /api/meta/image-proxy
+├ ƒ /api/meta/insights
+├ ƒ /api/meta/lead-forms
+├ ƒ /api/meta/notifications
+├ ƒ /api/meta/predictions
+├ ƒ /api/meta/proposals
+├ ƒ /api/meta/proposals/[id]
+├ ƒ /api/meta/proposals/scan
+├ ƒ /api/meta/proposals/stats
+├ ƒ /api/meta/skill-prompt
+├ ƒ /api/meta/sync
+├ ƒ /api/meta/targeting/search
+├ ƒ /api/org
+├ ƒ /api/org/[orgId]/audit-log
+├ ƒ /api/org/[orgId]/invite
+├ ƒ /api/org/[orgId]/members
+├ ƒ /api/org/[orgId]/members/[userId]
+├ ƒ /api/org/[orgId]/members/[userId]/role
+├ ƒ /api/org/[orgId]/oauth-connections
+├ ƒ /api/org/[orgId]/sync-status
+├ ƒ /api/org/[orgId]/sync/[provider]
+├ ƒ /api/org/accept-invite
+├ ƒ /api/org/login
+├ ƒ /api/org/switch
+├ ○ /audiences
+├ ○ /automation
+├ ○ /campaigns
+├ ○ /chat
+├ ○ /create
+├ ○ /creatives
+├ ○ /funnel
+├ ○ /google/ad-groups
+├ ○ /google/ads
+├ ○ /google/campaigns
+├ ○ /google/create
+├ ○ /google/funnel
+├ ○ /google/keywords
+├ ○ /google/lead-quality
+├ ○ /insights
+├ ○ /lead-quality
+├ ○ /login
+├ ○ /onboarding
+├ ○ /org-login
+├ ○ /settings
+└ ○ /team
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.12.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.1
+npm notice To update run: npm install -g npm@11.12.1
+npm notice

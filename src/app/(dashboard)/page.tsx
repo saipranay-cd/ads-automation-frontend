@@ -228,7 +228,7 @@ export default function DashboardPage() {
             Sign in to see live metrics
           </span>
           <Link
-            href="/org-login"
+            href="/login"
             className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-medium text-white transition-all"
             style={{ background: "var(--acc)" }}
           >

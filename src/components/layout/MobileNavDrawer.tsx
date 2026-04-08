@@ -4,8 +4,8 @@ import { useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
+import { useLogout } from "@/hooks/use-logout"
 import {
   LayoutDashboard,
   BarChart3,
@@ -78,7 +78,6 @@ function getNavSections(platform: "meta" | "google") {
     {
       label: "SYSTEM",
       items: [
-        { label: "Onboarding", href: "/onboarding", icon: Compass },
         { label: "Settings", href: "/settings", icon: Settings },
       ],
     },
@@ -92,7 +91,8 @@ interface MobileNavDrawerProps {
 
 export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
   const pathname = usePathname()
-  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth()
+  const { user: authUser, isAuthenticated } = useAuth()
+  const logout = useLogout()
   const { platform } = usePlatform()
   const navSections = getNavSections(platform)
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -319,22 +319,12 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
                     className="text-[10px]"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    {isMetaAuth ? "Connected" : "Signed in"}
+                    {"Signed in"}
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => {
-                  if (isMetaAuth) {
-                    document.cookie = "org-token=; path=/; max-age=0"
-                    signOut({ callbackUrl: "/login" })
-                  } else {
-                    localStorage.removeItem("org-token")
-                    localStorage.removeItem("org-user")
-                    document.cookie = "org-token=; path=/; max-age=0"
-                    window.location.href = "/org-login"
-                  }
-                }}
+                onClick={logout}
                 className="flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                 style={{ color: "var(--text-tertiary)" }}
                 aria-label="Sign out"
@@ -344,7 +334,7 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
             </div>
           ) : (
             <Link
-              href="/org-login"
+              href="/login"
               className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors"
               style={{ color: "var(--acc-text)" }}
             >

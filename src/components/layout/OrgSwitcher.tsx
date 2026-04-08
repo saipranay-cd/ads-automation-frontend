@@ -3,10 +3,13 @@
 import { useState, useRef, useEffect } from "react"
 import { ChevronDown, Building2, Check } from "lucide-react"
 import { useCurrentOrg, type OrgInfo } from "@/hooks/use-org"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
+import { AuthStore } from "@/lib/auth-store"
 
 export function OrgSwitcher() {
   const { data } = useCurrentOrg()
+  const queryClient = useQueryClient()
   const orgs = data?.data || []
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
@@ -43,10 +46,10 @@ export function OrgSwitcher() {
       if (res.ok) {
         const data = await res.json()
         if (data?.data?.token) {
-          localStorage.setItem("org-token", data.data.token)
-          document.cookie = `org-token=${data.data.token}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`
+          AuthStore.setToken(data.data.token)
         }
-        window.location.reload()
+        // Re-fetch all data with new org token
+        await queryClient.invalidateQueries()
       }
     } catch {
       // Silent fail

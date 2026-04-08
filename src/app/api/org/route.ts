@@ -33,18 +33,5 @@ export async function GET(req: Request) {
   })
   const data = await res.json()
 
-  // If the backend issued a JWT for a Meta-authenticated user, set it as a cookie
-  // so subsequent requests don't depend solely on the NextAuth session
-  const orgToken = res.headers.get("x-org-token")
-  const response = NextResponse.json(data, { status: res.status })
-  if (orgToken) {
-    response.cookies.set("org-token", orgToken, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days (matches JWT expiry)
-      httpOnly: false, // client JS needs to read it for apiFetch
-      secure: true,
-      sameSite: "lax",
-    })
-  }
-  return response
+  return NextResponse.json(data, { status: res.status })
 }

@@ -24,7 +24,6 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         ...(auth.email && { userId: auth.email }),
-        ...(auth.source === "meta" && { accessToken: auth.token }),
         adAccountId: body.adAccountId || undefined,
       }),
     })

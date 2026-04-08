@@ -1,64 +1,93 @@
 "use client"
 
 import { useSearchParams, useRouter } from "next/navigation"
-import { Suspense, useState } from "react"
-import { Zap, AlertCircle, Loader2 } from "lucide-react"
+import { Suspense, useState, useEffect } from "react"
+import { Zap, AlertCircle, Loader2, CheckCircle } from "lucide-react"
+import { AuthStore } from "@/lib/auth-store"
+
+interface InviteInfo {
+  email: string
+  name: string | null
+  hasPassword: boolean
+  orgName: string | null
+}
 
 function AcceptInviteForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get("token") || ""
 
+  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null)
+  const [checking, setChecking] = useState(true)
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Check invite token on mount
+  useEffect(() => {
+    if (!token) {
+      setChecking(false)
+      setError("Missing invite token. Please use the link from your invitation email.")
+      return
+    }
+    fetch(`/api/org/check-invite?token=${encodeURIComponent(token)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data) {
+          setInviteInfo(data.data)
+          if (data.data.name) setName(data.data.name)
+        } else {
+          setError(data.error || "Invalid or expired invite token.")
+        }
+      })
+      .catch(() => setError("Network error. Please try again."))
+      .finally(() => setChecking(false))
+  }, [token])
+
+  const isExistingUser = inviteInfo?.hasPassword === true
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    if (!token) {
-      setError("Missing invite token. Please use the link from your invitation email.")
-      return
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.")
-      return
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.")
-      return
+    if (!isExistingUser) {
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.")
+        return
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.")
+        return
+      }
     }
 
     setLoading(true)
     try {
+      const body: Record<string, string> = { inviteToken: token }
+      if (!isExistingUser && password) body.password = password
+      if (name) body.name = name
+
       const res = await fetch("/api/org/accept-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteToken: token, password, name }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || data.message || "Failed to accept invite.")
+        const err = data.error
+        setError(typeof err === "string" ? err : err?.message || data.message || "Failed to accept invite.")
         return
       }
 
       const result = data.data || data
       if (result.token) {
-        localStorage.setItem("org-token", result.token)
-        document.cookie = `org-token=${result.token}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`
-      }
-      // Store user info for display
-      if (result.user) {
-        localStorage.setItem("org-user", JSON.stringify({
-          name: result.user.name || name || result.user.email,
-          email: result.user.email,
-        }))
+        const user = result.user
+          ? { name: result.user.name || name || result.user.email, email: result.user.email }
+          : undefined
+        AuthStore.setToken(result.token, user)
       }
       router.push("/")
     } catch {
@@ -66,6 +95,12 @@ function AcceptInviteForm() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const inputStyle = {
+    background: "var(--bg-subtle)",
+    border: "1px solid var(--border-default)",
+    color: "var(--text-primary)",
   }
 
   return (
@@ -81,171 +116,132 @@ function AcceptInviteForm() {
         <div className="flex flex-col items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-lg"
-            style={{
-              background: "var(--acc)",
-              boxShadow: "var(--shadow-glow)",
-            }}
+            style={{ background: "var(--acc)", boxShadow: "var(--shadow-glow)" }}
           >
             <Zap size={20} color="white" />
           </div>
-          <h1
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            Accept Invitation
+          <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            {isExistingUser ? "Join Organization" : "Accept Invitation"}
           </h1>
-          <p
-            className="text-center text-sm"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            Set up your account to join the organization.
-          </p>
+          {inviteInfo?.orgName && (
+            <p className="text-center text-sm" style={{ color: "var(--text-tertiary)" }}>
+              You&apos;ve been invited to join <strong style={{ color: "var(--text-primary)" }}>{inviteInfo.orgName}</strong>
+            </p>
+          )}
+          {isExistingUser && inviteInfo?.email && (
+            <p className="text-center text-xs" style={{ color: "var(--text-disabled)" }}>
+              Signed in as {inviteInfo.email}
+            </p>
+          )}
         </div>
+
+        {checking && (
+          <Loader2 size={24} className="animate-spin" style={{ color: "var(--text-tertiary)" }} />
+        )}
 
         {error && (
           <div
             className="flex w-full items-start gap-2 rounded-lg px-3 py-2.5"
-            style={{
-              background: "var(--red-bg)",
-              border: "1px solid var(--red-solid)",
-            }}
+            style={{ background: "var(--red-bg)", border: "1px solid var(--red-solid)" }}
           >
-            <AlertCircle
-              size={14}
-              className="mt-0.5 shrink-0"
-              style={{ color: "var(--red-text)" }}
-            />
-            <span className="text-xs" style={{ color: "var(--red-text)" }}>
-              {error}
-            </span>
+            <AlertCircle size={14} className="mt-0.5 shrink-0" style={{ color: "var(--red-text)" }} />
+            <span className="text-xs" style={{ color: "var(--red-text)" }}>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="name"
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--acc)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-default)")
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="password"
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--acc)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-default)")
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="confirm-password"
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Confirm Password
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              required
-              minLength={8}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter your password"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--acc)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-default)")
-              }
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-60"
-            style={{
-              background: "var(--acc)",
-              boxShadow: "var(--shadow-glow)",
-            }}
-            onMouseEnter={(e) =>
-              !loading && (e.currentTarget.style.background = "var(--acc-hover)")
-            }
-            onMouseLeave={(e) =>
-              !loading && (e.currentTarget.style.background = "var(--acc)")
-            }
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Setting up...
-              </>
+        {inviteInfo && !checking && (
+          <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
+            {/* Existing user: just show a confirm button */}
+            {isExistingUser ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <CheckCircle size={16} style={{ color: "#4ade80" }} />
+                  Your account is ready
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-60"
+                  style={{ background: "var(--acc)", boxShadow: "var(--shadow-glow)" }}
+                  onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "var(--acc-hover)")}
+                  onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "var(--acc)")}
+                >
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> Joining...</> : "Join Organization"}
+                </button>
+              </div>
             ) : (
-              "Create Account & Join"
-            )}
-          </button>
-        </form>
+              <>
+                {/* New user: show name + password fields */}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="name" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+                  />
+                </div>
 
-        <p
-          className="text-center text-xs"
-          style={{ color: "var(--text-disabled)" }}
-        >
-          By continuing, you agree to join the organization.
-        </p>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="password" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="confirm-password" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-60"
+                  style={{ background: "var(--acc)", boxShadow: "var(--shadow-glow)" }}
+                  onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "var(--acc-hover)")}
+                  onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "var(--acc)")}
+                >
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> Setting up...</> : "Create Account & Join"}
+                </button>
+              </>
+            )}
+          </form>
+        )}
       </div>
     </div>
   )

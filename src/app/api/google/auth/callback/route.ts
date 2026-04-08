@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const auth = await getBackendAuth(request)
 
   if (!auth) {
-    return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL!))
+    return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL || new URL(request.url).origin))
   }
 
   const { searchParams } = new URL(request.url)
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error")
 
   if (error || !code) {
-    return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL!))
+    return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL || new URL(request.url).origin))
   }
 
   // Get user identifier: email preferred, fallback to "default"
@@ -38,14 +38,14 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenRes.ok) {
-      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL!))
+      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL || new URL(request.url).origin))
     }
 
     const tokenData = await tokenRes.json()
     const { access_token: accessToken, refresh_token: refreshToken, expires_in } = tokenData
 
     if (!accessToken || !refreshToken) {
-      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL!))
+      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL || new URL(request.url).origin))
     }
 
     // Calculate token expiry
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!backendRes.ok) {
-      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL!))
+      return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL || new URL(request.url).origin))
     }
 
     const backendData = await backendRes.json().catch(() => ({}))
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         if (conflictData?.conflict) {
           const orgName = encodeURIComponent(conflictData.orgName || "another workspace")
           return NextResponse.redirect(
-            new URL(`/settings?google=conflict&orgName=${orgName}`, process.env.NEXTAUTH_URL!)
+            new URL(`/settings?google=conflict&orgName=${orgName}`, process.env.NEXTAUTH_URL || new URL(request.url).origin)
           )
         }
       } catch {
@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(new URL("/settings?google=connected", process.env.NEXTAUTH_URL!))
+    return NextResponse.redirect(new URL("/settings?google=connected", process.env.NEXTAUTH_URL || new URL(request.url).origin))
   } catch {
-    return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL!))
+    return NextResponse.redirect(new URL("/settings?google=error", process.env.NEXTAUTH_URL || new URL(request.url).origin))
   }
 }

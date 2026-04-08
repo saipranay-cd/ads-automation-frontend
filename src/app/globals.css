@@ -126,6 +126,7 @@
   --bg-base: #ffffff;
   --bg-subtle: #f4f4f2;
   --bg-muted: #edede9;
+  --bg-raised: #ffffff;
 
   --text-primary: #111110;
   --text-secondary: #3d3d3a;
@@ -222,6 +223,7 @@
   --bg-base: #111116;
   --bg-subtle: #18181e;
   --bg-muted: #222228;
+  --bg-raised: #111116;
 
   --text-primary: #ededf0;
   --text-secondary: #a0a0aa;
@@ -290,17 +292,33 @@
 
 /* ─── Keyframes ──────────────────────────────────────────── */
 @keyframes fade-in {
-  0% { opacity: 0; transform: translateY(4px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @keyframes spin-slow {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Base ───────────────────────────────────────────────── */
@@ -308,9 +326,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   html {
     @apply font-sans antialiased;
   }
+
   body {
     background: var(--bg-page);
     color: var(--text-primary);
@@ -324,20 +344,26 @@
   width: 6px;
   height: 6px;
 }
+
 [data-theme="obsidian"] ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 [data-theme="obsidian"] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 9999px;
 }
+
 [data-theme="obsidian"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
 /* ─── Reduced Motion ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

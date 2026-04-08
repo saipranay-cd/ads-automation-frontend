@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 export type Platform = "meta" | "google"
 
 // Shared pages where platform is determined by localStorage, not URL
-const SHARED_PAGES = ["/", "/analytics", "/insights", "/chat", "/settings", "/onboarding", "/automation"]
+const SHARED_PAGES = ["/", "/analytics", "/insights", "/chat", "/settings", "/automation"]
 
 /**
  * Derives the active platform.

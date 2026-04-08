@@ -22,10 +22,7 @@ export async function POST(
         "Content-Type": "application/json",
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({
-        ...body,
-        ...(auth.source === "meta" && { accessToken: auth.token }),
-      }),
+      body: JSON.stringify(body),
     })
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })

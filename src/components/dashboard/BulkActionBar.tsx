@@ -1,40 +1,44 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Pause, Play, DollarSign, X } from "lucide-react"
-import { useBulkAction } from "@/hooks/use-campaigns"
+import { useState } from "react";
+import { Pause, Play, DollarSign, X } from "lucide-react";
+import { useBulkAction } from "@/hooks/use-campaigns";
 
 interface BulkActionBarProps {
-  selectedIds: string[]
-  entityLevel: "campaign" | "adset" | "ad"
-  onClear: () => void
+  selectedIds: string[];
+  entityLevel: "campaign" | "adset" | "ad";
+  onClear: () => void;
 }
 
-export function BulkActionBar({ selectedIds, entityLevel, onClear }: BulkActionBarProps) {
-  const bulkAction = useBulkAction()
-  const [showBudget, setShowBudget] = useState(false)
-  const [budget, setBudget] = useState("")
-  const count = selectedIds.length
+export function BulkActionBar({
+  selectedIds,
+  entityLevel,
+  onClear,
+}: BulkActionBarProps) {
+  const bulkAction = useBulkAction();
+  const [showBudget, setShowBudget] = useState(false);
+  const [budget, setBudget] = useState("");
+  const count = selectedIds.length;
 
-  if (count === 0) return null
+  if (count === 0) return null;
 
   const handlePause = () => {
     bulkAction.mutate(
       { entityIds: selectedIds, entityLevel, action: "pause" },
-      { onSuccess: onClear }
-    )
-  }
+      { onSuccess: onClear },
+    );
+  };
 
   const handleActivate = () => {
     bulkAction.mutate(
       { entityIds: selectedIds, entityLevel, action: "activate" },
-      { onSuccess: onClear }
-    )
-  }
+      { onSuccess: onClear },
+    );
+  };
 
   const handleBudget = () => {
-    const amount = parseFloat(budget)
-    if (!amount || amount <= 0) return
+    const amount = parseFloat(budget);
+    if (!amount || amount <= 0) return;
     bulkAction.mutate(
       {
         entityIds: selectedIds,
@@ -44,19 +48,19 @@ export function BulkActionBar({ selectedIds, entityLevel, onClear }: BulkActionB
       },
       {
         onSuccess: () => {
-          onClear()
-          setShowBudget(false)
-          setBudget("")
+          onClear();
+          setShowBudget(false);
+          setBudget("");
         },
-      }
-    )
-  }
+      },
+    );
+  };
 
   return (
     <div
       className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl px-5 py-3 shadow-lg"
       style={{
-        background: "var(--bg-elevated)",
+        background: "var(--bg-raised)",
         border: "1px solid var(--border-default)",
       }}
     >
@@ -153,5 +157,5 @@ export function BulkActionBar({ selectedIds, entityLevel, onClear }: BulkActionB
         <X size={14} />
       </button>
     </div>
-  )
+  );
 }

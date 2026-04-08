@@ -1,31 +1,27 @@
 "use client"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { SessionProvider } from "next-auth/react"
 import { useState, useEffect } from "react"
 import { ThemeProvider } from "@/lib/theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AuthStore } from "@/lib/auth-store"
 
 /**
- * Sync org-token between localStorage and cookie.
- * Middleware can only read cookies, apiFetch reads localStorage.
- * This ensures both stay in sync on app load.
+ * Ensure cookie and localStorage stay in sync on app load.
+ * AuthStore.setToken writes both atomically, so we just
+ * re-stamp the existing token to fix any stale cookie.
  */
-function useOrgTokenSync() {
+function useAuthSync() {
   useEffect(() => {
-    const token = localStorage.getItem("org-token")
+    const token = AuthStore.getToken()
     if (token) {
-      // Ensure cookie exists for middleware
-      const hasCookie = document.cookie.split("; ").some(c => c.startsWith("org-token="))
-      if (!hasCookie) {
-        document.cookie = `org-token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`
-      }
+      AuthStore.setToken(token)
     }
   }, [])
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  useOrgTokenSync()
+  useAuthSync()
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -33,20 +29,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 5 * 60 * 1000,
             refetchOnWindowFocus: false,
+            retry: 1,
           },
         },
       })
   )
 
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <TooltipProvider delay={200}>
-            {children}
-          </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </SessionProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider delay={200}>
+          {children}
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   )
 }

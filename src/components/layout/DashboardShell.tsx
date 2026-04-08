@@ -4,7 +4,6 @@ import { Sidebar } from "./Sidebar"
 import { Topbar } from "./Topbar"
 import { MobileNavDrawer } from "./MobileNavDrawer"
 import { RateLimitWarning } from "./RateLimitWarning"
-import { TokenExpiredBanner } from "./TokenExpiredBanner"
 import { useMobileNav } from "@/hooks/use-mobile-nav"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -14,7 +13,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <TokenExpiredBanner />
         <RateLimitWarning />
         <Topbar onMenuClick={open} />
         <main

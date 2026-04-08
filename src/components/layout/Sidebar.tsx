@@ -3,8 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
+import { useLogout } from "@/hooks/use-logout";
 import {
   LayoutDashboard,
   BarChart3,
@@ -81,7 +81,6 @@ function getNavSections(platform: "meta" | "google") {
       label: "SYSTEM",
       items: [
         { label: "Team", href: "/team", icon: Users },
-        { label: "Onboarding", href: "/onboarding", icon: Compass },
         { label: "Settings", href: "/settings", icon: Settings },
       ],
     },
@@ -90,7 +89,8 @@ function getNavSections(platform: "meta" | "google") {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user: authUser, isAuthenticated, isMetaAuth } = useAuth();
+  const { user: authUser, isAuthenticated } = useAuth();
+  const logout = useLogout();
   const { platform } = usePlatform();
   const canEdit = useCanEdit();
   const navSections = getNavSections(platform);
@@ -256,22 +256,12 @@ export function Sidebar() {
                   className="text-[10px]"
                   style={{ color: "var(--text-tertiary)" }}
                 >
-                  {isMetaAuth ? "Connected" : "Signed in"}
+                  {"Signed in"}
                 </span>
               </div>
             </div>
             <button
-              onClick={() => {
-                if (isMetaAuth) {
-                  document.cookie = "org-token=; path=/; max-age=0";
-                  signOut({ callbackUrl: "/login" });
-                } else {
-                  localStorage.removeItem("org-token");
-                  localStorage.removeItem("org-user");
-                  document.cookie = "org-token=; path=/; max-age=0";
-                  window.location.href = "/org-login";
-                }
-              }}
+              onClick={logout}
               className="hidden h-7 w-7 items-center justify-center rounded-md transition-colors group-hover/sidebar:sm:flex lg:flex"
               style={{ color: "var(--text-tertiary)" }}
               onMouseEnter={(e) =>
@@ -288,7 +278,7 @@ export function Sidebar() {
           </>
         ) : (
           <Link
-            href="/org-login"
+            href="/login"
             className="flex w-full items-center gap-2.5 rounded-md px-1 py-1 text-xs font-medium transition-colors sm:justify-center sm:px-0 lg:justify-start lg:px-1"
             style={{ color: "var(--acc-text)" }}
           >

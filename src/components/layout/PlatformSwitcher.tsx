@@ -47,7 +47,7 @@ export function PlatformSwitcher() {
   }, [])
 
   // Shared pages stay on the same URL when switching platforms
-  const sharedPages = ["/", "/analytics", "/insights", "/chat", "/settings", "/onboarding", "/automation"]
+  const sharedPages = ["/", "/analytics", "/insights", "/chat", "/settings", "/automation"]
 
   function handleSwitch(target: Platform) {
     if (target === platform) {

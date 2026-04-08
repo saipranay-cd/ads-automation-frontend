@@ -1142,9 +1142,9 @@ function EmptyState() {
 export default function LeadQualityPage() {
   const { platform } = usePlatform()
   const isGoogle = platform === "google"
-  const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
-  // CRM data is always stored under the Meta ad account ID.
-  // Platform filter ("meta" or "google") distinguishes which leads to show.
+  const selectedMetaAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
+  const selectedAdAccountId = selectedMetaAccountId || selectedGoogleAccountId || null
   const { data: connData } = useCrmConnection(selectedAdAccountId)
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -1152,7 +1152,6 @@ export default function LeadQualityPage() {
   const range = dateRange || presetRange(days)
   const crmDateRange = { from: range.since, to: range.until }
 
-  // Always use Meta ad account ID for CRM queries, platform param filters by ad source
   const { data: insightsData, isLoading: insightsLoading } = useCrmInsights(selectedAdAccountId, crmDateRange, platform)
   const [leadPage, setLeadPage] = useState(1)
   const [tierFilter, setTierFilter] = useState("")

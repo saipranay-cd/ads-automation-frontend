@@ -13,6 +13,7 @@ import {
   type SyncStatusInfo, type AuditLogEntry,
 } from "@/hooks/use-org"
 import { useIsAdmin } from "@/hooks/use-role"
+import { useAuth } from "@/hooks/use-auth"
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ function MembersTab({ orgId }: { orgId: string }) {
   useUpdateMemberRole(orgId)
   const removeMutation = useRemoveMember(orgId)
   const isAdmin = useIsAdmin()
+  const { user: currentUser } = useAuth()
 
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -286,9 +288,10 @@ function MembersTab({ orgId }: { orgId: string }) {
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
-            {members.map((member) => {
+            {members.map((member, idx) => {
               const cfg = roleConfig[member.role] || roleConfig.READ
               const RoleIcon = cfg.icon
+              const isOrgCreator = idx === 0 && member.role === "ADMIN" && member.status !== "pending"
               return (
                 <div
                   key={member.id}
@@ -308,9 +311,14 @@ function MembersTab({ orgId }: { orgId: string }) {
                     <div>
                       <div className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
                         {member.user.name || member.user.email}
-                        {member.user.isOwner && (
+                        {isOrgCreator && (
                           <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "var(--acc-subtle)", color: "var(--acc-text)" }}>
                             Owner
+                          </span>
+                        )}
+                        {member.status === "pending" && (
+                          <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "rgba(251, 191, 36, 0.1)", color: "#fbbf24" }}>
+                            Pending
                           </span>
                         )}
                       </div>
@@ -327,14 +335,29 @@ function MembersTab({ orgId }: { orgId: string }) {
                       <RoleIcon size={10} />
                       {cfg.label}
                     </span>
-                    {isAdmin && !member.user.isOwner && (
+                    {isAdmin && member.status === "pending" && member.user.inviteToken && (
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/accept-invite?token=${member.user.inviteToken}`
+                          navigator.clipboard.writeText(url)
+                        }}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+                        style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                        title="Copy invite link"
+                      >
+                        <Copy size={10} />
+                        Copy Link
+                      </button>
+                    )}
+                    {isAdmin && !isOrgCreator && member.user.email !== currentUser?.email && (
                       <button
                         onClick={() => removeMutation.mutate(member.userId)}
-                        className="rounded-md p-1.5 transition-colors"
-                        style={{ color: "var(--text-tertiary)" }}
-                        title="Remove member"
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+                        style={{ border: "1px solid rgba(248, 113, 113, 0.3)", color: "#f87171" }}
+                        title={member.status === "pending" ? "Revoke invite" : "Remove member"}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={10} />
+                        {member.status === "pending" ? "Revoke" : "Remove"}
                       </button>
                     )}
                   </div>

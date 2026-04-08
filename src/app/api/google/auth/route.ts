@@ -7,7 +7,7 @@ export async function GET(req: Request) {
 
   // Must be logged in to connect Google
   if (!auth) {
-    return NextResponse.redirect(new URL("/org-login", baseUrl))
+    return NextResponse.redirect(new URL("/login", baseUrl))
   }
 
   const userEmail = auth.email || ""

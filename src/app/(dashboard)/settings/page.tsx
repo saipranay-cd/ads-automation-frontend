@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react"
 import { apiFetch } from "@/lib/api-fetch"
-import { useSession, signOut } from "next-auth/react"
 import { useAuth } from "@/hooks/use-auth"
+import { useLogout } from "@/hooks/use-logout"
 import { useSearchParams } from "next/navigation"
 import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X } from "lucide-react"
 import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
@@ -25,10 +25,12 @@ export default function SettingsPageWrapper() {
 }
 
 function SettingsPage() {
-  const { data: session } = useSession()
-  const { user: authUser, isMetaAuth } = useAuth()
+  const { user: authUser } = useAuth()
+  const logout = useLogout()
   const { data: accountsData } = useAdAccounts()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
+  const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
+  const activeAdAccountId = selectedAdAccountId || selectedGoogleAccountId || null
   const accounts = accountsData?.data || []
   const selectedAccount = accounts.find((a) => a.id === selectedAdAccountId)
 
@@ -48,26 +50,13 @@ function SettingsPage() {
           Account
         </h2>
         <div className="space-y-3">
-          <Row label="Email" value={authUser?.email || session?.user?.email || "—"} />
-          <Row label="Name" value={authUser?.name || session?.user?.name || "—"} />
-          <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Meta Connection
-            </span>
-            <span
-              className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-              style={{
-                background: isMetaAuth ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
-                color: isMetaAuth ? "#4ade80" : "#f87171",
-              }}
-            >
-              {isMetaAuth ? "Connected" : "Not connected"}
-            </span>
-          </div>
+          <Row label="Email" value={authUser?.email || "—"} />
+          <Row label="Name" value={authUser?.name || "—"} />
         </div>
       </div>
 
-      {/* Google Ads */}
+      {/* Connectors */}
+      <MetaConnection />
       <GoogleAdsConnection />
 
       {/* Ad Account */}
@@ -105,7 +94,7 @@ function SettingsPage() {
       {selectedAdAccountId && <SkillPromptEditor adAccountId={selectedAdAccountId} />}
 
       {/* CRM Integration */}
-      {selectedAdAccountId && <CrmIntegration adAccountId={selectedAdAccountId} />}
+      <CrmIntegration adAccountId={activeAdAccountId} />
 
       {/* All Ad Accounts */}
       {accounts.length > 1 && (
@@ -146,39 +135,37 @@ function SettingsPage() {
       )}
 
       {/* Danger zone */}
-      {session && (
-        <div className="rounded-lg p-5" style={{ ...sectionStyle, borderColor: "rgba(248, 113, 113, 0.2)" }}>
-          <h2
-            className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
-            style={{ color: "#f87171" }}
-          >
-            Danger Zone
-          </h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Disconnect Meta Account
-              </span>
-              <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Sign out and remove your Meta access token from this session
-              </p>
-            </div>
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{
-                border: "1px solid rgba(248, 113, 113, 0.3)",
-                color: "#f87171",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248, 113, 113, 0.08)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
-            >
-              <LogOut size={12} />
-              Disconnect
-            </button>
+      <div className="rounded-lg p-5" style={{ ...sectionStyle, borderColor: "rgba(248, 113, 113, 0.2)" }}>
+        <h2
+          className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
+          style={{ color: "#f87171" }}
+        >
+          Danger Zone
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Sign Out
+            </span>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Sign out of your account
+            </p>
           </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+            style={{
+              border: "1px solid rgba(248, 113, 113, 0.3)",
+              color: "#f87171",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248, 113, 113, 0.08)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
+          >
+            <LogOut size={12} />
+            Sign Out
+          </button>
         </div>
-      )}
+      </div>
 
     </div>
   )
@@ -504,8 +491,8 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
 
 // ── CRM Integration ─────────────────────────────────────────
 
-function CrmIntegration({ adAccountId }: { adAccountId: string }) {
-  const { data: connData, isLoading, refetch } = useCrmConnection(adAccountId)
+function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
+  const { data: connData, isLoading, refetch } = useCrmConnection(adAccountId || "")
   const syncMutation = useSyncCrm()
   const [expanded, setExpanded] = useState(false)
   const [sourceExpanded, setSourceExpanded] = useState(false)
@@ -515,7 +502,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
   const connection = connData?.data?.find((c: CrmConnection) => c.isActive)
 
   const handleConnect = async () => {
-    if (!isAdmin) return
+    if (!isAdmin || !adAccountId) return
     try {
       const res = await apiFetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
       const data = await res.json()
@@ -680,14 +667,20 @@ function CrmIntegration({ adAccountId }: { adAccountId: string }) {
           <p className="mb-3 text-xs" style={{ color: "var(--text-tertiary)" }}>
             Connect Zoho CRM to track lead quality and compute Cost Per Quality Lead (CPQL).
           </p>
-          <button
-            onClick={handleConnect}
-            className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-white transition-all"
-            style={{ background: "#fb923c" }}
-          >
-            <Link2 size={13} />
-            Connect Zoho CRM
-          </button>
+          {adAccountId ? (
+            <button
+              onClick={handleConnect}
+              className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-white transition-all"
+              style={{ background: "#fb923c" }}
+            >
+              <Link2 size={13} />
+              Connect Zoho CRM
+            </button>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--text-disabled)" }}>
+              Connect a Meta or Google ad account first to enable CRM integration.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -1351,6 +1344,109 @@ function QualityMappingEditor({ connectionId }: { connectionId: string }) {
             {saved ? <Check size={12} /> : <Save size={12} />}
             {saved ? "Saved" : updateMutation.isPending ? "Saving..." : "Save Mappings"}
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Meta Connection ─────────────────────────────────────────
+
+function MetaConnection() {
+  const { data: accountsData, isLoading, refetch } = useAdAccounts()
+  const accounts = accountsData?.data || []
+  const connected = accounts.length > 0
+  const isAdmin = useIsAdmin()
+  const searchParams = useSearchParams()
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  useEffect(() => {
+    const metaParam = searchParams.get("meta")
+    if (metaParam === "connected") {
+      setToast({ type: "success", message: "Meta Ads connected successfully" })
+      refetch()
+    } else if (metaParam === "not_configured") {
+      setToast({ type: "error", message: "Meta not configured. Set META_APP_ID and META_APP_SECRET in your .env file." })
+    } else if (metaParam === "error") {
+      setToast({ type: "error", message: "Failed to connect Meta Ads. Please try again." })
+    }
+    if (metaParam) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete("meta")
+      window.history.replaceState({}, "", url.toString())
+      const timer = setTimeout(() => setToast(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, refetch])
+
+  const sectionStyle = {
+    background: "var(--bg-base)" as const,
+    border: "1px solid var(--border-default)" as const,
+  }
+
+  return (
+    <div className="rounded-lg p-5" style={sectionStyle}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: "rgba(24, 119, 242, 0.12)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </div>
+          <div>
+            <h2
+              className="text-[10px] font-medium uppercase tracking-[0.06em]"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Meta Ads
+            </h2>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {connected
+                ? `${accounts.length} ad account${accounts.length !== 1 ? "s" : ""} connected`
+                : "Connect your Meta Business account to manage ads"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isLoading ? (
+            <Loader2 size={14} className="animate-spin" style={{ color: "var(--text-tertiary)" }} />
+          ) : connected ? (
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{ background: "rgba(74, 222, 128, 0.1)", color: "#4ade80" }}
+            >
+              Connected
+            </span>
+          ) : isAdmin ? (
+            <a
+              href="/api/meta/auth"
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-all hover:opacity-90"
+              style={{ background: "#1877F2" }}
+            >
+              Connect Meta
+            </a>
+          ) : (
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{ background: "rgba(248, 113, 113, 0.1)", color: "#f87171" }}
+            >
+              Not connected
+            </span>
+          )}
+        </div>
+      </div>
+      {toast && (
+        <div
+          className="mt-3 rounded-md px-3 py-2 text-xs font-medium"
+          style={{
+            background: toast.type === "success" ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
+            color: toast.type === "success" ? "#4ade80" : "#f87171",
+          }}
+        >
+          {toast.message}
         </div>
       )}
     </div>
