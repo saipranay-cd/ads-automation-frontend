@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import type { GoogleCampaignRow } from "@/types/google-ads"
 
-const statusTabs = ["All", "Enabled", "Paused", "Removed"] as const
+const statusTabs = ["All", "Enabled", "Paused", "Ended", "Removed"] as const
 type StatusTab = (typeof statusTabs)[number]
 
 function fmt(n: number): string {
@@ -33,6 +33,8 @@ function statusMap(s: string) {
       return { status: "active" as const, label: "Enabled" }
     case "PAUSED":
       return { status: "paused" as const, label: "Paused" }
+    case "ENDED":
+      return { status: "info" as const, label: "Ended" }
     case "REMOVED":
       return { status: "error" as const, label: "Removed" }
     default:
@@ -205,8 +207,9 @@ export default function GoogleCampaignsPage() {
                         }}
                       >
                         <span
-                          className="truncate text-[13px] font-medium"
+                          className="block truncate text-[13px] font-medium"
                           style={{ color: "var(--text-primary)" }}
+                          title={c.name}
                         >
                           {c.name}
                         </span>

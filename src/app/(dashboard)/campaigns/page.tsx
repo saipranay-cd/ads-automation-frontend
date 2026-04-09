@@ -5,7 +5,7 @@ import { Search, RefreshCw, Megaphone } from "lucide-react"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { BulkActionBar } from "@/components/dashboard/BulkActionBar"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
-import { useCampaigns, useSync } from "@/hooks/use-campaigns"
+import { useCampaigns, useSync, useIsSyncing } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -21,6 +21,7 @@ export default function CampaignsPage() {
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: campaignsData, isLoading, error, refetch } = useCampaigns(selectedAdAccountId)
   const sync = useSync()
+  const isSyncing = useIsSyncing()
 
   const campaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
 
@@ -65,15 +66,15 @@ export default function CampaignsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => sync.mutate(selectedAdAccountId || undefined)}
-            disabled={sync.isPending}
+            disabled={sync.isPending || isSyncing}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
             style={{
               border: "1px solid var(--border-default)",
               color: "var(--text-secondary)",
             }}
           >
-            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-            {sync.isPending ? "Syncing..." : "Sync"}
+            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+            {isSyncing ? "Syncing..." : "Sync"}
           </button>
           <div
             className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"

@@ -33,6 +33,63 @@ export function useCampaigns(adAccountId?: string | null, limit?: number) {
 }
 
 // ── Sync ───────────────────────────────────────────────
+
+// Global sync state so multiple components can observe background sync
+let _syncingFlag = false
+const _syncListeners = new Set<() => void>()
+function setSyncing(v: boolean) {
+  _syncingFlag = v
+  _syncListeners.forEach((fn) => fn())
+}
+
+/** Returns true while a background Meta sync is in progress */
+export function useIsSyncing() {
+  const [syncing, setSyncState] = useState(_syncingFlag)
+  useEffect(() => {
+    const listener = () => setSyncState(_syncingFlag)
+    _syncListeners.add(listener)
+    return () => { _syncListeners.delete(listener) }
+  }, [])
+  return syncing
+}
+
+/** Poll for sync completion and refetch data when done */
+function pollSyncCompletion(queryClient: ReturnType<typeof useQueryClient>) {
+  let attempts = 0
+  const maxAttempts = 60 // ~3 minutes at 3s intervals
+  const interval = setInterval(async () => {
+    attempts++
+    if (attempts > maxAttempts) {
+      clearInterval(interval)
+      setSyncing(false)
+      return
+    }
+
+    // Refetch accounts to check if syncedAt updated
+    await queryClient.invalidateQueries({ queryKey: ["accounts"] })
+
+    const accountsData = queryClient.getQueryData<{ data: AdAccount[] }>(["accounts"])
+    const accounts = accountsData?.data
+    if (accounts?.length && accounts.some((a) => {
+      if (!a.syncedAt) return false
+      const syncedAt = new Date(a.syncedAt).getTime()
+      return Date.now() - syncedAt < 10_000 // synced within last 10s
+    })) {
+      clearInterval(interval)
+      setSyncing(false)
+      // Sync done — refetch all data
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+      queryClient.invalidateQueries({ queryKey: ["analytics"] })
+      queryClient.invalidateQueries({ queryKey: ["adsets"] })
+      queryClient.invalidateQueries({ queryKey: ["ads"] })
+      queryClient.invalidateQueries({ queryKey: ["predictions"] })
+      queryClient.invalidateQueries({ queryKey: ["creatives"] })
+      queryClient.invalidateQueries({ queryKey: ["sync-statuses"] })
+    }
+  }, 3000)
+}
+
 export function useSync() {
   const queryClient = useQueryClient()
 
@@ -51,14 +108,9 @@ export function useSync() {
       return res.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["campaigns"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] })
-      queryClient.invalidateQueries({ queryKey: ["accounts"] })
-      queryClient.invalidateQueries({ queryKey: ["analytics"] })
-      queryClient.invalidateQueries({ queryKey: ["adsets"] })
-      queryClient.invalidateQueries({ queryKey: ["ads"] })
-      queryClient.invalidateQueries({ queryKey: ["predictions"] })
-      queryClient.invalidateQueries({ queryKey: ["creatives"] })
+      // Sync is now non-blocking — track state and poll for completion
+      setSyncing(true)
+      pollSyncCompletion(queryClient)
     },
     onError: (error) => {
       showApiError(error)

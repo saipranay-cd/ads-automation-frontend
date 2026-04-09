@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import { Search, RefreshCw, FileImage } from "lucide-react"
 import { AdTable } from "@/components/dashboard/AdTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
-import { useAds, useSync } from "@/hooks/use-campaigns"
+import { useAds, useSync, useIsSyncing } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -19,6 +19,7 @@ export default function AdsPage() {
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: adsData, isLoading, error, refetch } = useAds(selectedAdAccountId)
   const sync = useSync()
+  const isSyncing = useIsSyncing()
 
   const ads = useMemo(() => adsData?.data || [], [adsData])
 
@@ -64,15 +65,15 @@ export default function AdsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => sync.mutate(selectedAdAccountId || undefined)}
-            disabled={sync.isPending}
+            disabled={sync.isPending || isSyncing}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
             style={{
               border: "1px solid var(--border-default)",
               color: "var(--text-secondary)",
             }}
           >
-            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-            {sync.isPending ? "Syncing..." : "Sync"}
+            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+            {isSyncing ? "Syncing..." : "Sync"}
           </button>
           <div
             className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"

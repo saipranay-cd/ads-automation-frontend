@@ -19,12 +19,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/settings?meta=error", baseUrl))
   }
 
+  // Fetch org-specific credentials from backend
+  let metaAppId = process.env.META_APP_ID || ""
+  let metaAppSecret = process.env.META_APP_SECRET || ""
   try {
-    // Exchange code for access token
+    const credsRes = await fetch(`${BACKEND_URL}/api/v1/org/credentials`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (credsRes.ok) {
+      const credsData = await credsRes.json()
+      if (credsData.data?.metaAppId) metaAppId = credsData.data.metaAppId
+      if (credsData.data?.metaAppSecret) metaAppSecret = credsData.data.metaAppSecret
+    }
+  } catch {
+    // Fall back to env vars
+  }
+
+  if (!metaAppId || !metaAppSecret) {
+    return NextResponse.redirect(new URL("/settings?meta=not_configured", baseUrl))
+  }
+
+  try {
     const redirectUri = `${baseUrl}/api/meta/auth/callback`
+
+    // Exchange code for short-lived token
     const tokenUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token")
-    tokenUrl.searchParams.set("client_id", process.env.META_APP_ID!)
-    tokenUrl.searchParams.set("client_secret", process.env.META_APP_SECRET!)
+    tokenUrl.searchParams.set("client_id", metaAppId)
+    tokenUrl.searchParams.set("client_secret", metaAppSecret)
     tokenUrl.searchParams.set("redirect_uri", redirectUri)
     tokenUrl.searchParams.set("code", code)
 
@@ -35,7 +56,6 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenRes.json()
     const shortLivedToken = tokenData.access_token
-
     if (!shortLivedToken) {
       return NextResponse.redirect(new URL("/settings?meta=error", baseUrl))
     }
@@ -43,8 +63,8 @@ export async function GET(request: NextRequest) {
     // Exchange for long-lived token (60 days)
     const exchangeUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token")
     exchangeUrl.searchParams.set("grant_type", "fb_exchange_token")
-    exchangeUrl.searchParams.set("client_id", process.env.META_APP_ID!)
-    exchangeUrl.searchParams.set("client_secret", process.env.META_APP_SECRET!)
+    exchangeUrl.searchParams.set("client_id", metaAppId)
+    exchangeUrl.searchParams.set("client_secret", metaAppSecret)
     exchangeUrl.searchParams.set("fb_exchange_token", shortLivedToken)
 
     const exchangeRes = await fetch(exchangeUrl.toString())
@@ -54,7 +74,7 @@ export async function GET(request: NextRequest) {
     if (exchangeRes.ok) {
       const exchangeData = await exchangeRes.json()
       accessToken = exchangeData.access_token || shortLivedToken
-      expiresIn = exchangeData.expires_in || 5184000 // 60 days
+      expiresIn = exchangeData.expires_in || 5184000
     }
 
     const userEmail = auth.email || ""

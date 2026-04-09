@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getBackendAuth } from "@/app/api/_helpers/auth"
 
+const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8088"
+
 export async function GET(req: Request) {
   const auth = await getBackendAuth(req)
   const baseUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin
@@ -9,8 +11,21 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/login", baseUrl))
   }
 
-  const clientId = process.env.META_APP_ID
-  if (!clientId) {
+  // Fetch org-specific credentials from backend
+  let metaAppId = process.env.META_APP_ID || ""
+  try {
+    const credsRes = await fetch(`${BACKEND_URL}/api/v1/org/credentials`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (credsRes.ok) {
+      const credsData = await credsRes.json()
+      if (credsData.data?.metaAppId) metaAppId = credsData.data.metaAppId
+    }
+  } catch {
+    // Fall back to env var
+  }
+
+  if (!metaAppId) {
     return NextResponse.redirect(new URL("/settings?meta=not_configured", baseUrl))
   }
 
@@ -20,7 +35,7 @@ export async function GET(req: Request) {
   ).toString("base64url")
 
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: metaAppId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "ads_management,ads_read,read_insights,pages_read_engagement",
