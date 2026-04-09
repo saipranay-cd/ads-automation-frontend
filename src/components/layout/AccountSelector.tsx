@@ -38,9 +38,9 @@ export function AccountSelector() {
   const isRateLimited = (accountsData as { error?: string })?.error?.includes?.("rate limit") ?? false
   const selected = accounts.find((a) => a.id === selectedId)
 
-  // Auto-select first account
+  // Auto-select first account, or reset if selected account doesn't belong to current org
   useEffect(() => {
-    if (!selectedId && accounts.length > 0) {
+    if (accounts.length > 0 && !accounts.find((a) => a.id === selectedId)) {
       setSelectedId(accounts[0].id)
     }
   }, [accounts, selectedId, setSelectedId])

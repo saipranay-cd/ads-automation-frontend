@@ -6,6 +6,7 @@ import { useCurrentOrg, type OrgInfo } from "@/hooks/use-org"
 import { useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
 import { AuthStore } from "@/lib/auth-store"
+import { useAppStore } from "@/lib/store"
 
 export function OrgSwitcher() {
   const { data } = useCurrentOrg()
@@ -48,6 +49,9 @@ export function OrgSwitcher() {
         if (data?.data?.token) {
           AuthStore.setToken(data.data.token)
         }
+        // Clear stale account selections from previous org
+        useAppStore.getState().setSelectedAdAccountId(null)
+        useAppStore.getState().setSelectedGoogleAccountId(null)
         // Re-fetch all data with new org token
         await queryClient.invalidateQueries()
       }
