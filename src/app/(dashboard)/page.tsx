@@ -348,7 +348,9 @@ export default function DashboardPage() {
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((m, i) => (
-          <MetricCard key={m.label} {...m} isFirst={i === 0} />
+          <div key={m.label} className="animate-fade-in-up" style={{ animationDelay: `${i * 75}ms` }}>
+            <MetricCard {...m} isFirst={i === 0} />
+          </div>
         ))}
       </div>
 
@@ -541,8 +543,8 @@ export default function DashboardPage() {
             ) : (
               <EmptyState
                 icon={BarChart3}
-                title="No performance data"
-                description="Data appears after your campaigns start running"
+                title="No performance data yet"
+                description="Connect an ad account and create your first campaign to see metrics here."
                 className="h-[240px] py-0"
               />
             )}
@@ -582,8 +584,8 @@ export default function DashboardPage() {
               ) : (
                 <EmptyState
                   icon={LayoutDashboard}
-                  title="No Meta campaigns"
-                  description="Sync your ad account to see campaigns"
+                  title="No Meta campaigns synced yet"
+                  description="Select an ad account above and sync to pull your campaigns."
                 />
               )
             ) : (
@@ -597,8 +599,8 @@ export default function DashboardPage() {
                   return (
                     <EmptyState
                       icon={LayoutDashboard}
-                      title="No campaigns yet"
-                      description="Sync your ad accounts to see campaigns here"
+                      title="No campaigns synced yet"
+                      description="Select an ad account above and sync to pull your campaigns."
                     />
                   );
                 return (

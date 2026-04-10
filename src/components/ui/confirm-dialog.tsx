@@ -18,7 +18,7 @@ interface ConfirmDialogProps {
   title: string
   description: string
   confirmLabel: string
-  variant?: "danger" | "warning"
+  variant?: "danger" | "warning" | "default"
 }
 
 function ConfirmDialog({
@@ -52,7 +52,9 @@ function ConfirmDialog({
               variant === "danger" &&
                 "bg-red-bg text-red-text hover:bg-red-bg/80 border-red-text/20",
               variant === "warning" &&
-                "bg-amber-bg text-amber-text hover:bg-amber-bg/80 border-amber-text/20"
+                "bg-amber-bg text-amber-text hover:bg-amber-bg/80 border-amber-text/20",
+              variant === "default" &&
+                "bg-primary text-primary-foreground hover:bg-primary/80"
             )}
           >
             {confirmLabel}

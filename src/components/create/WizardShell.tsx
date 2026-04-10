@@ -82,19 +82,19 @@ function validateStep(step: number, draft: WizardDraft): string[] {
   switch (step) {
     case 1:
       if (!draft.campaignName.trim()) errors.push("Campaign name is required")
-      if ((draft.dailyBudget ?? 0) <= 0) errors.push("Budget must be greater than 0")
+      if ((draft.dailyBudget ?? 0) <= 0) errors.push("Daily budget must be at least ₹1")
       break
     case 2:
       if ((draft.locations ?? []).length === 0) errors.push("Select at least one location")
       if ((draft.interests ?? []).length === 0) errors.push("Select at least one interest")
-      if ((draft.ageMin ?? 18) >= (draft.ageMax ?? 65)) errors.push("Invalid age range")
+      if ((draft.ageMin ?? 18) >= (draft.ageMax ?? 65)) errors.push("Minimum age must be less than maximum age")
       break
     case 3:
       if (!draft.primaryText.trim()) errors.push("Primary text is required")
       if (!draft.headline.trim()) errors.push("Headline is required")
       if (!draft.landingPageUrl.trim()) errors.push("Landing page URL is required")
       else {
-        try { new URL(draft.landingPageUrl) } catch { errors.push("Landing page URL must be valid") }
+        try { new URL(draft.landingPageUrl) } catch { errors.push("Enter a valid URL starting with https://") }
       }
       break
     case 4:
@@ -130,11 +130,13 @@ export function WizardShell() {
   }, [remoteDraft, loadDraft])
 
   // Auto-save: debounce 500ms after draft changes
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!adAccountId || !draft.campaignName) return
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
+      setSaveStatus("saving")
       try {
         const result = await saveDraft.mutateAsync({
           id: draftId,
@@ -145,8 +147,9 @@ export function WizardShell() {
         if (result?.id && !draftId) {
           setDraftId(result.id)
         }
+        setSaveStatus("saved")
       } catch {
-        // silent auto-save failure
+        setSaveStatus("error")
       }
     }, 500)
     return () => {
@@ -154,6 +157,8 @@ export function WizardShell() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, currentStep])
+
+  // "saved" status persists until next draft change triggers auto-save ("saving" → "saved")
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
@@ -192,9 +197,20 @@ export function WizardShell() {
           <h2 className="text-[15px] font-medium">
             {STEP_TITLES[currentStep - 1]}
           </h2>
-          <span className="text-xs text-muted-foreground font-mono">
-            Step {currentStep} of 5
-          </span>
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="text-[10px] text-muted-foreground">Saving...</span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="text-[10px] text-green-500">Saved</span>
+            )}
+            {saveStatus === "error" && (
+              <span className="text-[10px] text-destructive">Not saved</span>
+            )}
+            <span className="text-xs text-muted-foreground font-mono">
+              {currentStep}/5
+            </span>
+          </div>
         </div>
         <StepIndicator
           currentStep={currentStep}

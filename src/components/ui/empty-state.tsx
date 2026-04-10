@@ -28,7 +28,7 @@ function EmptyState({
         className
       )}
     >
-      <Icon className="size-10 text-text-tertiary" />
+      <Icon className="size-10 text-text-tertiary animate-float" />
       <div className="flex flex-col gap-1">
         <h3 className="text-sm font-medium text-text-primary">{title}</h3>
         <p className="max-w-sm text-sm text-text-secondary">{description}</p>

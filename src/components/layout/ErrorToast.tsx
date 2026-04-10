@@ -51,7 +51,7 @@ export function showApiError(error: unknown) {
     return
   }
 
-  store.addToast({ message: "Something went wrong. Please try again.", type: "error" })
+  store.addToast({ message: "An unexpected error occurred. Please try again or refresh the page.", type: "error" })
 }
 
 // ── Toast Container ────────────────────────────────────
@@ -77,9 +77,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   }, [toast.duration, onDismiss])
 
   const config = {
-    error: { bg: "rgba(248,113,113,0.12)", border: "rgba(248,113,113,0.3)", color: "#f87171", icon: AlertTriangle },
-    warning: { bg: "rgba(251,191,36,0.12)", border: "rgba(251,191,36,0.3)", color: "#fbbf24", icon: Clock },
-    info: { bg: "rgba(96,165,250,0.12)", border: "rgba(96,165,250,0.3)", color: "#60a5fa", icon: AlertTriangle },
+    error: { bg: "var(--red-bg)", border: "color-mix(in srgb, var(--red-text) 30%, transparent)", color: "var(--red-text)", icon: AlertTriangle },
+    warning: { bg: "var(--amber-bg)", border: "color-mix(in srgb, var(--amber-text) 30%, transparent)", color: "var(--amber-text)", icon: Clock },
+    info: { bg: "var(--blue-bg)", border: "color-mix(in srgb, var(--blue-text) 30%, transparent)", color: "var(--blue-text)", icon: AlertTriangle },
   }[toast.type]
 
   const Icon = config.icon

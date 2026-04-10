@@ -14,6 +14,7 @@ import {
   LoaderIcon,
   PencilIcon,
 } from "lucide-react"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 const BIDDING_LABELS: Record<string, string> = {
   MAXIMIZE_CLICKS: "Maximize Clicks",
@@ -34,6 +35,7 @@ export function GoogleStepReview() {
   const { draft, goToStep } = useGoogleWizardStore()
   const [publishState, setPublishState] = useState<PublishState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
+  const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
 
   const fmtINR = (micros: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(micros / 1_000_000)
@@ -56,11 +58,11 @@ export function GoogleStepReview() {
         setPublishState("success")
       } else {
         setPublishState("error")
-        setErrorMsg(data.error || "Unknown error")
+        setErrorMsg(data.error || "Campaign creation failed. Check your Google Ads account permissions and try again.")
       }
     } catch (err) {
       setPublishState("error")
-      setErrorMsg(err instanceof Error ? err.message : "Launch failed")
+      setErrorMsg(err instanceof Error ? err.message : "Failed to connect to Google Ads. Check your internet connection and try again.")
     }
   }
 
@@ -162,7 +164,7 @@ export function GoogleStepReview() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No keywords added</p>
+          <p className="text-sm text-muted-foreground">No keywords added yet. Go back to add keywords.</p>
         )}
       </div>
 
@@ -240,11 +242,11 @@ export function GoogleStepReview() {
               onClick={() => handleLaunch("PAUSED")}
             >
               <PauseIcon className="size-3.5" data-icon="inline-start" />
-              Launch as Paused
+              Create as Paused
             </Button>
             <Button
               size="sm"
-              onClick={() => handleLaunch("ENABLED")}
+              onClick={() => setShowLaunchConfirm(true)}
               className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
               <RocketIcon className="size-3.5" data-icon="inline-start" />
@@ -252,6 +254,16 @@ export function GoogleStepReview() {
             </Button>
           </div>
         )}
+
+        <ConfirmDialog
+          open={showLaunchConfirm}
+          onCancel={() => setShowLaunchConfirm(false)}
+          title={`Launch "${draft.campaignName || "Untitled"}" as active?`}
+          description={`This campaign will go live immediately with a daily budget of ${budgetDisplay}.`}
+          confirmLabel="Launch Active"
+          variant="default"
+          onConfirm={() => handleLaunch("ENABLED")}
+        />
 
         {publishState === "publishing" && (
           <div className="flex flex-col items-center gap-3">
@@ -272,7 +284,7 @@ export function GoogleStepReview() {
 
         {publishState === "error" && (
           <ErrorBanner
-            message={errorMsg || "Campaign creation failed"}
+            message={errorMsg || "Campaign creation failed. Check your Google Ads account permissions and try again."}
             onRetry={() => handleLaunch("ENABLED")}
             className="w-full max-w-md"
           />

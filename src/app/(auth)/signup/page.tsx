@@ -36,7 +36,7 @@ export default function SignupPage() {
 
       if (!res.ok) {
         const err = data.error
-        setError(typeof err === "string" ? err : err?.message || data.message || "Failed to create account.")
+        setError(typeof err === "string" ? err : err?.message || data.message || "Could not create your account. The email may already be in use.")
         return
       }
 
@@ -50,7 +50,7 @@ export default function SignupPage() {
 
       router.push("/")
     } catch {
-      setError("Network error. Please try again.")
+      setError("Could not reach the server. Check your connection and try again.")
     } finally {
       setLoading(false)
     }

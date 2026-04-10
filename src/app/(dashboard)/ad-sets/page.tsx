@@ -115,15 +115,15 @@ export default function AdSetsPage() {
             <EmptyState
               icon={Layers}
               title="No matching ad sets"
-              description={search ? "Try adjusting your search" : "No ad sets match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No ad sets match the selected filter"}
             />
           )}
         </>
       ) : (
         <EmptyState
           icon={Layers}
-          title="No ad sets"
-          description="Ad sets will appear here after you sync your ad account"
+          title="No ad sets synced yet"
+          description="Select an ad account and sync to see your ad sets here."
           actionLabel="Sync Now"
           onAction={() => sync.mutate(selectedAdAccountId || undefined)}
         />

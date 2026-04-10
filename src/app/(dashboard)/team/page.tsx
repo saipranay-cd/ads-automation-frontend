@@ -7,6 +7,7 @@ import {
   RefreshCw, CheckCircle, AlertTriangle, Clock, X,
   Globe, Facebook, Link2,
 } from "lucide-react"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   useCurrentOrg, useOrgMembers, useInviteUser, useUpdateMemberRole, useRemoveMember,
   useSyncStatuses, useTriggerSync, useAuditLog,
@@ -75,7 +76,7 @@ export default function TeamPage() {
           className="rounded-lg px-4 py-3 text-xs"
           style={{ background: "var(--amber-bg)", color: "var(--amber-text)" }}
         >
-          No organization found. Restart the backend to run the auto-migration.
+          Unable to load your organization. Please contact support if this persists.
         </div>
       )}
 
@@ -129,6 +130,7 @@ function MembersTab({ orgId }: { orgId: string }) {
   const [inviteName, setInviteName] = useState("")
   const [inviteRole, setInviteRole] = useState("READ")
   const [inviteSuccess, setInviteSuccess] = useState<{ message: string; inviteUrl?: string; emailSent?: boolean } | null>(null)
+  const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string; isPending: boolean } | null>(null)
 
   const members = Array.isArray(membersData?.data) ? membersData.data : []
 
@@ -281,7 +283,7 @@ function MembersTab({ orgId }: { orgId: string }) {
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         {isLoading ? (
-          <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading...</div>
+          <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading team members...</div>
         ) : members.length === 0 ? (
           <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
             No team members yet. Click &quot;Invite Member&quot; to add your first.
@@ -351,7 +353,7 @@ function MembersTab({ orgId }: { orgId: string }) {
                     )}
                     {isAdmin && !isOrgCreator && member.user.email !== currentUser?.email && (
                       <button
-                        onClick={() => removeMutation.mutate(member.userId)}
+                        onClick={() => setMemberToRemove({ userId: member.userId, name: member.user.name || member.user.email, isPending: member.status === "pending" })}
                         className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
                         style={{ border: "1px solid rgba(248, 113, 113, 0.3)", color: "#f87171" }}
                         title={member.status === "pending" ? "Revoke invite" : "Remove member"}
@@ -367,6 +369,24 @@ function MembersTab({ orgId }: { orgId: string }) {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={!!memberToRemove}
+        onCancel={() => setMemberToRemove(null)}
+        title={memberToRemove?.isPending
+          ? `Revoke invite for ${memberToRemove?.name}?`
+          : `Remove ${memberToRemove?.name}?`}
+        description={memberToRemove?.isPending
+          ? "They won't be able to join this workspace using their invite link."
+          : "They'll lose access to this workspace immediately."}
+        confirmLabel={memberToRemove?.isPending ? "Revoke Invite" : "Remove Member"}
+        variant="danger"
+        onConfirm={() => {
+          if (memberToRemove) {
+            removeMutation.mutate(memberToRemove.userId)
+            setMemberToRemove(null)
+          }
+        }}
+      />
     </div>
   )
 }
@@ -387,7 +407,7 @@ function SyncTab({ orgId }: { orgId: string }) {
       >
         {statuses.length === 0 ? (
           <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-            No sync status data available
+            No connected accounts yet. Connect Meta or Google Ads to see sync status.
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
@@ -411,9 +431,9 @@ function SyncTab({ orgId }: { orgId: string }) {
                       <div className="text-[10px] flex items-center gap-2" style={{ color: "var(--text-tertiary)" }}>
                         <span>Last sync: {timeAgo(sync.lastSyncAt)}</span>
                         {sync.lastError && (
-                          <span className="text-[10px]" style={{ color: "#f87171" }}>
+                          <span className="text-[10px] truncate max-w-[200px] inline-block align-bottom" style={{ color: "#f87171" }} title={sync.lastError}>
                             <AlertTriangle size={9} className="inline mr-0.5" />
-                            {sync.lastError.slice(0, 40)}...
+                            {sync.lastError}
                           </span>
                         )}
                       </div>
@@ -465,7 +485,7 @@ function AuditTab({ orgId }: { orgId: string }) {
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         {isLoading ? (
-          <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading...</div>
+          <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading activity...</div>
         ) : entries.length === 0 ? (
           <div className="p-8 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
             No activity recorded yet
@@ -504,8 +524,9 @@ function AuditTab({ orgId }: { orgId: string }) {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="text-[10px] font-medium disabled:opacity-30"
-                  style={{ color: "var(--text-secondary)" }}
+                  aria-label="Previous page"
+                  className="rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors disabled:opacity-30"
+                  style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
                 >
                   ← Prev
                 </button>
@@ -515,8 +536,9 @@ function AuditTab({ orgId }: { orgId: string }) {
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="text-[10px] font-medium disabled:opacity-30"
-                  style={{ color: "var(--text-secondary)" }}
+                  aria-label="Next page"
+                  className="rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors disabled:opacity-30"
+                  style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
                 >
                   Next →
                 </button>

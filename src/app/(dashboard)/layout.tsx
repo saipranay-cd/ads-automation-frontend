@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/layout/DashboardShell"
 import { ToastContainer } from "@/components/layout/ErrorToast"
+import { CommandPalette } from "@/components/layout/CommandPalette"
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <>
+      <CommandPalette />
       <DashboardShell>{children}</DashboardShell>
       <ToastContainer />
     </>

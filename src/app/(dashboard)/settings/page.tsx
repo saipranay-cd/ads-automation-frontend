@@ -24,6 +24,23 @@ export default function SettingsPageWrapper() {
   )
 }
 
+function SettingsSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="rounded-xl" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium transition-colors"
+        style={{ color: "var(--text-primary)" }}
+      >
+        {title}
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} style={{ color: "var(--text-tertiary)" }} />
+      </button>
+      {open && <div className="border-t px-5 pb-5 pt-4" style={{ borderColor: "var(--border-subtle)" }}>{children}</div>}
+    </div>
+  )
+}
+
 function SettingsPage() {
   const { user: authUser } = useAuth()
   const logout = useLogout()
@@ -34,26 +51,15 @@ function SettingsPage() {
   const accounts = accountsData?.data || []
   const selectedAccount = accounts.find((a) => a.id === selectedAdAccountId)
 
-  const sectionStyle = {
-    background: "var(--bg-base)" as const,
-    border: "1px solid var(--border-default)" as const,
-  }
-
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       {/* Account */}
-      <div className="rounded-lg p-5" style={sectionStyle}>
-        <h2
-          className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          Account
-        </h2>
+      <SettingsSection title="Account" defaultOpen={true}>
         <div className="space-y-3">
           <Row label="Email" value={authUser?.email || "—"} />
           <Row label="Name" value={authUser?.name || "—"} />
         </div>
-      </div>
+      </SettingsSection>
 
       {/* Connectors */}
       <MetaConnection />
@@ -61,13 +67,7 @@ function SettingsPage() {
 
       {/* Ad Account */}
       {selectedAccount && (
-        <div className="rounded-lg p-5" style={sectionStyle}>
-          <h2
-            className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            Active Ad Account
-          </h2>
+        <SettingsSection title="Active Ad Account">
           <div className="space-y-3">
             <Row label="Account Name" value={selectedAccount.name} />
             <Row label="Account ID" value={selectedAccount.account_id} mono />
@@ -86,7 +86,7 @@ function SettingsPage() {
               }
             />
           </div>
-        </div>
+        </SettingsSection>
       )}
 
       {/* AI Model + Skill Prompt */}
@@ -98,13 +98,7 @@ function SettingsPage() {
 
       {/* All Ad Accounts */}
       {accounts.length > 1 && (
-        <div className="rounded-lg p-5" style={sectionStyle}>
-          <h2
-            className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            All Ad Accounts ({accounts.length})
-          </h2>
+        <SettingsSection title={`All Ad Accounts (${accounts.length})`}>
           <div className="space-y-2">
             {accounts.map((a) => (
               <div
@@ -131,17 +125,11 @@ function SettingsPage() {
               </div>
             ))}
           </div>
-        </div>
+        </SettingsSection>
       )}
 
       {/* Danger zone */}
-      <div className="rounded-lg p-5" style={{ ...sectionStyle, borderColor: "rgba(248, 113, 113, 0.2)" }}>
-        <h2
-          className="mb-4 text-[10px] font-medium uppercase tracking-[0.06em]"
-          style={{ color: "#f87171" }}
-        >
-          Danger Zone
-        </h2>
+      <SettingsSection title="Danger Zone">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
@@ -165,7 +153,7 @@ function SettingsPage() {
             Sign Out
           </button>
         </div>
-      </div>
+      </SettingsSection>
 
     </div>
   )

@@ -32,13 +32,13 @@ export function SyncReminder() {
       <div
         className="flex items-center justify-between rounded-lg px-4 py-3"
         style={{
-          background: "rgba(96, 165, 250, 0.1)",
-          border: "1px solid rgba(96, 165, 250, 0.3)",
+          background: "var(--blue-bg)",
+          border: "1px solid color-mix(in srgb, var(--blue-text) 30%, transparent)",
         }}
       >
         <div className="flex items-center gap-2">
-          <RefreshCw size={14} className="animate-spin" style={{ color: "#93c5fd" }} />
-          <span className="text-xs font-medium" style={{ color: "#93c5fd" }}>
+          <RefreshCw size={14} className="animate-spin" style={{ color: "var(--blue-text)" }} />
+          <span className="text-xs font-medium" style={{ color: "var(--blue-text)" }}>
             Syncing "{selected.name}" in the background...
           </span>
         </div>
@@ -48,10 +48,12 @@ export function SyncReminder() {
 
   if (!isStale) return null
 
-  const bg = neverSynced ? "rgba(239, 68, 68, 0.15)" : "rgba(251, 191, 36, 0.12)"
-  const border = neverSynced ? "rgba(239, 68, 68, 0.5)" : "rgba(251, 191, 36, 0.4)"
-  const textColor = neverSynced ? "#fca5a5" : "#fde68a"
-  const btnBg = neverSynced ? "#ef4444" : "#f59e0b"
+  const bg = neverSynced ? "var(--red-bg)" : "var(--amber-bg)"
+  const border = neverSynced
+    ? "color-mix(in srgb, var(--red-text) 50%, transparent)"
+    : "color-mix(in srgb, var(--amber-text) 40%, transparent)"
+  const textColor = neverSynced ? "var(--red-text)" : "var(--amber-text)"
+  const btnBg = neverSynced ? "var(--red-text)" : "var(--amber-text)"
 
   return (
     <div

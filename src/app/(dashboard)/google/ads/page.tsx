@@ -269,7 +269,7 @@ export default function GoogleAdsPage() {
             <EmptyState
               icon={FileImage}
               title="No matching ads"
-              description={search ? "Try adjusting your search" : "No ads match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No ads match the selected filter"}
             />
           )}
         </>
@@ -277,7 +277,7 @@ export default function GoogleAdsPage() {
         <EmptyState
           icon={FileImage}
           title="No ads"
-          description="Ads will appear here after you sync your Google Ads account"
+          description="Select a Google Ads account above, then sync to load your ads"
           actionLabel="Sync Now"
           onAction={() => sync.mutate(selectedGoogleAccountId || undefined)}
         />

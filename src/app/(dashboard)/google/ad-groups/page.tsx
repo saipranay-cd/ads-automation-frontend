@@ -267,7 +267,7 @@ export default function GoogleAdGroupsPage() {
             <EmptyState
               icon={FolderOpen}
               title="No matching ad groups"
-              description={search ? "Try adjusting your search" : "No ad groups match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No ad groups match the selected filter"}
             />
           )}
         </>
@@ -275,7 +275,7 @@ export default function GoogleAdGroupsPage() {
         <EmptyState
           icon={FolderOpen}
           title="No ad groups"
-          description="Ad groups will appear here after you sync your Google Ads account"
+          description="Select a Google Ads account above, then sync to load your ad groups"
           actionLabel="Sync Now"
           onAction={() => sync.mutate(selectedGoogleAccountId || undefined)}
         />

@@ -4,22 +4,40 @@ import { useState } from "react"
 import { useWizardStore } from "@/lib/wizard-store"
 import { usePublish } from "@/hooks/use-campaigns"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import {
+  ChevronRightIcon,
   PauseIcon,
   RocketIcon,
   LoaderIcon,
 } from "lucide-react"
 import { SuccessBanner } from "@/components/ui/success-banner"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 type PublishState = "idle" | "publishing" | "success" | "error"
+
+function CollapsibleSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {title}
+        <ChevronRightIcon className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && <div className="pb-2">{children}</div>}
+    </div>
+  )
+}
 
 export function StepReview() {
   const { draft, draftId } = useWizardStore()
   const publish = usePublish()
   const [publishState, setPublishState] = useState<PublishState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
+  const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
 
   async function handleLaunch(status: "Active" | "Paused") {
     if (!draftId) return
@@ -32,20 +50,23 @@ export function StepReview() {
         setPublishState("success")
       } else {
         setPublishState("error")
-        setErrorMsg(result.error || "Unknown error")
+        setErrorMsg(result.error || "Campaign creation failed. Check your ad account permissions and try again.")
       }
     } catch (err) {
       setPublishState("error")
-      setErrorMsg(err instanceof Error ? err.message : "Launch failed")
+      setErrorMsg(err instanceof Error ? err.message : "Failed to connect to Meta. Check your internet connection and try again.")
     }
   }
 
-  const summaryTop = [
+  const campaignSetup = [
     ["Campaign Name", draft.campaignName || "—"],
     ["Objective", draft.objective],
     ["Budget", `₹${draft.dailyBudget.toLocaleString("en-IN")} / ${draft.budgetType.toLowerCase()}`],
     ["Bid Strategy", draft.bidStrategy],
     ["Special Ad Category", draft.specialAdCategory],
+  ]
+
+  const targeting = [
     ["Locations", (draft.locations ?? []).join(", ") || "—"],
     ["Age Range", `${draft.ageMin ?? 18} – ${draft.ageMax ?? 65}`],
     ["Gender", (draft.gender ?? "all") === "all" ? "All" : (draft.gender ?? "all").charAt(0).toUpperCase() + (draft.gender ?? "all").slice(1)],
@@ -86,73 +107,88 @@ export function StepReview() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      {/* Top section — 2-column grid */}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-        {summaryTop.map(([label, value]) => (
-          <div key={label}>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {label}
-            </p>
-            <p className="text-sm">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <Separator />
-
-      {/* Creative section — full width */}
-      <div className="flex flex-col gap-4">
-        {summaryBottom.map(([label, value]) => (
-          <div key={label}>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {label}
-            </p>
-            <p className="text-sm">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* UTM section */}
-      {hasUtm && (
-        <>
-          <Separator />
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              UTM Tracking URL
-            </p>
-            <p className="break-all font-mono text-xs text-muted-foreground">
-              {utmPreview}
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* Lead Form section */}
-      <Separator />
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Lead Form
-          </p>
-          <p className="text-sm">{leadFormInfo}</p>
+      {/* Campaign Setup */}
+      <CollapsibleSection title="Campaign Setup" defaultOpen>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {campaignSetup.map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </p>
+              <p className="text-sm">{value}</p>
+            </div>
+          ))}
         </div>
-        {draft.crmWebhookUrl && (
+      </CollapsibleSection>
+
+      {/* Targeting */}
+      <CollapsibleSection title="Targeting">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {targeting.map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </p>
+              <p className="text-sm">{value}</p>
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* Creative */}
+      <CollapsibleSection title="Creative">
+        <div className="flex flex-col gap-4">
+          {summaryBottom.map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </p>
+              <p className="text-sm">{value}</p>
+            </div>
+          ))}
+          {hasUtm && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                UTM Tracking URL
+              </p>
+              <p className="text-[10px] text-muted-foreground mb-1">
+                Tags added to your landing page URL for tracking campaign performance in analytics tools.
+              </p>
+              <p className="break-all font-mono text-xs text-muted-foreground">
+                {utmPreview}
+              </p>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* Lead Form & CRM */}
+      <CollapsibleSection title="Lead Form & CRM">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              CRM Webhook
+              Lead Form
             </p>
-            <p className="text-sm truncate">{draft.crmWebhookUrl}</p>
+            <p className="text-sm">{leadFormInfo}</p>
           </div>
-        )}
-        {draft.crmTag && (
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              CRM Tag
-            </p>
-            <p className="text-sm">{draft.crmTag}</p>
-          </div>
-        )}
-      </div>
+          {draft.crmWebhookUrl && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                CRM Webhook
+              </p>
+              <p className="text-sm truncate">{draft.crmWebhookUrl}</p>
+            </div>
+          )}
+          {draft.crmTag && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                CRM Tag
+              </p>
+              <p className="text-sm">{draft.crmTag}</p>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
 
       {/* Launch section */}
       <div className="flex flex-col items-center gap-4 pt-4">
@@ -165,11 +201,11 @@ export function StepReview() {
               disabled={!draftId || publish.isPending}
             >
               <PauseIcon className="size-3.5" data-icon="inline-start" />
-              Launch as Paused
+              Create as Paused
             </Button>
             <Button
               size="sm"
-              onClick={() => handleLaunch("Active")}
+              onClick={() => setShowLaunchConfirm(true)}
               disabled={!draftId || publish.isPending}
               className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
@@ -178,6 +214,16 @@ export function StepReview() {
             </Button>
           </div>
         )}
+
+        <ConfirmDialog
+          open={showLaunchConfirm}
+          onCancel={() => setShowLaunchConfirm(false)}
+          title={`Launch "${draft.campaignName || "Untitled"}" as active?`}
+          description={`This campaign will go live immediately with a daily budget of ₹${draft.dailyBudget.toLocaleString("en-IN")}.`}
+          confirmLabel="Launch Active"
+          variant="default"
+          onConfirm={() => handleLaunch("Active")}
+        />
 
         {publishState === "publishing" && (
           <div className="flex flex-col items-center gap-3">
@@ -194,7 +240,7 @@ export function StepReview() {
 
         {publishState === "error" && (
           <ErrorBanner
-            message={errorMsg || "Campaign creation failed"}
+            message={errorMsg || "Campaign creation failed. Check your ad account permissions and try again."}
             onRetry={() => handleLaunch("Active")}
             className="w-full max-w-md"
           />

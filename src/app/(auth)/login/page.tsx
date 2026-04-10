@@ -46,7 +46,7 @@ function LoginForm() {
       const callbackUrl = searchParams.get("callbackUrl") || "/"
       router.push(callbackUrl)
     } catch {
-      setError("Network error. Please try again.")
+      setError("Could not reach the server. Check your connection and try again.")
     } finally {
       setLoading(false)
     }
@@ -82,7 +82,7 @@ function LoginForm() {
             className="text-center text-sm"
             style={{ color: "var(--text-tertiary)" }}
           >
-            Sign in with your email and password.
+            Enter your credentials to continue.
           </p>
         </div>
 
@@ -216,7 +216,7 @@ function LoginForm() {
           className="text-center text-xs transition-colors hover:underline"
           style={{ color: "var(--text-tertiary)" }}
         >
-          Don&apos;t have an account? Create workspace
+          Don&apos;t have an account? Create a workspace
         </Link>
       </div>
     </div>

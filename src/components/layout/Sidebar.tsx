@@ -24,6 +24,8 @@ import {
   GitCommitVertical,
   FolderOpen,
   KeyRound,
+  HelpCircle,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlatform } from "@/hooks/use-platform";
@@ -175,6 +177,7 @@ export function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "group/nav-item relative flex items-center rounded-md text-[13px] transition-colors",
@@ -217,6 +220,46 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Search trigger */}
+      <div className="px-2.5 pb-1 sm:px-1 lg:px-2.5">
+        <button
+          onClick={() => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
+          }}
+          className="flex w-full items-center rounded-md text-[11px] font-medium transition-colors sm:justify-center sm:px-0 sm:py-2 group-hover/sidebar:sm:justify-start group-hover/sidebar:sm:gap-2.5 group-hover/sidebar:sm:px-2.5 group-hover/sidebar:sm:py-1.5 lg:justify-start lg:gap-2.5 lg:px-2.5 lg:py-1.5"
+          style={{ color: "var(--text-tertiary)", background: "var(--bg-subtle)", border: "1px solid var(--border-default)" }}
+          title="Search (⌘K)"
+        >
+          <Search size={14} className="shrink-0" />
+          <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">Search</span>
+          <kbd
+            className="ml-auto hidden rounded px-1 py-0.5 text-[9px] group-hover/sidebar:sm:inline lg:inline"
+            style={{ background: "var(--bg-muted)", color: "var(--text-tertiary)" }}
+          >
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
+      {/* Help link */}
+      <div className="px-2.5 pb-1 sm:px-1 lg:px-2.5">
+        <a
+          href="https://docs.adsflow.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Help & Docs"
+          className="flex items-center rounded-md text-[11px] font-medium transition-colors sm:justify-center sm:px-0 sm:py-2 group-hover/sidebar:sm:justify-start group-hover/sidebar:sm:gap-2.5 group-hover/sidebar:sm:px-2.5 group-hover/sidebar:sm:py-1.5 lg:justify-start lg:gap-2.5 lg:px-2.5 lg:py-1.5"
+          style={{ color: "var(--text-tertiary)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-tertiary)")}
+        >
+          <HelpCircle size={14} className="shrink-0" />
+          <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
+            Help &amp; Docs
+          </span>
+        </a>
+      </div>
 
       {/* User row */}
       <div

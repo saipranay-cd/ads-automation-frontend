@@ -179,7 +179,7 @@ export default function CreativesPage() {
         <EmptyState
           icon={Image}
           title={filter === "all" ? "No creatives found" : `No ${filter} creatives`}
-          description="Sync your ad account to pull creative data"
+          description="Sync your ad account to load your creatives"
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -457,7 +457,7 @@ function CreativeCard({ creative: c, rank, onOpenLightbox }: { creative: Creativ
         </div>
         <div className="absolute right-2 top-2 flex items-center gap-1">
           {c.isWinner && <Badge label="Winner" color="#4ade80" icon={<Trophy size={9} />} />}
-          {c.isFatigued && <Badge label="Fatigued" color="#fbbf24" icon={<AlertTriangle size={9} />} />}
+          {c.isFatigued && <Badge label="Fatigued" color="#fbbf24" icon={<AlertTriangle size={9} />} title="How tired your audience is of seeing this creative. Higher = more fatigued, consider refreshing." />}
         </div>
         <StatusPill status={c.status} className="absolute bottom-2 left-2" />
         {c.isVideo && (
@@ -504,6 +504,7 @@ function CreativeCard({ creative: c, rank, onOpenLightbox }: { creative: Creativ
                 <span
                   className="flex items-center gap-1 text-[10px] font-semibold"
                   style={{ color: c.fatigueScore > 0 ? "#fbbf24" : "#4ade80" }}
+                  title="How tired your audience is of seeing this creative. Higher = more fatigued, consider refreshing."
                 >
                   {c.fatigueScore > 0 ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
                   {c.fatigueScore > 0 ? `${c.fatigueScore}% decline` : `${Math.abs(c.fatigueScore)}% growth`}
@@ -589,9 +590,9 @@ function Sparkline({ timeline, isFatigued, isWinner }: { timeline: { date: strin
 
 // ── Sub-components ─────────────────────────────────────
 
-function Badge({ label, color, icon }: { label: string; color: string; icon: React.ReactNode }) {
+function Badge({ label, color, icon, title }: { label: string; color: string; icon: React.ReactNode; title?: string }) {
   return (
-    <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur-sm" style={{ background: `${color}cc`, color: "white" }}>
+    <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold backdrop-blur-sm" style={{ background: `${color}cc`, color: "white" }} title={title}>
       {icon} {label}
     </span>
   )

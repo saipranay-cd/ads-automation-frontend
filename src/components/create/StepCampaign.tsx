@@ -81,6 +81,9 @@ export function StepCampaign() {
         </div>
         <div className="flex flex-col gap-2">
           <Label>Special Ad Category</Label>
+          <p className="text-xs text-muted-foreground">
+            Housing, credit, or employment ads require this per Meta policy.
+          </p>
           <Select
             value={draft.specialAdCategory}
             onValueChange={(v) =>
@@ -147,6 +150,9 @@ export function StepCampaign() {
       {/* Bid Strategy — full width */}
       <div className="flex flex-col gap-2">
         <Label>Bid Strategy</Label>
+        <p className="text-xs text-muted-foreground">
+          Controls how Meta optimizes your ad delivery and spending.
+        </p>
         <Select
           value={draft.bidStrategy}
           onValueChange={(v) => updateDraft({ bidStrategy: v as BidStrategy })}

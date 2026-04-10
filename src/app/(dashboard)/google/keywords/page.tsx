@@ -309,7 +309,7 @@ export default function GoogleKeywordsPage() {
             <EmptyState
               icon={Search}
               title="No matching keywords"
-              description={search ? "Try adjusting your search" : "No keywords match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No keywords match the selected filter"}
             />
           )}
         </>
@@ -317,7 +317,7 @@ export default function GoogleKeywordsPage() {
         <EmptyState
           icon={Search}
           title="No keywords found"
-          description="Keywords will appear here after you sync your Google Ads account"
+          description="Select a Google Ads account above, then sync to load your keywords"
           actionLabel="Sync Now"
           onAction={() => sync.mutate(selectedGoogleAccountId || undefined)}
         />

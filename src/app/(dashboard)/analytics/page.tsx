@@ -1590,7 +1590,7 @@ export default function AnalyticsPage() {
           <EmptyState
             icon={BarChart3}
             title="Insufficient data"
-            description="Sync your ad account to see analytics"
+            description="Sync your ad account to view performance analytics"
             className="h-[280px]"
           />
         )}

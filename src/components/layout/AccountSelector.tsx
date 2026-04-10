@@ -120,7 +120,7 @@ export function AccountSelector() {
         }}
       >
         <Building2 size={12} />
-        {isRateLimited ? "Rate limited — wait a few min" : "Sync to load accounts"}
+        {isRateLimited ? "Rate limited. Try again in a few minutes" : "Sync your account to load ad accounts"}
       </div>
     )
   }

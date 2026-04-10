@@ -168,7 +168,7 @@ export function useAdAccounts() {
     queryFn: async () => {
       const res = await apiFetch("/api/meta/accounts")
       if (res.status === 429) {
-        return { data: [], error: "Meta API rate limit reached. Wait a few minutes." }
+        return { data: [], error: "Meta API rate limit reached. Wait a few minutes before syncing again." }
       }
       if (!res.ok) throw new Error("Failed to fetch accounts")
       return res.json()

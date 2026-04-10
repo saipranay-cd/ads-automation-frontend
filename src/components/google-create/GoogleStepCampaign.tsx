@@ -105,6 +105,9 @@ export function GoogleStepCampaign() {
 
         <div className="flex flex-col gap-2">
           <Label>Bidding Strategy</Label>
+          <p className="text-xs text-muted-foreground">
+            Controls how Google optimizes your ad delivery and spending.
+          </p>
           <Select
             value={draft.biddingStrategy}
             onValueChange={(v) =>
@@ -154,7 +157,7 @@ export function GoogleStepCampaign() {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            The average amount you want to pay per conversion.
+            The average amount you're willing to pay per conversion.
           </p>
         </div>
       )}

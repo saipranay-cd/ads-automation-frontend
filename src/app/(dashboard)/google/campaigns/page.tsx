@@ -289,7 +289,7 @@ export default function GoogleCampaignsPage() {
             <EmptyState
               icon={Megaphone}
               title="No matching campaigns"
-              description={search ? "Try adjusting your search" : "No campaigns match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No campaigns match the selected filter"}
             />
           )}
         </>
@@ -297,7 +297,7 @@ export default function GoogleCampaignsPage() {
         <EmptyState
           icon={Megaphone}
           title="No campaigns"
-          description="Connect your Google Ads account and sync to see campaigns"
+          description="Select a Google Ads account above, then sync to load your campaigns"
           actionLabel="Sync Now"
           onAction={() => sync.mutate(selectedGoogleAccountId || undefined)}
         />

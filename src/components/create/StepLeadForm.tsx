@@ -84,7 +84,7 @@ export function StepLeadForm() {
         <div className="flex flex-col gap-3">
           <Label>Select Form</Label>
           {formsLoading && (
-            <p className="text-xs text-muted-foreground">Loading forms...</p>
+            <p className="text-xs text-muted-foreground">Loading your lead forms...</p>
           )}
           {existingForms.length === 0 && !formsLoading && (
             <p className="text-xs text-muted-foreground">
@@ -274,6 +274,9 @@ export function StepLeadForm() {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="crmWebhookUrl">Webhook URL</Label>
+              <p className="text-xs text-muted-foreground">
+                Endpoint where lead data is sent automatically. Ask your CRM admin for this URL.
+              </p>
               <Input
                 id="crmWebhookUrl"
                 type="url"
@@ -284,6 +287,9 @@ export function StepLeadForm() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="crmTag">CRM Tag</Label>
+              <p className="text-xs text-muted-foreground">
+                A label to identify leads from this campaign in your CRM.
+              </p>
               <Input
                 id="crmTag"
                 placeholder="e.g. godrej-woods-blr"

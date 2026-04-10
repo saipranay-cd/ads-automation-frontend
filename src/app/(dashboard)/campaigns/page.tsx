@@ -74,7 +74,7 @@ export default function CampaignsPage() {
             }}
           >
             <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Syncing..." : "Sync"}
+            {isSyncing ? "Syncing..." : "Sync Now"}
           </button>
           <div
             className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
@@ -128,7 +128,7 @@ export default function CampaignsPage() {
             <EmptyState
               icon={Megaphone}
               title="No matching campaigns"
-              description={search ? "Try adjusting your search" : "No campaigns match this filter"}
+              description={search ? "Try a different search term or clear your search" : "No campaigns match the selected filter"}
             />
           )}
         </>

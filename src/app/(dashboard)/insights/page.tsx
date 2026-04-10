@@ -56,14 +56,14 @@ const agentMap: Record<string, AgentConfig> = Object.fromEntries(agents.map((a) 
 
 // ── Status config ───────────────────────────────────────────
 
-const statusConfig: Record<string, { color: string; bg: string; icon: typeof Clock; label: string }> = {
+const statusConfig: Record<string, { color: string; bg: string; icon: typeof Clock; label: string; title?: string }> = {
   pending:  { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.10)", icon: Clock,         label: "Pending"  },
   approved: { color: "#4ade80", bg: "rgba(74, 222, 128, 0.10)", icon: CheckCircle,   label: "Approved" },
   executed: { color: "#a78bfa", bg: "rgba(167, 139, 250, 0.10)", icon: Zap,           label: "Executed" },
   rejected:   { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.04)", icon: XCircle,       label: "Rejected"   },
   failed:     { color: "#f87171", bg: "rgba(248, 113, 113, 0.10)", icon: AlertTriangle, label: "Failed"     },
-  superseded: { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.02)", icon: Clock,         label: "Superseded" },
-  undone:     { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.08)", icon: ArrowRight,    label: "Undone"     },
+  superseded: { color: "var(--text-tertiary)", bg: "rgba(255, 255, 255, 0.02)", icon: Clock,         label: "Superseded", title: "Replaced by a newer proposal" },
+  undone:     { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.08)", icon: ArrowRight,    label: "Undone",     title: "This change was rolled back" },
 }
 
 const levelIcons: Record<string, typeof ImageIcon> = { ad: ImageIcon, adset: LayoutGrid, campaign: Megaphone }
@@ -707,6 +707,7 @@ function ProposalCard({
           <span
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
             style={{ background: stCfg.bg, color: stCfg.color }}
+            title={stCfg.title}
           >
             <stCfg.icon size={9} />
             {stCfg.label}
@@ -936,7 +937,7 @@ function ProposalCard({
               )
             )}
             {p.status === "undone" && (
-              <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium" style={{ background: "rgba(251,191,36,0.10)", color: "#fbbf24" }}>
+              <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium" style={{ background: "rgba(251,191,36,0.10)", color: "#fbbf24" }} title="This change was rolled back">
                 Undone
               </span>
             )}
@@ -1107,8 +1108,8 @@ function AnalysisSection({ type, label, text, multiline }: { type: string; label
 
   return (
     <div
-      className="rounded-r-md border-l-2 py-0.5 pl-3"
-      style={{ borderColor: `${style.color}40` }}
+      className="rounded-md py-0.5 px-3"
+      style={{ background: `${style.color}08` }}
     >
       <p className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider" style={{ color: style.color, opacity: 0.8 }}>
         <SectionIcon size={10} />

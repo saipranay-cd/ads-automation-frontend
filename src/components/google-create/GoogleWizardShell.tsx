@@ -22,14 +22,14 @@ function validateStep(step: number, draft: GoogleWizardDraft): string[] {
   switch (step) {
     case 1:
       if (!draft.campaignName.trim()) errors.push("Campaign name is required")
-      if (draft.dailyBudgetMicros <= 0) errors.push("Daily budget must be greater than 0")
+      if (draft.dailyBudgetMicros <= 0) errors.push("Daily budget must be at least ₹1")
       if (draft.biddingStrategy === "TARGET_CPA" && !draft.targetCpa) {
         errors.push("Target CPA is required when using Target CPA bidding")
       }
       break
     case 2:
       if (!draft.adGroupName.trim()) errors.push("Ad group name is required")
-      if (draft.defaultCpcBidMicros <= 0) errors.push("Default CPC bid must be greater than 0")
+      if (draft.defaultCpcBidMicros <= 0) errors.push("Default CPC bid must be at least ₹0.01")
       break
     case 3:
       if (draft.keywords.length === 0) errors.push("Add at least 1 keyword")
@@ -44,7 +44,7 @@ function validateStep(step: number, draft: GoogleWizardDraft): string[] {
         try {
           new URL(draft.finalUrl)
         } catch {
-          errors.push("Final URL must be a valid URL")
+          errors.push("Enter a valid URL starting with https://")
         }
       }
       if (draft.path1.length > 15) errors.push("Display path 1 must be 15 characters or less")
@@ -114,7 +114,7 @@ export function GoogleWizardShell() {
             {STEP_TITLES[currentStep - 1]}
           </h2>
           <span className="text-xs text-muted-foreground font-mono">
-            Step {currentStep} of 5
+            {currentStep}/5
           </span>
         </div>
         <GoogleStepIndicator

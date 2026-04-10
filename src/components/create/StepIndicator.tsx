@@ -50,7 +50,7 @@ export function StepIndicator({
                   !isActive && !isCompleted && "bg-muted dark:bg-muted/50"
                 )}
               >
-                {isCompleted ? <CheckIcon className="size-3" /> : step.num}
+                {isCompleted ? <CheckIcon className="size-3 animate-check-bounce" /> : step.num}
               </span>
               <span className="hidden sm:inline">{step.label}</span>
             </button>
