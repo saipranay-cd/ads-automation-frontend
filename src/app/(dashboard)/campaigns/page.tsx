@@ -1,23 +1,31 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Search, RefreshCw, Megaphone } from "lucide-react"
+import { SearchSelect } from "@/components/ui/search-select"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { BulkActionBar } from "@/components/dashboard/BulkActionBar"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
+import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { useCampaigns, useSync, useIsSyncing } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import type { DateRange } from "@/hooks/use-campaigns"
 
 const statusTabs = ["All", "Active", "Paused", "Archived"] as const
 type StatusTab = (typeof statusTabs)[number]
 
 export default function CampaignsPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [objectiveFilter, setObjectiveFilter] = useState<string>("All")
+  const [days, setDays] = useState(30)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: campaignsData, isLoading, error, refetch } = useCampaigns(selectedAdAccountId)
   const sync = useSync()
@@ -25,22 +33,28 @@ export default function CampaignsPage() {
 
   const campaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
 
+  const uniqueObjectives = useMemo(() => {
+    const set = new Set(campaigns.map((c) => c.objective).filter(Boolean))
+    return Array.from(set).sort()
+  }, [campaigns])
+
   const filtered = useMemo(() => {
     return campaigns.filter((c) => {
       const matchTab =
         activeTab === "All" ||
         c.status.toLowerCase() === activeTab.toLowerCase()
       const matchSearch = c.name.toLowerCase().includes(search.toLowerCase())
-      return matchTab && matchSearch
+      const matchObjective = objectiveFilter === "All" || c.objective === objectiveFilter
+      return matchTab && matchSearch && matchObjective
     })
-  }, [campaigns, activeTab, search])
+  }, [campaigns, activeTab, search, objectiveFilter])
 
   return (
     <div className="flex flex-col gap-4">
       {/* Sync reminder */}
       <SyncReminder />
 
-      {/* Filter bar */}
+      {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {statusTabs.map((tab) => (
@@ -63,37 +77,55 @@ export default function CampaignsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => sync.mutate(selectedAdAccountId || undefined)}
-            disabled={sync.isPending || isSyncing}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-            style={{
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Syncing..." : "Sync Now"}
-          </button>
-          <div
-            className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-            style={{
-              background: "var(--bg-subtle)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-            <input
-              type="text"
-              placeholder="Search campaigns..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
+        <DateRangePicker
+          days={days}
+          dateRange={dateRange}
+          onPreset={(d) => { setDays(d); setDateRange(undefined) }}
+          onCustomRange={(r) => setDateRange(r)}
+        />
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Objective filter */}
+        {uniqueObjectives.length > 1 && (
+          <SearchSelect
+            value={objectiveFilter}
+            onChange={setObjectiveFilter}
+            options={uniqueObjectives}
+            placeholder="All Objectives"
+          />
+        )}
+        {/* Search */}
+        <div
+          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
+          <input
+            type="text"
+            placeholder="Search campaigns..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+            style={{ color: "var(--text-primary)" }}
+          />
         </div>
+        <button
+          onClick={() => sync.mutate(selectedAdAccountId || undefined)}
+          disabled={sync.isPending || isSyncing}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+          style={{
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+          {isSyncing ? "Syncing..." : "Sync Now"}
+        </button>
       </div>
 
       {/* Error state */}
@@ -114,6 +146,7 @@ export default function CampaignsPage() {
             isLoading={isLoading}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
+            onRowClick={(c) => router.push(`/ad-sets?campaignId=${c.id}&campaignName=${encodeURIComponent(c.name)}`)}
           />
 
           {/* Bulk action bar */}

@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Search, RefreshCw, Megaphone } from "lucide-react"
+import { SearchSelect } from "@/components/ui/search-select"
 import { useGoogleCampaigns, useGoogleSync } from "@/hooks/use-google"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
@@ -10,6 +12,8 @@ import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { GoogleAuthBanner } from "@/components/layout/GoogleAuthBanner"
+import { Pagination } from "@/components/ui/pagination"
 import type { GoogleCampaignRow } from "@/types/google-ads"
 
 const statusTabs = ["All", "Enabled", "Paused", "Ended", "Removed"] as const
@@ -55,8 +59,12 @@ const thStyle = {
 const scrollHeaders = ["Status", "Type", "Daily Budget", "Impressions", "Clicks", "CTR", "CPC", "Conversions", "Cost/Conv"]
 
 export default function GoogleCampaignsPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("All")
+  const [page, setPage] = useState(1)
+  const pageSize = 25
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
@@ -65,19 +73,32 @@ export default function GoogleCampaignsPage() {
 
   const campaigns = useMemo(() => campaignsData?.data || [], [campaignsData])
 
+  const campaignTypes = useMemo(() => {
+    const types = new Set(campaigns.map((c: GoogleCampaignRow) => c.campaignType).filter(Boolean))
+    return Array.from(types).sort()
+  }, [campaigns])
+
   const filtered = useMemo(() => {
     return campaigns.filter((c: GoogleCampaignRow) => {
       const matchTab =
         activeTab === "All" ||
         c.status === activeTab.toUpperCase()
       const matchSearch = c.name.toLowerCase().includes(search.toLowerCase())
-      return matchTab && matchSearch
+      const matchType = typeFilter === "All" || c.campaignType === typeFilter
+      return matchTab && matchSearch && matchType
     })
-  }, [campaigns, activeTab, search])
+  }, [campaigns, activeTab, search, typeFilter])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  // Reset page when filters change
+  const filteredLen = filtered.length
+  useEffect(() => { setPage(1) }, [filteredLen])
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filter bar */}
+      {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {statusTabs.map((tab) => (
@@ -100,47 +121,60 @@ export default function GoogleCampaignsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
-            disabled={sync.isPending}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-            style={{
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-            {sync.isPending ? "Syncing..." : "Sync"}
-          </button>
-          <DateRangePicker
-            days={days}
-            dateRange={dateRange}
-            onPreset={(d) => { setDays(d); setDateRange(undefined) }}
-            onCustomRange={(r) => setDateRange(r)}
-          />
-          <div
-            className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-            style={{
-              background: "var(--bg-subtle)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-            <input
-              type="text"
-              placeholder="Search campaigns..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
-        </div>
+        <DateRangePicker
+          days={days}
+          dateRange={dateRange}
+          onPreset={(d) => { setDays(d); setDateRange(undefined) }}
+          onCustomRange={(r) => setDateRange(r)}
+        />
       </div>
 
-      {/* Error state */}
-      {error && (
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {campaignTypes.length > 1 && (
+          <SearchSelect
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={campaignTypes}
+            placeholder="All Types"
+          />
+        )}
+        <div
+          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
+          <input
+            type="text"
+            placeholder="Search campaigns..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+            style={{ color: "var(--text-primary)" }}
+          />
+        </div>
+        <button
+          onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
+          disabled={sync.isPending}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+          style={{
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
+          {sync.isPending ? "Syncing..." : "Sync Now"}
+        </button>
+      </div>
+
+      {/* Auth expired banner */}
+      <GoogleAuthBanner error={error} />
+
+      {/* Error state (non-auth errors only) */}
+      {error && !(error.name === "GoogleAuthExpiredError") && (
         <ErrorBanner
           message={error.message || "Failed to load Google campaigns"}
           onRetry={() => refetch()}
@@ -181,16 +215,17 @@ export default function GoogleCampaignsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c, i) => {
+                {paginated.map((c, i) => {
                   const badge = statusMap(c.status)
-                  const isLast = i === filtered.length - 1
+                  const isLast = i === paginated.length - 1
                   return (
                     <tr
                       key={c.id}
-                      className="group transition-colors duration-100"
+                      className="group cursor-pointer transition-colors duration-100"
                       style={{
                         borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
                       }}
+                      onClick={() => router.push(`/google/ad-groups?campaignId=${c.id}&campaignName=${encodeURIComponent(c.name)}`)}
                       onMouseEnter={(e) =>
                         e.currentTarget.style.setProperty("--row-bg", "var(--bg-subtle)")
                       }
@@ -283,6 +318,8 @@ export default function GoogleCampaignsPage() {
               </tbody>
             </table>
           </div>
+
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} totalItems={filtered.length} pageSize={pageSize} />
 
           {/* Filtered empty state */}
           {filtered.length === 0 && (

@@ -118,7 +118,10 @@ export interface GoogleKeywordRow {
   status: string
   qualityScore: number | null
   cpcBid: number // converted from micros
+  adGroupId: string
   adGroupName: string
+  campaignId: string
+  campaignName: string
   impressions: number
   clicks: number
   spend: number

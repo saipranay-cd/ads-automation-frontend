@@ -1,27 +1,45 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { Suspense, useState, useMemo } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Search, RefreshCw, Layers } from "lucide-react"
+import { SearchSelect } from "@/components/ui/search-select"
 import { AdSetTable } from "@/components/dashboard/AdSetTable"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
+import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { useAdSets, useSync, useIsSyncing } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import type { DateRange } from "@/hooks/use-campaigns"
 
 const statusTabs = ["All", "Active", "Paused", "Archived"] as const
 type StatusTab = (typeof statusTabs)[number]
 
-export default function AdSetsPage() {
+function AdSetsPageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const campaignIdFilter = searchParams.get("campaignId")
+  const campaignNameFilter = searchParams.get("campaignName")
+
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
+  const [campaignDropdown, setCampaignDropdown] = useState<string>("All")
+  const [days, setDays] = useState(30)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: adSetsData, isLoading, error, refetch } = useAdSets(selectedAdAccountId)
   const sync = useSync()
   const isSyncing = useIsSyncing()
 
   const adSets = useMemo(() => adSetsData?.data || [], [adSetsData])
+
+  const uniqueCampaigns = useMemo(() => {
+    const set = new Set(adSets.map((a) => a.campaignName).filter(Boolean))
+    return Array.from(set).sort()
+  }, [adSets])
 
   const filtered = useMemo(() => {
     return adSets.filter((a) => {
@@ -31,15 +49,29 @@ export default function AdSetsPage() {
       const matchSearch =
         a.name.toLowerCase().includes(search.toLowerCase()) ||
         a.campaignName.toLowerCase().includes(search.toLowerCase())
-      return matchTab && matchSearch
+      const matchCampaignUrl = !campaignIdFilter || a.campaignId === campaignIdFilter
+      const matchCampaignDropdown = campaignIdFilter || campaignDropdown === "All" || a.campaignName === campaignDropdown
+      return matchTab && matchSearch && matchCampaignUrl && matchCampaignDropdown
     })
-  }, [adSets, activeTab, search])
+  }, [adSets, activeTab, search, campaignIdFilter, campaignDropdown])
 
   return (
     <div className="flex flex-col gap-4">
       <SyncReminder />
 
-      {/* Filter bar */}
+      {/* Breadcrumb when filtered by campaign */}
+      {campaignNameFilter && (
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/campaigns" className="hover:underline" style={{ color: "var(--acc)" }}>Campaigns</Link>
+          <span style={{ color: "var(--text-tertiary)" }}>/</span>
+          <span>{decodeURIComponent(campaignNameFilter)}</span>
+          <button onClick={() => router.push("/ad-sets")} className="ml-1 rounded px-1.5 py-0.5 text-[10px]" style={{ background: "var(--bg-muted)", color: "var(--text-tertiary)" }}>
+            Clear filter
+          </button>
+        </div>
+      )}
+
+      {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {statusTabs.map((tab) => (
@@ -62,37 +94,55 @@ export default function AdSetsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => sync.mutate(selectedAdAccountId || undefined)}
-            disabled={sync.isPending || isSyncing}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-            style={{
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Syncing..." : "Sync"}
-          </button>
-          <div
-            className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-            style={{
-              background: "var(--bg-subtle)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-            <input
-              type="text"
-              placeholder="Search ad sets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
+        <DateRangePicker
+          days={days}
+          dateRange={dateRange}
+          onPreset={(d) => { setDays(d); setDateRange(undefined) }}
+          onCustomRange={(r) => setDateRange(r)}
+        />
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Campaign filter dropdown (only when not URL-filtered) */}
+        {!campaignIdFilter && uniqueCampaigns.length > 1 && (
+          <SearchSelect
+            value={campaignDropdown}
+            onChange={setCampaignDropdown}
+            options={uniqueCampaigns}
+            placeholder="All Campaigns"
+          />
+        )}
+        {/* Search */}
+        <div
+          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
+          <input
+            type="text"
+            placeholder="Search ad sets..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+            style={{ color: "var(--text-primary)" }}
+          />
         </div>
+        <button
+          onClick={() => sync.mutate(selectedAdAccountId || undefined)}
+          disabled={sync.isPending || isSyncing}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+          style={{
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+          {isSyncing ? "Syncing..." : "Sync Now"}
+        </button>
       </div>
 
       {/* Error state */}
@@ -108,7 +158,11 @@ export default function AdSetsPage() {
         <TableSkeleton rows={8} columns={6} />
       ) : adSets.length > 0 ? (
         <>
-          <AdSetTable adSets={filtered} isLoading={isLoading} />
+          <AdSetTable
+            adSets={filtered}
+            isLoading={isLoading}
+            onRowClick={(a) => router.push(`/ads?adSetId=${a.id}&adSetName=${encodeURIComponent(a.name)}`)}
+          />
 
           {/* Filtered empty state */}
           {filtered.length === 0 && (
@@ -129,5 +183,13 @@ export default function AdSetsPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function AdSetsPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={8} columns={6} />}>
+      <AdSetsPageContent />
+    </Suspense>
   )
 }

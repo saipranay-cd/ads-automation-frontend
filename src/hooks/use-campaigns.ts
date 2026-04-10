@@ -573,9 +573,9 @@ export interface ChatMessage {
 
 export function useAiChat() {
   return useMutation<
-    { reply: string },
+    { reply: string; conversationId?: string },
     Error,
-    { message: string; contextAreas: ContextArea[]; history: ChatMessage[]; adAccountId: string; platform?: "meta" | "google" }
+    { message: string; contextAreas: ContextArea[]; history: ChatMessage[]; adAccountId: string; platform?: "meta" | "google"; conversationId?: string }
   >({
     mutationFn: async (payload) => {
       const res = await apiFetch("/api/meta/chat", {

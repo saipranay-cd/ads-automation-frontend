@@ -3,12 +3,14 @@
 import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { CampaignToggle } from "@/components/campaigns/CampaignToggle"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Pagination, usePagination } from "@/components/ui/pagination"
 import type { AdSetTableRow } from "@/types/adsflow"
 
 interface AdSetTableProps {
   adSets: AdSetTableRow[]
   isLoading?: boolean
   onToggle?: (id: string, active: boolean) => void
+  onRowClick?: (adSet: AdSetTableRow) => void
 }
 
 const scrollHeaders = [
@@ -54,7 +56,10 @@ export function AdSetTable({
   adSets,
   isLoading = false,
   onToggle,
+  onRowClick,
 }: AdSetTableProps) {
+  const { paginatedItems, currentPage, totalPages, totalItems, pageSize, setCurrentPage } = usePagination(adSets, 25)
+
   const statusMap = (s: string) => {
     switch (s) {
       case "ACTIVE":
@@ -67,6 +72,7 @@ export function AdSetTable({
   }
 
   return (
+    <>
     <div
       className="relative max-h-[70vh] overflow-auto rounded-lg"
       style={{
@@ -119,16 +125,17 @@ export function AdSetTable({
           </tbody>
         ) : (
           <tbody>
-            {adSets.map((row, i) => {
+            {paginatedItems.map((row, i) => {
               const badge = statusMap(row.status)
-              const isLast = i === adSets.length - 1
+              const isLast = i === paginatedItems.length - 1
               return (
                 <tr
                   key={row.id}
-                  className="group transition-colors duration-100"
+                  className={`group transition-colors duration-100${onRowClick ? " cursor-pointer" : ""}`}
                   style={{
                     borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
                   }}
+                  onClick={() => onRowClick?.(row)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.setProperty("--row-bg", "var(--bg-subtle)")
                   }}
@@ -224,7 +231,7 @@ export function AdSetTable({
                     </span>
                   </td>
 
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CampaignToggle
                       isActive={row.isActive}
                       onChange={(active) => onToggle?.(row.id, active)}
@@ -238,5 +245,7 @@ export function AdSetTable({
         )}
       </table>
     </div>
+    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} totalItems={totalItems} pageSize={pageSize} />
+    </>
   )
 }

@@ -4,6 +4,7 @@ import Image from "next/image"
 import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { CampaignToggle } from "@/components/campaigns/CampaignToggle"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Pagination, usePagination } from "@/components/ui/pagination"
 import type { AdTableRow } from "@/types/adsflow"
 
 interface AdTableProps {
@@ -55,6 +56,8 @@ export function AdTable({
   isLoading = false,
   onToggle,
 }: AdTableProps) {
+  const { paginatedItems, currentPage, totalPages, totalItems, pageSize, setCurrentPage } = usePagination(ads, 25)
+
   const statusMap = (s: string) => {
     switch (s) {
       case "ACTIVE":
@@ -67,6 +70,7 @@ export function AdTable({
   }
 
   return (
+    <>
     <div
       className="relative max-h-[70vh] overflow-auto rounded-lg"
       style={{
@@ -119,9 +123,9 @@ export function AdTable({
           </tbody>
         ) : (
           <tbody>
-            {ads.map((row, i) => {
+            {paginatedItems.map((row, i) => {
               const badge = statusMap(row.status)
-              const isLast = i === ads.length - 1
+              const isLast = i === paginatedItems.length - 1
               return (
                 <tr
                   key={row.id}
@@ -230,7 +234,7 @@ export function AdTable({
                     </span>
                   </td>
 
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CampaignToggle
                       isActive={row.isActive}
                       onChange={(active) => onToggle?.(row.id, active)}
@@ -244,5 +248,7 @@ export function AdTable({
         )}
       </table>
     </div>
+    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} totalItems={totalItems} pageSize={pageSize} />
+    </>
   )
 }

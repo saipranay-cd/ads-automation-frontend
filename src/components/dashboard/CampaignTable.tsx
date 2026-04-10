@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { PacingBar } from "@/components/campaigns/PacingBar"
 import { CampaignToggle } from "@/components/campaigns/CampaignToggle"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Pagination, usePagination } from "@/components/ui/pagination"
 import type { CampaignTableRow } from "@/types/adsflow"
 
 interface CampaignTableProps {
@@ -12,6 +13,7 @@ interface CampaignTableProps {
   onToggle?: (id: string, active: boolean) => void
   selectedIds?: Set<string>
   onSelectionChange?: (ids: Set<string>) => void
+  onRowClick?: (campaign: CampaignTableRow) => void
 }
 
 const scrollHeaders = [
@@ -60,7 +62,10 @@ export function CampaignTable({
   onToggle,
   selectedIds = new Set(),
   onSelectionChange,
+  onRowClick,
 }: CampaignTableProps) {
+  const { paginatedItems, currentPage, totalPages, totalItems, pageSize, setCurrentPage } = usePagination(campaigns, 25)
+
   const allSelected = campaigns.length > 0 && campaigns.every((c) => selectedIds.has(c.id))
   const someSelected = campaigns.some((c) => selectedIds.has(c.id))
 
@@ -93,6 +98,7 @@ export function CampaignTable({
   }
 
   return (
+    <>
     <div
       className="relative max-h-[70vh] overflow-auto rounded-lg"
       style={{
@@ -166,18 +172,19 @@ export function CampaignTable({
           </tbody>
         ) : (
           <tbody>
-            {campaigns.map((c, i) => {
+            {paginatedItems.map((c, i) => {
               const badge = statusMap(c.status)
-              const isLast = i === campaigns.length - 1
+              const isLast = i === paginatedItems.length - 1
               return (
                 <tr
                   key={c.id}
-                  className="group transition-colors duration-100"
+                  className={`group transition-colors duration-100${onRowClick ? " cursor-pointer" : ""}`}
                   style={{
                     borderBottom: isLast
                       ? "none"
                       : "1px solid var(--border-subtle)",
                   }}
+                  onClick={() => onRowClick?.(c)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.setProperty("--row-bg", "var(--bg-subtle)")
                   }}
@@ -190,6 +197,7 @@ export function CampaignTable({
                     <td
                       className="sticky left-0 z-20 w-10 px-3 py-2.5 text-center"
                       style={{ background: "var(--row-bg, var(--bg-base))" }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <input
                         type="checkbox"
@@ -309,7 +317,7 @@ export function CampaignTable({
                   </td>
 
                   {/* Toggle */}
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <CampaignToggle
                       isActive={c.isActive}
                       onChange={(active) => onToggle?.(c.id, active)}
@@ -323,5 +331,7 @@ export function CampaignTable({
         )}
       </table>
     </div>
+    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} totalItems={totalItems} pageSize={pageSize} />
+    </>
   )
 }

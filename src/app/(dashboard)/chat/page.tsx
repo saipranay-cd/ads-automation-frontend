@@ -19,10 +19,18 @@ import {
   DollarSign,
   PauseCircle,
   Activity,
+  Trash2,
 } from "lucide-react"
 import { useAiChat, type ChatMessage } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { usePlatform } from "@/hooks/use-platform"
+import {
+  useConversations,
+  useConversationMessages,
+  useDeleteConversation,
+  type ChatConversationSummary,
+} from "@/hooks/use-chat-conversations"
+import { useQueryClient } from "@tanstack/react-query"
 
 // ── Suggested prompts with icons + categories ──────────
 
@@ -141,6 +149,67 @@ function renderMarkdown(text: string) {
         </div>
       )
       i++
+      continue
+    }
+
+    // Tables (pipe-delimited rows)
+    if (line.match(/^\|.*\|/) && i + 1 < lines.length && lines[i + 1].match(/^\|[\s\-:|]+\|/)) {
+      const tableRows: string[][] = []
+      // Header row
+      tableRows.push(
+        line.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map((c) => c.trim())
+      )
+      i++ // skip header
+      i++ // skip separator (|---|---|)
+      // Data rows
+      while (i < lines.length && lines[i].match(/^\|.*\|/)) {
+        tableRows.push(
+          lines[i].split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map((c) => c.trim())
+        )
+        i++
+      }
+      const headers = tableRows[0]
+      const rows = tableRows.slice(1)
+      elements.push(
+        <div key={`tbl-${i}`} className="my-2 overflow-x-auto rounded-lg" style={{ border: "1px solid var(--border-subtle)" }}>
+          <table className="w-full text-[11.5px]">
+            <thead>
+              <tr style={{ background: "var(--bg-muted)" }}>
+                {headers.map((h, j) => (
+                  <th
+                    key={j}
+                    className="whitespace-nowrap px-3 py-1.5 text-left font-semibold"
+                    style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border-subtle)" }}
+                  >
+                    {formatInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr
+                  key={ri}
+                  style={{
+                    borderBottom: ri < rows.length - 1 ? "1px solid var(--border-subtle)" : undefined,
+                    background: ri % 2 === 1 ? "var(--bg-muted)" : "transparent",
+                  }}
+                >
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      className="whitespace-nowrap px-3 py-1.5"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {formatInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
       continue
     }
 
@@ -332,6 +401,148 @@ function TypingDots() {
   )
 }
 
+// ── Relative time formatter ────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return "just now"
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 7) return `${diffDay}d ago`
+  return d.toLocaleDateString("en", { month: "short", day: "numeric" })
+}
+
+// ── Conversation sidebar ───────────────────────────────
+
+function ConversationSidebar({
+  conversations,
+  activeId,
+  onSelect,
+  onDelete,
+  onNewChat,
+  isLoading,
+}: {
+  conversations: ChatConversationSummary[]
+  activeId: string | null
+  onSelect: (id: string) => void
+  onDelete: (id: string) => void
+  onNewChat: () => void
+  isLoading: boolean
+}) {
+  return (
+    <div
+      className="flex w-[220px] shrink-0 flex-col border-r"
+      style={{ borderColor: "var(--border-subtle)", background: "var(--bg-base)" }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-3 py-2.5 border-b"
+        style={{ borderColor: "var(--border-subtle)" }}
+      >
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          History
+        </span>
+        <button
+          onClick={onNewChat}
+          title="New chat"
+          className="flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+          style={{ color: "var(--text-tertiary)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <MessageSquarePlus size={13} />
+        </button>
+      </div>
+
+      {/* List */}
+      <div className="flex-1 overflow-y-auto py-1">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={14} className="animate-spin" style={{ color: "var(--text-tertiary)" }} />
+          </div>
+        ) : conversations.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+            No conversations yet
+          </p>
+        ) : (
+          conversations.map((conv) => {
+            const isActive = conv.id === activeId
+            const lastMsg = conv.messages[0]
+            const preview = lastMsg
+              ? lastMsg.content.slice(0, 50) + (lastMsg.content.length > 50 ? "..." : "")
+              : ""
+
+            return (
+              <div
+                key={conv.id}
+                onClick={() => onSelect(conv.id)}
+                className="group relative cursor-pointer px-3 py-2 transition-colors"
+                style={{
+                  background: isActive ? "var(--bg-subtle)" : "transparent",
+                  borderLeft: isActive ? "2px solid var(--acc)" : "2px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.background = "var(--bg-muted)"
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.background = "transparent"
+                }}
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <p
+                    className="truncate text-[11.5px] font-medium leading-tight"
+                    style={{ color: isActive ? "var(--text-primary)" : "var(--text-secondary)" }}
+                  >
+                    {conv.title}
+                  </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(conv.id) }}
+                    className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 transition-all group-hover:opacity-100"
+                    style={{ color: "var(--text-tertiary)" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "rgb(239,68,68)"
+                      e.currentTarget.style.background = "var(--bg-subtle)"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "var(--text-tertiary)"
+                      e.currentTarget.style.background = "transparent"
+                    }}
+                    title="Delete conversation"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+                {preview && (
+                  <p
+                    className="mt-0.5 truncate text-[10px] leading-tight"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    {preview}
+                  </p>
+                )}
+                <p
+                  className="mt-0.5 text-[9px]"
+                  style={{ color: "var(--text-tertiary)", opacity: 0.6 }}
+                >
+                  {timeAgo(conv.updatedAt)}
+                </p>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Chat page component ────────────────────────────────
 
 export default function ChatPage() {
@@ -340,14 +551,39 @@ export default function ChatPage() {
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
   const accountId = platform === "google" ? selectedGoogleAccountId : selectedAdAccountId
   const chatMutation = useAiChat()
+  const queryClient = useQueryClient()
   const SUGGESTED_PROMPTS = platform === "google" ? GOOGLE_PROMPTS : META_PROMPTS
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Conversation data
+  const { data: conversations, isLoading: convLoading } = useConversations(platform, accountId)
+  const messagesQuery = useConversationMessages(activeConversationId)
+  const deleteMutation = useDeleteConversation()
+
+  // Seed local messages from DB when loading a conversation
+  useEffect(() => {
+    if (messagesQuery.data?.messages) {
+      setMessages(
+        messagesQuery.data.messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }))
+      )
+    }
+  }, [messagesQuery.data])
+
+  // Reset conversation when platform or account changes
+  useEffect(() => {
+    setActiveConversationId(null)
+    setMessages([])
+  }, [platform, accountId])
 
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" })
@@ -387,7 +623,6 @@ export default function ChatPage() {
     setMessages(newMessages)
     setInput("")
 
-    // Focus back on input
     setTimeout(() => inputRef.current?.focus(), 50)
 
     try {
@@ -397,8 +632,17 @@ export default function ChatPage() {
         history: messages,
         adAccountId: accountId,
         platform,
+        conversationId: activeConversationId ?? undefined,
       })
       setMessages([...newMessages, { role: "assistant", content: result.reply }])
+
+      // Lock in conversationId on first message
+      if (!activeConversationId && result.conversationId) {
+        setActiveConversationId(result.conversationId)
+      }
+
+      // Refresh sidebar
+      queryClient.invalidateQueries({ queryKey: ["conversations", platform, accountId] })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Please try again."
       setMessages([
@@ -415,133 +659,193 @@ export default function ChatPage() {
     }
   }
 
-  function clearChat() {
+  function newChat() {
+    setActiveConversationId(null)
     setMessages([])
     setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  function selectConversation(id: string) {
+    if (id === activeConversationId) return
+    setActiveConversationId(id)
+    // Messages will be loaded via useConversationMessages + useEffect
+  }
+
+  function handleDelete(id: string) {
+    deleteMutation.mutate(id)
+    if (id === activeConversationId) {
+      newChat()
+    }
   }
 
   const isEmpty = messages.length === 0
 
   return (
     <div
-      className="flex flex-col"
+      className="flex"
       style={{
-        /* negate <main> padding so chat fills entire viewport below topbar */
         margin: "-20px -24px",
-        padding: "0 24px",
         height: "calc(100vh - 52px)",
       }}
     >
-      {/* ── Messages area ─────────────────────────────── */}
-      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
-        {isEmpty ? (
-          /* ── Empty state ────────────────────────────── */
-          <div className="flex h-full flex-col items-center justify-center px-4">
-            <div className="flex flex-col items-center gap-3 mb-8">
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{
-                  background: "linear-gradient(135deg, var(--acc) 0%, rgb(168,85,247) 100%)",
-                  boxShadow: "0 8px 32px rgba(108,71,255,0.2)",
-                }}
-              >
-                <Zap size={26} color="white" />
-              </div>
-              <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                AI Chat — {platform === "google" ? "Google Ads" : "Meta Ads"}
-              </h2>
-              <p className="max-w-md text-center text-xs leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
-                {platform === "google"
-                  ? "I can analyze your Google campaigns, keywords, quality scores, and give you actionable recommendations — all from live Google Ads data."
-                  : "I can analyze your campaigns, compare audiences, find budget leaks, and give you actionable recommendations — all from live Meta data."}
-              </p>
-            </div>
+      {/* ── Sidebar ──────────────────────────────────── */}
+      <ConversationSidebar
+        conversations={conversations || []}
+        activeId={activeConversationId}
+        onSelect={selectConversation}
+        onDelete={handleDelete}
+        onNewChat={newChat}
+        isLoading={convLoading}
+      />
 
-            {/* Data sources bar */}
-            <div className="mb-6 flex items-center gap-2">
-              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
-                Connected to
-              </span>
-              <div className="flex gap-1">
-                {DATA_SOURCES.map((src) => {
-                  const Icon = src.icon
+      {/* ── Main chat area ───────────────────────────── */}
+      <div className="flex flex-1 flex-col" style={{ padding: "0 24px" }}>
+        {/* Messages area */}
+        <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
+          {isEmpty && !messagesQuery.isLoading ? (
+            /* ── Empty state ────────────────────────────── */
+            <div className="flex h-full flex-col items-center justify-center px-4">
+              <div className="flex flex-col items-center gap-3 mb-8">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl"
+                  style={{
+                    background: "linear-gradient(135deg, var(--acc) 0%, rgb(168,85,247) 100%)",
+                    boxShadow: "0 8px 32px rgba(108,71,255,0.2)",
+                  }}
+                >
+                  <Zap size={26} color="white" />
+                </div>
+                <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+                  AI Chat — {platform === "google" ? "Google Ads" : "Meta Ads"}
+                </h2>
+                <p className="max-w-md text-center text-xs leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
+                  {platform === "google"
+                    ? "I can analyze your Google campaigns, keywords, quality scores, and give you actionable recommendations — all from live Google Ads data."
+                    : "I can analyze your campaigns, compare audiences, find budget leaks, and give you actionable recommendations — all from live Meta data."}
+                </p>
+              </div>
+
+              {/* Data sources bar */}
+              <div className="mb-6 flex items-center gap-2">
+                <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  Connected to
+                </span>
+                <div className="flex gap-1">
+                  {DATA_SOURCES.map((src) => {
+                    const Icon = src.icon
+                    return (
+                      <div
+                        key={src.label}
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={{
+                          background: `color-mix(in srgb, ${src.color} 8%, transparent)`,
+                          color: src.color,
+                        }}
+                        title={src.label}
+                      >
+                        <Icon size={10} />
+                        {src.label}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Prompt cards */}
+              <div className="grid w-full max-w-xl grid-cols-2 gap-2.5">
+                {SUGGESTED_PROMPTS.map((item) => {
+                  const Icon = item.icon
                   return (
-                    <div
-                      key={src.label}
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    <button
+                      key={item.label}
+                      onClick={() => sendMessage(item.prompt)}
+                      disabled={!accountId}
+                      className="group flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-all disabled:opacity-30"
                       style={{
-                        background: `color-mix(in srgb, ${src.color} 8%, transparent)`,
-                        color: src.color,
+                        borderColor: "var(--border-default)",
+                        background: "var(--bg-base)",
                       }}
-                      title={src.label}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = item.color
+                        e.currentTarget.style.background = `color-mix(in srgb, ${item.color} 4%, var(--bg-base))`
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "var(--border-default)"
+                        e.currentTarget.style.background = "var(--bg-base)"
+                      }}
                     >
-                      <Icon size={10} />
-                      {src.label}
-                    </div>
+                      <div
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)` }}
+                      >
+                        <Icon size={13} style={{ color: item.color }} />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                          {item.label}
+                        </span>
+                        <span className="text-[10.5px] leading-snug" style={{ color: "var(--text-tertiary)" }}>
+                          {item.prompt.length > 65 ? item.prompt.slice(0, 62) + "..." : item.prompt}
+                        </span>
+                      </div>
+                    </button>
                   )
                 })}
               </div>
             </div>
-
-            {/* Prompt cards */}
-            <div className="grid w-full max-w-xl grid-cols-2 gap-2.5">
-              {SUGGESTED_PROMPTS.map((item) => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => sendMessage(item.prompt)}
-                    disabled={!accountId}
-                    className="group flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-all disabled:opacity-30"
-                    style={{
-                      borderColor: "var(--border-default)",
-                      background: "var(--bg-base)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = item.color
-                      e.currentTarget.style.background = `color-mix(in srgb, ${item.color} 4%, var(--bg-base))`
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border-default)"
-                      e.currentTarget.style.background = "var(--bg-base)"
-                    }}
-                  >
-                    <div
-                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-                      style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)` }}
-                    >
-                      <Icon size={13} style={{ color: item.color }} />
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {item.label}
-                      </span>
-                      <span className="text-[10.5px] leading-snug" style={{ color: "var(--text-tertiary)" }}>
-                        {item.prompt.length > 65 ? item.prompt.slice(0, 62) + "…" : item.prompt}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
+          ) : messagesQuery.isLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 size={20} className="animate-spin" style={{ color: "var(--text-tertiary)" }} />
             </div>
-          </div>
-        ) : (
-          /* ── Conversation ───────────────────────────── */
-          <div className="mx-auto max-w-2xl px-4 py-6">
-            {messages.map((msg, i) =>
-              msg.role === "user" ? (
-                <div key={i} className="mb-5 flex justify-end">
-                  <div
-                    className="max-w-[80%] rounded-2xl rounded-br-md px-4 py-2.5"
-                    style={{ background: "#6c47ff" }}
-                  >
-                    <p className="text-[13px] font-medium leading-relaxed text-white whitespace-pre-wrap">
-                      {msg.content}
-                    </p>
+          ) : (
+            /* ── Conversation ───────────────────────────── */
+            <div className="mx-auto max-w-2xl px-4 py-6">
+              {messages.map((msg, i) =>
+                msg.role === "user" ? (
+                  <div key={i} className="mb-5 flex justify-end">
+                    <div
+                      className="max-w-[80%] rounded-2xl rounded-br-md px-4 py-2.5"
+                      style={{ background: "#6c47ff" }}
+                    >
+                      <p className="text-[13px] font-medium leading-relaxed text-white whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div key={i} className="group mb-6 flex gap-3">
+                ) : (
+                  <div key={i} className="group mb-6 flex gap-3">
+                    <div
+                      className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{
+                        background: "linear-gradient(135deg, var(--acc) 0%, rgb(168,85,247) 100%)",
+                      }}
+                    >
+                      <Zap size={14} color="white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                          Adsflow AI
+                        </span>
+                        <CopyButton text={msg.content} />
+                      </div>
+                      <div
+                        className="rounded-xl rounded-tl-md px-4 py-3"
+                        style={{
+                          background: "var(--bg-subtle)",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        {renderMarkdown(msg.content)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Loading state */}
+              {chatMutation.isPending && (
+                <div className="mb-6 flex gap-3">
                   <div
                     className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
                     style={{
@@ -551,154 +855,123 @@ export default function ChatPage() {
                     <Zap size={14} color="white" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
+                    <div className="mb-1">
                       <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
                         Adsflow AI
                       </span>
-                      <CopyButton text={msg.content} />
                     </div>
                     <div
-                      className="rounded-xl rounded-tl-md px-4 py-3"
+                      className="inline-flex items-center gap-2.5 rounded-xl rounded-tl-md px-4 py-3"
                       style={{
                         background: "var(--bg-subtle)",
                         border: "1px solid var(--border-subtle)",
                       }}
                     >
-                      {renderMarkdown(msg.content)}
+                      <Loader2 size={13} className="animate-spin" style={{ color: "var(--acc)" }} />
+                      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                        Pulling data from {platform === "google" ? "Google" : "Meta"} and analyzing...
+                      </span>
+                      <TypingDots />
                     </div>
                   </div>
                 </div>
-              )
-            )}
-
-            {/* Loading state */}
-            {chatMutation.isPending && (
-              <div className="mb-6 flex gap-3">
-                <div
-                  className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                  style={{
-                    background: "linear-gradient(135deg, var(--acc) 0%, rgb(168,85,247) 100%)",
-                  }}
-                >
-                  <Zap size={14} color="white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1">
-                    <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                      Adsflow AI
-                    </span>
-                  </div>
-                  <div
-                    className="inline-flex items-center gap-2.5 rounded-xl rounded-tl-md px-4 py-3"
-                    style={{
-                      background: "var(--bg-subtle)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                  >
-                    <Loader2 size={13} className="animate-spin" style={{ color: "var(--acc)" }} />
-                    <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                      Pulling data from {platform === "google" ? "Google" : "Meta"} and analyzing...
-                    </span>
-                    <TypingDots />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={bottomRef} />
-          </div>
-        )}
-
-        {/* Scroll to bottom FAB */}
-        {showScrollBtn && (
-          <button
-            onClick={() => scrollToBottom()}
-            className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105"
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <ArrowDown size={14} />
-          </button>
-        )}
-      </div>
-
-      {/* ── Input area ───────────────────────────────── */}
-      <div className="px-4 pb-3 pt-2">
-        {!accountId ? (
-          <div
-            className="flex items-center justify-center rounded-xl py-3"
-            style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-default)" }}
-          >
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Select an ad account to start chatting
-            </span>
-          </div>
-        ) : (
-          <div className="mx-auto max-w-2xl">
-            <div className="flex items-center gap-2">
-              {/* New chat button when conversation exists */}
-              {messages.length > 0 && (
-                <button
-                  onClick={clearChat}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors"
-                  style={{
-                    border: "1px solid var(--border-default)",
-                    color: "var(--text-tertiary)",
-                  }}
-                  title="New chat"
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
-                  <MessageSquarePlus size={16} />
-                </button>
               )}
 
-              {/* Text input */}
-              <div
-                className="flex flex-1 items-end gap-2 rounded-xl border px-3.5 py-2.5 transition-colors"
-                style={{
-                  background: "var(--bg-base)",
-                  borderColor: input ? "var(--acc)" : "var(--border-default)",
-                  boxShadow: input ? "0 0 0 1px var(--acc)" : "none",
-                }}
-              >
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about your campaigns, performance, audiences..."
-                  rows={1}
-                  className="max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none placeholder:text-text-tertiary"
-                  style={{ color: "var(--text-primary)" }}
-                  disabled={chatMutation.isPending}
-                />
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={!input.trim() || chatMutation.isPending}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-20"
+              <div ref={bottomRef} />
+            </div>
+          )}
+
+          {/* Scroll to bottom FAB */}
+          {showScrollBtn && (
+            <button
+              onClick={() => scrollToBottom()}
+              className="sticky bottom-4 left-1/2 z-10 mx-auto -mt-12 flex h-8 w-8 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105"
+              style={{
+                background: "var(--bg-base)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <ArrowDown size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* ── Input area ───────────────────────────────── */}
+        <div className="px-4 pb-3 pt-2">
+          {!accountId ? (
+            <div
+              className="flex items-center justify-center rounded-xl py-3"
+              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-default)" }}
+            >
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Select an ad account to start chatting
+              </span>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-2xl">
+              <div className="flex items-center gap-2">
+                {/* New chat button when conversation exists */}
+                {messages.length > 0 && (
+                  <button
+                    onClick={newChat}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors"
+                    style={{
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-tertiary)",
+                    }}
+                    title="New chat"
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <MessageSquarePlus size={16} />
+                  </button>
+                )}
+
+                {/* Text input */}
+                <div
+                  className="flex flex-1 items-end gap-2 rounded-xl border px-3.5 py-2.5 transition-colors"
                   style={{
-                    background: input.trim() ? "#6c47ff" : "var(--bg-subtle)",
-                    color: input.trim() ? "white" : "var(--text-tertiary)",
+                    background: "var(--bg-base)",
+                    borderColor: input ? "var(--acc)" : "var(--border-default)",
+                    boxShadow: input ? "0 0 0 1px var(--acc)" : "none",
                   }}
                 >
-                  {chatMutation.isPending ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Send size={14} />
-                  )}
-                </button>
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask about your campaigns, performance, audiences..."
+                    rows={1}
+                    className="max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none placeholder:text-text-tertiary"
+                    style={{ color: "var(--text-primary)" }}
+                    disabled={chatMutation.isPending}
+                  />
+                  <button
+                    onClick={() => sendMessage()}
+                    disabled={!input.trim() || chatMutation.isPending}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-20"
+                    style={{
+                      background: input.trim() ? "#6c47ff" : "var(--bg-subtle)",
+                      color: input.trim() ? "white" : "var(--text-tertiary)",
+                    }}
+                  >
+                    {chatMutation.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Send size={14} />
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <p className="mt-2 text-center text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-              Adsflow AI pulls live data from {platform === "google" ? "Google Ads" : "Meta"} to answer your questions. Responses may vary.
-            </p>
-          </div>
-        )}
+              <p className="mt-2 text-center text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                Adsflow AI pulls live data from {platform === "google" ? "Google Ads" : "Meta"} to answer your questions. Responses may vary.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

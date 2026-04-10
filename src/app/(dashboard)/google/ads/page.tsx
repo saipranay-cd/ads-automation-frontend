@@ -1,7 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Search, RefreshCw, FileImage } from "lucide-react"
+import { SearchSelect } from "@/components/ui/search-select"
 import { useGoogleAds, useGoogleSync } from "@/hooks/use-google"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
@@ -10,6 +13,8 @@ import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { GoogleAuthBanner } from "@/components/layout/GoogleAuthBanner"
+import { Pagination } from "@/components/ui/pagination"
 import type { GoogleAdRow } from "@/types/google-ads"
 
 const statusTabs = ["All", "Enabled", "Paused", "Removed"] as const
@@ -53,8 +58,24 @@ const thStyle = {
 const scrollHeaders = ["Type", "Ad Group", "Status", "Impressions", "Clicks", "CTR", "CPC"]
 
 export default function GoogleAdsPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={8} columns={8} />}>
+      <GoogleAdsContent />
+    </Suspense>
+  )
+}
+
+function GoogleAdsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const adGroupIdFilter = searchParams.get("adGroupId")
+  const adGroupNameFilter = searchParams.get("adGroupName")
+
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
+  const [adGroupFilter, setAdGroupFilter] = useState("All")
+  const [page, setPage] = useState(1)
+  const pageSize = 25
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
@@ -62,6 +83,11 @@ export default function GoogleAdsPage() {
   const sync = useGoogleSync()
 
   const ads = useMemo(() => adsData?.data || [], [adsData])
+
+  const adGroupNames = useMemo(() => {
+    const names = new Set(ads.map((a: GoogleAdRow) => a.adGroupName).filter(Boolean))
+    return Array.from(names).sort()
+  }, [ads])
 
   const filtered = useMemo(() => {
     return ads.filter((a: GoogleAdRow) => {
@@ -72,13 +98,35 @@ export default function GoogleAdsPage() {
       const matchSearch =
         headline.toLowerCase().includes(search.toLowerCase()) ||
         a.adGroupName.toLowerCase().includes(search.toLowerCase())
-      return matchTab && matchSearch
+      const matchAdGroup = adGroupIdFilter
+        ? a.adGroupId === adGroupIdFilter
+        : adGroupFilter === "All" || a.adGroupName === adGroupFilter
+      return matchTab && matchSearch && matchAdGroup
     })
-  }, [ads, activeTab, search])
+  }, [ads, activeTab, search, adGroupIdFilter, adGroupFilter])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  // Reset page when filters change
+  const filteredLen = filtered.length
+  useEffect(() => { setPage(1) }, [filteredLen])
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filter bar */}
+      {/* Breadcrumb when filtered by ad group */}
+      {adGroupNameFilter && (
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+          <Link href="/google/ad-groups" className="hover:underline" style={{ color: "var(--acc)" }}>Ad Groups</Link>
+          <span style={{ color: "var(--text-tertiary)" }}>/</span>
+          <span>{decodeURIComponent(adGroupNameFilter)}</span>
+          <button onClick={() => router.push("/google/ads")} className="ml-1 rounded px-1.5 py-0.5 text-[10px]" style={{ background: "var(--bg-muted)", color: "var(--text-tertiary)" }}>
+            Clear filter
+          </button>
+        </div>
+      )}
+
+      {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {statusTabs.map((tab) => (
@@ -101,42 +149,55 @@ export default function GoogleAdsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
-            disabled={sync.isPending}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-            style={{
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-            {sync.isPending ? "Syncing..." : "Sync"}
-          </button>
-          <DateRangePicker days={days} dateRange={dateRange} onPreset={(d) => { setDays(d); setDateRange(undefined) }} onCustomRange={(r) => setDateRange(r)} />
-          <div
-            className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-            style={{
-              background: "var(--bg-subtle)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-            <input
-              type="text"
-              placeholder="Search ads..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
-        </div>
+        <DateRangePicker days={days} dateRange={dateRange} onPreset={(d) => { setDays(d); setDateRange(undefined) }} onCustomRange={(r) => setDateRange(r)} />
       </div>
 
-      {/* Error state */}
-      {error && (
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {!adGroupIdFilter && adGroupNames.length > 1 && (
+          <SearchSelect
+            value={adGroupFilter}
+            onChange={setAdGroupFilter}
+            options={adGroupNames}
+            placeholder="All Ad Groups"
+          />
+        )}
+        <div
+          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
+          <input
+            type="text"
+            placeholder="Search ads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+            style={{ color: "var(--text-primary)" }}
+          />
+        </div>
+        <button
+          onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
+          disabled={sync.isPending}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+          style={{
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
+          {sync.isPending ? "Syncing..." : "Sync Now"}
+        </button>
+      </div>
+
+      {/* Auth expired banner */}
+      <GoogleAuthBanner error={error} />
+
+      {/* Error state (non-auth errors only) */}
+      {error && !(error.name === "GoogleAuthExpiredError") && (
         <ErrorBanner
           message={error.message || "Failed to load Google ads"}
           onRetry={() => refetch()}
@@ -177,9 +238,9 @@ export default function GoogleAdsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((a, i) => {
+                {paginated.map((a, i) => {
                   const badge = statusMap(a.status)
-                  const isLast = i === filtered.length - 1
+                  const isLast = i === paginated.length - 1
                   const headline = a.headlines?.[0] || "Untitled"
                   return (
                     <tr
@@ -263,6 +324,8 @@ export default function GoogleAdsPage() {
               </tbody>
             </table>
           </div>
+
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} totalItems={filtered.length} pageSize={pageSize} />
 
           {/* Filtered empty state */}
           {filtered.length === 0 && (

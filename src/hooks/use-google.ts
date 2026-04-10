@@ -46,6 +46,29 @@ export function useGoogleAuthStatus() {
   })
 }
 
+// ── Error handling ──────────────────────────────────────
+
+export class GoogleAuthExpiredError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "GoogleAuthExpiredError"
+  }
+}
+
+async function googleFetch(url: string): Promise<Response> {
+  const res = await apiFetch(url)
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const code = data?.error?.code
+    const message = data?.error?.message || "Google Ads API error"
+    if (code === "GOOGLE_AUTH_EXPIRED") {
+      throw new GoogleAuthExpiredError(message)
+    }
+    throw new Error(message)
+  }
+  return res
+}
+
 // ── Google Campaigns ────────────────────────────────────
 
 type DR = { since: string; until: string }
@@ -62,8 +85,7 @@ export function useGoogleCampaigns(googleAccountId?: string | null, days = 30, d
     queryKey: ["google-campaigns", googleAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!googleAccountId) return { data: [] }
-      const res = await apiFetch(`/api/google/campaigns?${buildParams(googleAccountId, days, dateRange)}`)
-      if (!res.ok) throw new Error("Failed to fetch Google campaigns")
+      const res = await googleFetch(`/api/google/campaigns?${buildParams(googleAccountId, days, dateRange)}`)
       return res.json()
     },
     enabled: !!googleAccountId,
@@ -78,8 +100,7 @@ export function useGoogleAdGroups(googleAccountId?: string | null, days = 30, da
     queryKey: ["google-ad-groups", googleAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!googleAccountId) return { data: [] }
-      const res = await apiFetch(`/api/google/ad-groups?${buildParams(googleAccountId, days, dateRange)}`)
-      if (!res.ok) throw new Error("Failed to fetch Google ad groups")
+      const res = await googleFetch(`/api/google/ad-groups?${buildParams(googleAccountId, days, dateRange)}`)
       return res.json()
     },
     enabled: !!googleAccountId,
@@ -94,8 +115,7 @@ export function useGoogleAds(googleAccountId?: string | null, days = 30, dateRan
     queryKey: ["google-ads", googleAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!googleAccountId) return { data: [] }
-      const res = await apiFetch(`/api/google/ads?${buildParams(googleAccountId, days, dateRange)}`)
-      if (!res.ok) throw new Error("Failed to fetch Google ads")
+      const res = await googleFetch(`/api/google/ads?${buildParams(googleAccountId, days, dateRange)}`)
       return res.json()
     },
     enabled: !!googleAccountId,
@@ -110,8 +130,7 @@ export function useGoogleKeywords(googleAccountId?: string | null, days = 30, da
     queryKey: ["google-keywords", googleAccountId, dateRange?.since ?? days, dateRange?.until ?? ""],
     queryFn: async () => {
       if (!googleAccountId) return { data: [] }
-      const res = await apiFetch(`/api/google/keywords?${buildParams(googleAccountId, days, dateRange)}`)
-      if (!res.ok) throw new Error("Failed to fetch Google keywords")
+      const res = await googleFetch(`/api/google/keywords?${buildParams(googleAccountId, days, dateRange)}`)
       return res.json()
     },
     enabled: !!googleAccountId,

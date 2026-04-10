@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search, RefreshCw } from "lucide-react"
+import { SearchSelect } from "@/components/ui/search-select"
 import { useGoogleKeywords, useGoogleSync } from "@/hooks/use-google"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
@@ -10,6 +11,8 @@ import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { GoogleAuthBanner } from "@/components/layout/GoogleAuthBanner"
+import { Pagination } from "@/components/ui/pagination"
 import type { GoogleKeywordRow } from "@/types/google-ads"
 
 const statusTabs = ["All", "Enabled", "Paused", "Removed"] as const
@@ -75,6 +78,11 @@ const scrollHeaders = ["Match Type", "Quality Score", "CPC Bid", "Status", "Impr
 export default function GoogleKeywordsPage() {
   const [activeTab, setActiveTab] = useState<StatusTab>("All")
   const [search, setSearch] = useState("")
+  const [matchTypeFilter, setMatchTypeFilter] = useState("All")
+  const [adGroupFilter, setAdGroupFilter] = useState("All")
+  const [campaignFilter, setCampaignFilter] = useState("All")
+  const [page, setPage] = useState(1)
+  const pageSize = 25
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
@@ -82,6 +90,21 @@ export default function GoogleKeywordsPage() {
   const sync = useGoogleSync()
 
   const keywords = useMemo(() => keywordsData?.data || [], [keywordsData])
+
+  const campaignNames = useMemo(() => {
+    const names = new Set(keywords.map((k: GoogleKeywordRow) => k.campaignName).filter(Boolean))
+    return Array.from(names).sort()
+  }, [keywords])
+
+  const matchTypes = useMemo(() => {
+    const types = new Set(keywords.map((k: GoogleKeywordRow) => k.matchType).filter(Boolean))
+    return Array.from(types).sort()
+  }, [keywords])
+
+  const adGroupNames = useMemo(() => {
+    const names = new Set(keywords.map((k: GoogleKeywordRow) => k.adGroupName).filter(Boolean))
+    return Array.from(names).sort()
+  }, [keywords])
 
   const filtered = useMemo(() => {
     return keywords.filter((k: GoogleKeywordRow) => {
@@ -91,13 +114,22 @@ export default function GoogleKeywordsPage() {
       const matchSearch =
         k.text.toLowerCase().includes(search.toLowerCase()) ||
         k.adGroupName.toLowerCase().includes(search.toLowerCase())
-      return matchTab && matchSearch
+      const matchMatchType = matchTypeFilter === "All" || k.matchType === matchTypeFilter
+      const matchAdGroup = adGroupFilter === "All" || k.adGroupName === adGroupFilter
+      const matchCampaign = campaignFilter === "All" || k.campaignName === campaignFilter
+      return matchTab && matchSearch && matchMatchType && matchAdGroup && matchCampaign
     })
-  }, [keywords, activeTab, search])
+  }, [keywords, activeTab, search, matchTypeFilter, adGroupFilter, campaignFilter])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [filtered.length])
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filter bar */}
+      {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {statusTabs.map((tab) => (
@@ -120,20 +152,36 @@ export default function GoogleKeywordsPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
-            disabled={sync.isPending}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-            style={{
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-            {sync.isPending ? "Syncing..." : "Sync"}
-          </button>
-          <DateRangePicker days={days} dateRange={dateRange} onPreset={(d) => { setDays(d); setDateRange(undefined) }} onCustomRange={(r) => setDateRange(r)} />
+        <DateRangePicker days={days} dateRange={dateRange} onPreset={(d) => { setDays(d); setDateRange(undefined) }} onCustomRange={(r) => setDateRange(r)} />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+          {matchTypes.length > 1 && (
+            <SearchSelect
+              value={matchTypeFilter}
+              onChange={setMatchTypeFilter}
+              options={matchTypes}
+              placeholder="All Match Types"
+              width="160px"
+            />
+          )}
+          {campaignNames.length > 1 && (
+            <SearchSelect
+              value={campaignFilter}
+              onChange={setCampaignFilter}
+              options={campaignNames}
+              placeholder="All Campaigns"
+            />
+          )}
+          {adGroupNames.length > 1 && (
+            <SearchSelect
+              value={adGroupFilter}
+              onChange={setAdGroupFilter}
+              options={adGroupNames}
+              placeholder="All Ad Groups"
+            />
+          )}
           <div
             className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
             style={{
@@ -151,11 +199,25 @@ export default function GoogleKeywordsPage() {
               style={{ color: "var(--text-primary)" }}
             />
           </div>
-        </div>
+          <button
+            onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
+            disabled={sync.isPending}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+            style={{
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
+            {sync.isPending ? "Syncing..." : "Sync Now"}
+          </button>
       </div>
 
-      {/* Error state */}
-      {error && (
+      {/* Auth expired banner */}
+      <GoogleAuthBanner error={error} />
+
+      {/* Error state (non-auth errors only) */}
+      {error && !(error.name === "GoogleAuthExpiredError") && (
         <ErrorBanner
           message={error.message || "Failed to load Google keywords"}
           onRetry={() => refetch()}
@@ -196,10 +258,10 @@ export default function GoogleKeywordsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((k, i) => {
+                {paginated.map((k, i) => {
                   const badge = statusMap(k.status)
                   const mtBadge = matchTypeBadge(k.matchType)
-                  const isLast = i === filtered.length - 1
+                  const isLast = i === paginated.length - 1
                   return (
                     <tr
                       key={k.id}
@@ -233,7 +295,7 @@ export default function GoogleKeywordsPage() {
                             className="text-[11px]"
                             style={{ color: "var(--text-tertiary)" }}
                           >
-                            {k.adGroupName}
+                            {k.campaignName ? `${k.campaignName} › ${k.adGroupName}` : k.adGroupName}
                           </span>
                         </div>
                       </td>
@@ -303,6 +365,8 @@ export default function GoogleKeywordsPage() {
               </tbody>
             </table>
           </div>
+
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} totalItems={filtered.length} pageSize={pageSize} />
 
           {/* Filtered empty state */}
           {filtered.length === 0 && (
