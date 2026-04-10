@@ -13,6 +13,9 @@ export async function POST(req: Request) {
   const body = await req.json()
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
+
     const res = await fetch(`${BACKEND_URL}/api/v1/google/sync`, {
       method: "POST",
       headers: {
@@ -22,10 +25,16 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         googleAccountId: body.googleAccountId,
       }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
     const data = await res.json()
     return NextResponse.json(data, { status: res.status })
-  } catch {
+  } catch (err) {
+    // If aborted due to timeout, the sync is likely still running on the backend
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
+    }
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
   }
 }

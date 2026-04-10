@@ -16,6 +16,9 @@ export async function POST(req: Request) {
   const body = await req.json()
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 55000)
+
     const res = await fetch(`${BACKEND_URL}/api/v1/adsflow/sync`, {
       method: "POST",
       headers: {
@@ -26,10 +29,15 @@ export async function POST(req: Request) {
         ...(auth.email && { userId: auth.email }),
         adAccountId: body.adAccountId || undefined,
       }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
     const data = await res.json()
     return NextResponse.json(data)
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
+    }
     return NextResponse.json(
       { error: "Backend unavailable" },
       { status: 503 }
