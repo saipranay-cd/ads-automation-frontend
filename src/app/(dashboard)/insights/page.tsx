@@ -346,7 +346,9 @@ ${items.map((p) => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>AI Insights</h1>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "rgba(24,119,242,0.10)", color: "#1877f2" }}>Meta Ads</span>
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: platform === "google" ? "rgba(52,168,83,0.10)" : "rgba(24,119,242,0.10)", color: platform === "google" ? "#34A853" : "#1877f2" }}>
+              {platform === "google" ? "Google Ads" : "Meta Ads"}
+            </span>
           </div>
           <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
             {stats?.lastScan ? `Last scan ${timeAgo(stats.lastScan)}` : "Run a scan to analyze your ads"}
@@ -599,9 +601,9 @@ ${items.map((p) => {
               <p className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>How AI Insights Work</p>
               <div className="flex flex-col gap-3 mt-2 max-w-[420px]">
                 {[
-                  { step: "1", label: "Scan", desc: "AI analyzes all your campaigns, ad sets, and ads using Meta metrics + CRM quality data", color: "#60a5fa" },
+                  { step: "1", label: "Scan", desc: `AI analyzes all your campaigns, ad sets, and ads using ${isGoogle ? "Google" : "Meta"} metrics + CRM quality data`, color: "#60a5fa" },
                   { step: "2", label: "Review", desc: "Review each proposal — see what's automated vs what you do manually", color: "#a78bfa" },
-                  { step: "3", label: "Execute", desc: "Approve & execute — the AI makes changes on Meta (budget, pause, activate). You can undo anytime.", color: "#4ade80" },
+                  { step: "3", label: "Execute", desc: `Approve & execute — the AI makes changes on ${isGoogle ? "Google" : "Meta"} (budget, pause, activate). You can undo anytime.`, color: "#4ade80" },
                   { step: "4", label: "Measure", desc: "After 7 days, see the before/after impact — did CPQL improve? Did quality leads increase?", color: "#fbbf24" },
                 ].map((s) => (
                   <div key={s.step} className="flex items-start gap-3">
@@ -662,6 +664,8 @@ function ProposalCard({
   onApprove: () => void; onReject: () => void; onRetry: () => void; onUndo?: () => void
   canEdit?: boolean
 }) {
+  const { platform } = usePlatform()
+  const isGoogle = platform === "google"
   const [showConfirm, setShowConfirm] = useState(false)
   const agent = agentMap[p.agentId] || agents[0]
   const stCfg = statusConfig[p.status] || statusConfig.pending
@@ -984,7 +988,7 @@ function ProposalCard({
                   <div className="flex items-center gap-1.5 mb-2.5">
                     <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#4ade80" }} />
                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#4ade80" }}>
-                      Automated — executes on Meta now
+                      Automated — executes on {isGoogle ? "Google" : "Meta"} now
                     </span>
                   </div>
                   {actions.length > 0 ? (

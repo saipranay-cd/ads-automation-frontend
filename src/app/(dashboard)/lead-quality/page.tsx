@@ -592,8 +592,8 @@ const GOOGLE_LEVELS: { key: string; label: string; icon: typeof Megaphone }[] = 
 
 // ── Entity Quality Table (Campaign / AdSet / Ad) ────────
 
-function EntityQualityTable({ adAccountId, dateRange, platform = "meta", onEntityClick, selectedEntityId, campaignMetrics, leads }: {
-  adAccountId: string; dateRange?: { from: string; to: string }; platform?: "meta" | "google"
+function EntityQualityTable({ adAccountId, dateRange, platform, onEntityClick, selectedEntityId, campaignMetrics, leads }: {
+  adAccountId: string; dateRange?: { from: string; to: string }; platform: "meta" | "google"
   onEntityClick?: (entityId: string, entityName: string, level: string) => void
   selectedEntityId?: string | null
   campaignMetrics?: CampaignQualityMetrics[]

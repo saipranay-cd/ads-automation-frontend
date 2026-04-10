@@ -5,12 +5,10 @@ import {
   LogIn,
   LayoutDashboard,
   BarChart3,
-  Globe,
-  Facebook,
-  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlatform } from "@/hooks/use-platform";
 import {
   AreaChart,
   Area,
@@ -86,9 +84,8 @@ export default function DashboardPage() {
   const [chartDateRange, setChartDateRange] = useState<DateRange | undefined>(
     undefined,
   );
-  const [platformFilter, setPlatformFilter] = useState<
-    "all" | "meta" | "google"
-  >("all");
+  const { platform } = usePlatform();
+  const platformFilter = platform;
   const {
     data: dashboardData,
     error: dashboardError,
@@ -153,7 +150,7 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [allCampaigns]);
 
-  // Unified campaigns for "All Platforms" and "Google" views
+  // Unified campaigns for "Google" view
   const unifiedCampaigns = useMemo((): UnifiedCampaign[] => {
     const meta: UnifiedCampaign[] = allCampaigns.map((c) => ({
       id: `meta-${c.id}`,
@@ -196,8 +193,8 @@ export default function DashboardPage() {
   }, [allCampaigns, allGoogleCampaigns]);
 
   const chartData = useMemo(() => {
-    const showMeta = platformFilter === "all" || platformFilter === "meta";
-    const showGoogle = platformFilter === "all" || platformFilter === "google";
+    const showMeta = platformFilter === "meta";
+    const showGoogle = platformFilter === "google";
 
     const metaData = showMeta ? metricsRaw || [] : [];
     const googleData = showGoogle ? googleMetricsRaw || [] : [];
@@ -234,8 +231,8 @@ export default function DashboardPage() {
     const meta = dashboardData;
     const google = googleDashboard;
 
-    const showMeta = platformFilter === "all" || platformFilter === "meta";
-    const showGoogle = platformFilter === "all" || platformFilter === "google";
+    const showMeta = platformFilter === "meta";
+    const showGoogle = platformFilter === "google";
 
     const metaSpend = showMeta ? (meta?.totalSpend ?? 0) : 0;
     const googleSpend = showGoogle ? (google?.totalSpend ?? 0) : 0;
@@ -282,9 +279,7 @@ export default function DashboardPage() {
         label:
           platformFilter === "google"
             ? "Conversions"
-            : platformFilter === "meta"
-              ? "Leads Today"
-              : "Leads / Conversions",
+            : "Leads Today",
         value: formatNumber(totalLeads),
         subtext: "today",
       },
@@ -292,9 +287,7 @@ export default function DashboardPage() {
         label:
           platformFilter === "google"
             ? "Cost / Conversion"
-            : platformFilter === "meta"
-              ? "Cost per Lead"
-              : "Cost per Result",
+            : "Cost per Lead",
         value: formatCurrency(avgCpl),
         subtext: "last 7 days",
       },
@@ -352,31 +345,6 @@ export default function DashboardPage() {
             <MetricCard {...m} isFirst={i === 0} />
           </div>
         ))}
-      </div>
-
-      {/* Platform filter */}
-      <div className="flex items-center gap-1.5">
-        {[
-          { key: "all" as const, label: "All Platforms", icon: Globe },
-          { key: "meta" as const, label: "Meta", icon: Facebook },
-          { key: "google" as const, label: "Google", icon: Search },
-        ].map(({ key, label, icon: Icon }) => {
-          const isActive = platformFilter === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setPlatformFilter(key)}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
-              style={{
-                background: isActive ? "var(--acc-subtle)" : "var(--bg-subtle)",
-                color: isActive ? "var(--acc-text)" : "var(--text-secondary)",
-              }}
-            >
-              <Icon size={12} />
-              {label}
-            </button>
-          );
-        })}
       </div>
 
       {/* Two-column layout (stacks on mobile) */}
@@ -589,12 +557,9 @@ export default function DashboardPage() {
                 />
               )
             ) : (
-              /* "All Platforms" and "Google" use the unified table */
+              /* Google uses the unified table */
               (() => {
-                const rows =
-                  platformFilter === "google"
-                    ? unifiedCampaigns.filter((c) => c.platform === "google")
-                    : unifiedCampaigns;
+                const rows = unifiedCampaigns.filter((c) => c.platform === "google");
                 if (rows.length === 0)
                   return (
                     <EmptyState
