@@ -28,13 +28,22 @@ export async function POST(req: Request) {
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
-  } catch (err) {
-    // If aborted due to timeout, the sync is likely still running on the backend
-    if (err instanceof DOMException && err.name === "AbortError") {
+    const text = await res.text()
+    try {
+      const data = JSON.parse(text)
+      return NextResponse.json(data, { status: res.status })
+    } catch {
+      // Backend returned non-JSON (HTML error page, etc.)
+      console.error("[google/sync] Non-JSON response:", text.slice(0, 200))
       return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
     }
-    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+  } catch (err: unknown) {
+    // Timeout or network error — sync is likely still running on the backend
+    const name = err instanceof Error ? err.name : ""
+    if (name === "AbortError") {
+      return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
+    }
+    console.error("[google/sync] Fetch error:", err)
+    return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
   }
 }

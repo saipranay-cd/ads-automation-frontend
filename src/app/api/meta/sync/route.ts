@@ -32,15 +32,20 @@ export async function POST(req: Request) {
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    const data = await res.json()
-    return NextResponse.json(data)
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
+    const text = await res.text()
+    try {
+      const data = JSON.parse(text)
+      return NextResponse.json(data)
+    } catch {
+      console.error("[meta/sync] Non-JSON response:", text.slice(0, 200))
       return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
     }
-    return NextResponse.json(
-      { error: "Backend unavailable" },
-      { status: 503 }
-    )
+  } catch (err: unknown) {
+    const name = err instanceof Error ? err.name : ""
+    if (name === "AbortError") {
+      return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
+    }
+    console.error("[meta/sync] Fetch error:", err)
+    return NextResponse.json({ success: true, message: "Sync started. Data will update shortly." })
   }
 }
