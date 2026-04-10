@@ -255,7 +255,12 @@ export function useGoogleSync() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Google sync failed")
+        const code = data?.error?.code
+        const message = data?.error?.message || (typeof data?.error === "string" ? data.error : "Google sync failed")
+        if (code === "GOOGLE_AUTH_EXPIRED") {
+          throw new GoogleAuthExpiredError(message)
+        }
+        throw new Error(message)
       }
       return res.json()
     },
@@ -267,6 +272,14 @@ export function useGoogleSync() {
       queryClient.invalidateQueries({ queryKey: ["google-accounts"] })
       queryClient.invalidateQueries({ queryKey: ["google-dashboard"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard"] })
+    },
+    onError: (error) => {
+      // Auth errors will be shown by GoogleAuthBanner via sync.error
+      // Non-auth errors show as toast
+      if (!(error instanceof GoogleAuthExpiredError)) {
+        const { showApiError } = require("@/components/layout/ErrorToast")
+        showApiError(error)
+      }
     },
   })
 }

@@ -193,7 +193,7 @@ function GoogleAdGroupsContent() {
       </div>
 
       {/* Auth expired banner */}
-      <GoogleAuthBanner error={error} />
+      <GoogleAuthBanner error={error || sync.error} />
 
       {/* Error state (non-auth errors only) */}
       {error && !(error.name === "GoogleAuthExpiredError") && (

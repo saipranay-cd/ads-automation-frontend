@@ -2,14 +2,19 @@
 
 import Link from "next/link"
 import { AlertTriangle, ExternalLink } from "lucide-react"
-import { GoogleAuthExpiredError } from "@/hooks/use-google"
 
 interface GoogleAuthBannerProps {
   error: Error | null
 }
 
+function isAuthExpired(error: Error): boolean {
+  if (error.name === "GoogleAuthExpiredError") return true
+  const msg = error.message?.toLowerCase() || ""
+  return msg.includes("expired") || msg.includes("reconnect") || msg.includes("unauthenticated") || msg.includes("google_auth_expired")
+}
+
 export function GoogleAuthBanner({ error }: GoogleAuthBannerProps) {
-  if (!error || !(error instanceof GoogleAuthExpiredError)) return null
+  if (!error || !isAuthExpired(error)) return null
 
   return (
     <div
