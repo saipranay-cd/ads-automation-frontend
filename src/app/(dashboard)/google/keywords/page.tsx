@@ -102,9 +102,17 @@ export default function GoogleKeywordsPage() {
   }, [keywords])
 
   const adGroupNames = useMemo(() => {
-    const names = new Set(keywords.map((k: GoogleKeywordRow) => k.adGroupName).filter(Boolean))
+    const source = campaignFilter === "All"
+      ? keywords
+      : keywords.filter((k: GoogleKeywordRow) => k.campaignName === campaignFilter)
+    const names = new Set(source.map((k: GoogleKeywordRow) => k.adGroupName).filter(Boolean))
     return Array.from(names).sort()
-  }, [keywords])
+  }, [keywords, campaignFilter])
+
+  // Reset ad group filter when campaign changes
+  useEffect(() => {
+    setAdGroupFilter("All")
+  }, [campaignFilter])
 
   const filtered = useMemo(() => {
     return keywords.filter((k: GoogleKeywordRow) => {
@@ -174,7 +182,7 @@ export default function GoogleKeywordsPage() {
               placeholder="All Campaigns"
             />
           )}
-          {adGroupNames.length > 1 && (
+          {adGroupNames.length > 0 && (
             <SearchSelect
               value={adGroupFilter}
               onChange={setAdGroupFilter}
