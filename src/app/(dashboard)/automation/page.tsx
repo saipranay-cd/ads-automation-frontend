@@ -4,9 +4,11 @@ import { useState } from "react"
 import { Plus, Zap, Trash2, ToggleLeft, ToggleRight, Clock, CheckCircle, XCircle } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
+import { showSuccess } from "@/components/layout/ErrorToast"
 import { useAppStore } from "@/lib/store"
 import { EmptyState } from "@/components/ui/empty-state"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 // ── Types ──────────────────────────────────────────────
 
@@ -91,6 +93,7 @@ export default function AutomationPage() {
   const { data, isLoading } = useAlertRules(adAccountId)
   const [showCreate, setShowCreate] = useState(false)
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
+  const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const rules = data?.data || []
@@ -103,18 +106,24 @@ export default function AutomationPage() {
         body: JSON.stringify({ isActive }),
       })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules"] })
+      showSuccess(variables.isActive ? "Rule enabled" : "Rule paused")
+    },
   })
 
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
       await apiFetch(`/api/meta/alert-rules/${id}`, { method: "DELETE" })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alert-rules"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules"] })
+      showSuccess("Rule deleted")
+    },
   })
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -201,12 +210,15 @@ export default function AutomationPage() {
                   </button>
                   <button
                     onClick={() => toggleRule.mutate({ id: rule.id, isActive: !rule.isActive })}
+                    aria-pressed={rule.isActive}
+                    aria-label={rule.isActive ? "Disable rule" : "Enable rule"}
                     style={{ color: rule.isActive ? "var(--accent-primary)" : "var(--text-disabled)" }}
                   >
                     {rule.isActive ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
                   </button>
                   <button
-                    onClick={() => deleteRule.mutate(rule.id)}
+                    onClick={() => setDeleteRuleId(rule.id)}
+                    aria-label="Delete rule"
                     style={{ color: "var(--text-tertiary)" }}
                   >
                     <Trash2 size={14} />
@@ -220,6 +232,15 @@ export default function AutomationPage() {
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={!!deleteRuleId}
+        onCancel={() => setDeleteRuleId(null)}
+        onConfirm={() => { if (deleteRuleId) deleteRule.mutate(deleteRuleId); setDeleteRuleId(null) }}
+        title="Delete automation rule"
+        description="This rule and its execution history will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete Rule"
+        variant="danger"
+      />
     </div>
   )
 }
@@ -250,6 +271,7 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["alert-rules"] })
+      showSuccess("Rule created")
       onClose()
     },
   })
@@ -274,16 +296,17 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
           placeholder="Rule name (e.g. Pause high CPL campaigns)"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-lg px-3 py-2 text-sm"
+          aria-label="Rule name"
+          className="rounded-md px-3 py-2 text-xs outline-none"
           style={selectStyle}
         />
 
         <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <span>When</span>
-          <select value={metric} onChange={(e) => setMetric(e.target.value)} className="rounded-lg px-2 py-1.5 text-sm" style={selectStyle}>
+          <select value={metric} onChange={(e) => setMetric(e.target.value)} aria-label="Metric" className="rounded-md px-2 py-1.5 text-xs outline-none" style={selectStyle}>
             {METRICS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
-          <select value={operator} onChange={(e) => setOperator(e.target.value)} className="rounded-lg px-2 py-1.5 text-sm" style={selectStyle}>
+          <select value={operator} onChange={(e) => setOperator(e.target.value)} aria-label="Operator" className="rounded-md px-2 py-1.5 text-xs outline-none" style={selectStyle}>
             {OPERATORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <input
@@ -291,14 +314,15 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
             value={threshold}
             onChange={(e) => setThreshold(e.target.value)}
             placeholder="Value"
-            className="w-24 rounded-lg px-2 py-1.5 text-sm font-mono"
+            aria-label="Threshold value"
+            className="w-24 rounded-md px-2 py-1.5 text-xs font-mono outline-none"
             style={selectStyle}
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <span>Then</span>
-          <select value={actionType} onChange={(e) => setActionType(e.target.value)} className="rounded-lg px-2 py-1.5 text-sm" style={selectStyle}>
+          <select value={actionType} onChange={(e) => setActionType(e.target.value)} aria-label="Action" className="rounded-md px-2 py-1.5 text-xs outline-none" style={selectStyle}>
             {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
           {(actionType === "reduce_budget" || actionType === "increase_budget") && (
@@ -307,7 +331,8 @@ function CreateRuleForm({ adAccountId, onClose }: { adAccountId: string; onClose
                 type="number"
                 value={budgetPct}
                 onChange={(e) => setBudgetPct(e.target.value)}
-                className="w-16 rounded-lg px-2 py-1.5 text-sm font-mono"
+                aria-label="Budget percentage"
+                className="w-16 rounded-md px-2 py-1.5 text-xs font-mono outline-none"
                 style={selectStyle}
               />
               <span>%</span>

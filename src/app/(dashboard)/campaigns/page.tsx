@@ -2,14 +2,18 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Search, RefreshCw, Megaphone } from "lucide-react"
+import { Megaphone, Download } from "lucide-react"
 import { SearchSelect } from "@/components/ui/search-select"
 import { CampaignTable } from "@/components/dashboard/CampaignTable"
 import { BulkActionBar } from "@/components/dashboard/BulkActionBar"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
+import { StatusTabs } from "@/components/dashboard/StatusTabs"
+import { SearchInput } from "@/components/dashboard/SearchInput"
+import { SyncButton } from "@/components/dashboard/SyncButton"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { useCampaigns, useSync, useIsSyncing } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { downloadCsv } from "@/lib/export-csv"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
@@ -56,27 +60,7 @@ export default function CampaignsPage() {
 
       {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                background:
-                  activeTab === tab
-                    ? "var(--acc-subtle)"
-                    : "transparent",
-                color:
-                  activeTab === tab
-                    ? "var(--acc-text)"
-                    : "var(--text-secondary)",
-              }}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <StatusTabs tabs={statusTabs} active={activeTab} onChange={setActiveTab} />
         <DateRangePicker
           days={days}
           dateRange={dateRange}
@@ -96,35 +80,33 @@ export default function CampaignsPage() {
             placeholder="All Objectives"
           />
         )}
-        {/* Search */}
-        <div
-          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-          style={{
-            background: "var(--bg-subtle)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-          <input
-            type="text"
-            placeholder="Search campaigns..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-            style={{ color: "var(--text-primary)" }}
-          />
-        </div>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search campaigns..." />
+        <SyncButton onClick={() => sync.mutate(selectedAdAccountId || undefined)} isSyncing={isSyncing} disabled={sync.isPending} />
         <button
-          onClick={() => sync.mutate(selectedAdAccountId || undefined)}
-          disabled={sync.isPending || isSyncing}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-          style={{
-            border: "1px solid var(--border-default)",
-            color: "var(--text-secondary)",
+          onClick={() => {
+            const headers = ["Name", "Status", "Objective", "Daily Budget", "Amount Spent", "Leads", "CPL", "Impressions", "Reach", "Link Clicks", "CPM"]
+            const rows = filtered.map((c) => [
+              c.name,
+              c.status,
+              c.objective,
+              String(c.dailyBudget ?? ""),
+              String(c.amountSpent ?? ""),
+              String(c.leads ?? ""),
+              String(c.costPerLead ?? ""),
+              String(c.impressions ?? ""),
+              String(c.reach ?? ""),
+              String(c.linkClicks ?? ""),
+              String(c.cpm ?? ""),
+            ])
+            downloadCsv("campaigns", headers, rows)
           }}
+          disabled={filtered.length === 0}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:bg-[var(--bg-subtle)] active:scale-[0.97] disabled:opacity-50"
+          style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+          title="Export CSV"
         >
-          <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-          {isSyncing ? "Syncing..." : "Sync Now"}
+          <Download size={12} />
+          Export
         </button>
       </div>
 

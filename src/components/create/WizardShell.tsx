@@ -133,7 +133,7 @@ export function WizardShell() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!adAccountId || !draft.campaignName) return
+    if (!adAccountId) return
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
       setSaveStatus("saving")
@@ -162,6 +162,16 @@ export function WizardShell() {
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const hasWork = !!draft.campaignName
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasWork) { e.preventDefault(); e.returnValue = "" }
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [draft.campaignName])
+
   const completedSteps = useMemo(() => {
     const completed: number[] = []
     if (draft.campaignName && (draft.dailyBudget ?? 0) > 0) completed.push(1)
@@ -169,6 +179,12 @@ export function WizardShell() {
     if (draft.primaryText && draft.headline && draft.landingPageUrl) completed.push(3)
     if (draft.leadFormMode === "skip" || draft.leadFormId || draft.leadFormName) completed.push(4)
     return completed
+  }, [draft])
+
+  // Clear validation errors when user edits the draft
+  useEffect(() => {
+    if (validationErrors.length > 0) setValidationErrors([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft])
 
   const handleCancel = useCallback(() => {

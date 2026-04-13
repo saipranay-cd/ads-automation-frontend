@@ -34,7 +34,7 @@ function StaleBadge({ lastSyncedAt, onSync, className }: StaleBadgeProps) {
       <span
         data-slot="stale-badge"
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full bg-amber-bg px-2 py-0.5 text-xs font-medium text-amber-text",
+          "inline-flex items-center gap-1.5 rounded-full bg-amber-bg px-2 py-0.5 text-xs font-medium text-amber-text animate-fade-in",
           className
         )}
       >
@@ -60,7 +60,7 @@ function StaleBadge({ lastSyncedAt, onSync, className }: StaleBadgeProps) {
     <span
       data-slot="stale-badge"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-amber-bg px-2 py-0.5 text-xs font-medium text-amber-text",
+        "inline-flex items-center gap-1.5 rounded-full bg-amber-bg px-2 py-0.5 text-xs font-medium text-amber-text animate-fade-in",
         className
       )}
     >

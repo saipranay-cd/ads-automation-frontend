@@ -57,48 +57,13 @@ const platformMeta: Record<string, { color: string; label: string }> = {
 
 // ── Helpers ─────────────────────────────────────────────
 
-function fmt(v: number | null | undefined): string {
-  if (v == null) return "—"
-  return `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-}
-
-function fmtDate(d: string | null): string {
-  if (!d) return "—"
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-}
-
-function fmtNum(n: number): string {
-  if (n >= 100_000) return `${(n / 100_000).toFixed(1)}L`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
-}
+import { fmtInr as fmt, fmtDate, fmtCompact as fmtNum } from "@/lib/format"
 
 // ── Chart Colors (theme-aware — SVG can't use CSS vars) ──
 
-const CHART_COLORS = {
-  obsidian: {
-    grid: "rgba(255,255,255,0.04)",
-    tick: "rgba(255,255,255,0.35)",
-    tooltipBg: "rgba(30, 30, 36, 0.95)",
-    tooltipBorder: "rgba(255,255,255,0.1)",
-    tooltipLabel: "rgba(255,255,255,0.7)",
-    tooltipShadow: "0 8px 24px rgba(0,0,0,0.4)",
-  },
-  violet: {
-    grid: "rgba(0,0,0,0.06)",
-    tick: "rgba(0,0,0,0.35)",
-    tooltipBg: "rgba(255, 255, 255, 0.95)",
-    tooltipBorder: "rgba(0,0,0,0.1)",
-    tooltipLabel: "rgba(0,0,0,0.7)",
-    tooltipShadow: "0 8px 24px rgba(0,0,0,0.1)",
-  },
-} as const
+import { CHART_THEME as CHART_COLORS } from "@/lib/chart-theme"
 
-// ── Skeleton ────────────────────────────────────────────
-
-function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md ${className}`} style={{ background: "var(--bg-muted)" }} />
-}
+import { Skeleton } from "@/components/ui/skeleton"
 
 // ── KPI Card ────────────────────────────────────────────
 
@@ -107,7 +72,7 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
 }) {
   return (
     <div
-      className="flex-1 min-w-[170px] rounded-xl p-5 transition-colors"
+      className="flex-1 min-w-[170px] rounded-lg p-5 transition-colors"
       style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -135,7 +100,7 @@ function QualityDistribution({ breakdown }: { breakdown: QualityBreakdown[] }) {
   const sorted = [...breakdown].sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))
 
   return (
-    <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       <h3 className="text-[13px] font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         Quality Distribution
       </h3>
@@ -193,7 +158,7 @@ function PlatformCard({ platforms }: { platforms: PlatformBreakdownType[] }) {
   const maxCount = Math.max(...platforms.map(p => p.count), 1)
 
   return (
-    <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       <h3 className="text-[13px] font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         Quality by Source
       </h3>
@@ -243,7 +208,7 @@ function QualityKpiCard({ label, value, sub, icon: Icon, accent }: {
   const [showTip, setShowTip] = useState(false)
   return (
     <div
-      className="flex-1 min-w-[170px] rounded-xl p-5 transition-colors"
+      className="flex-1 min-w-[170px] rounded-lg p-5 transition-colors"
       style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -304,7 +269,7 @@ function QualityTrendChart({ adAccountId, dateRange }: {
   }))
 
   return (
-    <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       <h3 className="text-[13px] font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         Lead Quality Trend
       </h3>
@@ -433,7 +398,7 @@ function CpqlComparisonBars({ campaigns }: { campaigns: CampaignQualityMetrics[]
   const barMax = Math.max(maxCpql, maxCpl)
 
   return (
-    <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       <h3 className="text-[13px] font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         CPQL by Campaign
       </h3>
@@ -518,7 +483,7 @@ function TopKeywordsByQuality({ leads }: { leads: CrmLead[] }) {
   const thStyle = "px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.06em] text-left"
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
           Top Keywords by Lead Quality
@@ -712,7 +677,7 @@ function EntityQualityTable({ adAccountId, dateRange, platform, onEntityClick, s
   const levelConfig = LEVELS.find(l => l.key === level) || LEVELS[0]
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       {/* Header */}
       <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-default)" }}>
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -897,7 +862,7 @@ function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, en
   const totalPages = Math.ceil(total / 50)
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div className="rounded-lg overflow-hidden" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
       {/* Header with filters */}
       <div
         className="px-5 py-3.5 flex items-center justify-between flex-wrap gap-3"
@@ -1108,7 +1073,7 @@ function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, en
 function EmptyState() {
   return (
     <div
-      className="rounded-xl flex flex-col items-center justify-center py-20 gap-4"
+      className="rounded-lg flex flex-col items-center justify-center py-20 gap-4"
       style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
     >
       <div
@@ -1258,7 +1223,7 @@ export default function LeadQualityPage() {
       {/* KPI Cards */}
       {insightsLoading ? (
         <div className="flex gap-4">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="flex-1 h-[110px] rounded-xl" />)}
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="flex-1 h-[110px] rounded-lg" />)}
         </div>
       ) : (
         <div className="flex gap-4 flex-wrap">

@@ -8,6 +8,9 @@ import { apiFetch } from "@/lib/api-fetch"
 export interface CrmConnection {
   id: string
   provider: string
+  adAccountId: string
+  nangoConnectionId: string | null
+  accountLabel: string | null
   isActive: boolean
   lastSyncAt: string | null
   syncStatus: string
@@ -121,6 +124,44 @@ export function useCrmConnection(adAccountId?: string | null) {
       return res.json()
     },
     enabled: !!adAccountId,
+  })
+}
+
+// ── Ad Account Assignment ────────────────────────────────
+
+export function useAssignAdAccounts() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { sourceConnectionId: string; adAccountIds: string[] }) => {
+      const res = await apiFetch("/api/crm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign-ad-accounts", ...params }),
+      })
+      if (!res.ok) throw new Error("Failed to assign ad accounts")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-connection"] })
+    },
+  })
+}
+
+export function useUnassignAdAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (connectionId: string) => {
+      const res = await apiFetch("/api/crm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unassign-ad-account", connectionId }),
+      })
+      if (!res.ok) throw new Error("Failed to unassign ad account")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-connection"] })
+    },
   })
 }
 
@@ -351,15 +392,15 @@ export function useDiscoverStages() {
   })
 }
 
-// ── Field Mapping (Zoho field → Meta ID) ───────────────
+// ── Field Mapping (CRM field → Ad Platform ID) ─────────
 
 export interface FieldMapping {
   id: string
   metaField: string
-  zohoField: string
+  crmField: string
 }
 
-export interface ZohoField {
+export interface CrmField {
   apiName: string
   displayLabel: string
   dataType: string
@@ -378,12 +419,12 @@ export function useFieldMap(connectionId?: string) {
   })
 }
 
-export function useZohoFields(connectionId?: string) {
-  return useQuery<{ data: ZohoField[] }>({
-    queryKey: ["zoho-fields", connectionId],
+export function useCrmFields(connectionId?: string) {
+  return useQuery<{ data: CrmField[] }>({
+    queryKey: ["crm-fields", connectionId],
     queryFn: async () => {
       if (!connectionId) return { data: [] }
-      const res = await apiFetch(`/api/crm/connections?action=get-zoho-fields&connectionId=${connectionId}`)
+      const res = await apiFetch(`/api/crm/connections?action=get-crm-fields&connectionId=${connectionId}`)
       if (!res.ok) return { data: [] }
       return res.json()
     },
@@ -400,7 +441,7 @@ export function useUpdateFieldMap() {
       mappings,
     }: {
       connectionId: string
-      mappings: { metaField: string; zohoField: string }[]
+      mappings: { metaField: string; crmField: string }[]
     }) => {
       const res = await apiFetch("/api/crm/connections", {
         method: "POST",
@@ -412,6 +453,42 @@ export function useUpdateFieldMap() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["crm-field-map"] })
+    },
+  })
+}
+
+// ── Source Field Config ──────────────────────────────────
+
+export function useSourceFieldConfig(connectionId?: string) {
+  return useQuery<{ data: { sourceField: string | null } | null }>({
+    queryKey: ["crm-source-field", connectionId],
+    queryFn: async () => {
+      if (!connectionId) return { data: null }
+      const res = await apiFetch(`/api/crm/connections?action=get-source-field&connectionId=${connectionId}`)
+      if (!res.ok) return { data: null }
+      return res.json()
+    },
+    enabled: !!connectionId,
+  })
+}
+
+export function useUpdateSourceFieldConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { connectionId: string; sourceField: string | null }) => {
+      const res = await apiFetch("/api/crm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update-source-field",
+          connectionId: params.connectionId,
+          sourceField: params.sourceField,
+        }),
+      })
+      return res.json()
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["crm-source-field", vars.connectionId] })
     },
   })
 }

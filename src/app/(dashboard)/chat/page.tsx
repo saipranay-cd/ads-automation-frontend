@@ -445,7 +445,7 @@ function ConversationSidebar({
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <span
-          className="text-[10px] font-semibold uppercase tracking-wider"
+          className="text-[10px] font-medium uppercase tracking-[0.06em]"
           style={{ color: "var(--text-tertiary)" }}
         >
           History
@@ -487,10 +487,9 @@ function ConversationSidebar({
                 className="group relative cursor-pointer px-3 py-2 transition-colors"
                 style={{
                   background: isActive ? "var(--bg-subtle)" : "transparent",
-                  borderLeft: isActive ? "2px solid var(--acc)" : "2px solid transparent",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.background = "var(--bg-muted)"
+                  if (!isActive) e.currentTarget.style.background = "var(--bg-subtle)"
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) e.currentTarget.style.background = "transparent"
@@ -705,97 +704,120 @@ export default function ChatPage() {
           {isEmpty && !messagesQuery.isLoading ? (
             /* ── Empty state ────────────────────────────── */
             <div className="flex h-full flex-col items-center justify-center px-4">
-              <div className="flex flex-col items-center gap-3 mb-8">
+              <style>{`
+                @keyframes chat-breathe {
+                  0%, 100% { transform: scale(1); opacity: 0.06; }
+                  50% { transform: scale(1.5); opacity: 0; }
+                }
+                @keyframes chat-breathe-inner {
+                  0%, 100% { transform: scale(1); opacity: 0.1; }
+                  50% { transform: scale(1.3); opacity: 0.03; }
+                }
+                @keyframes chat-appear {
+                  from { opacity: 0; transform: translateY(8px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .chat-empty-ring, .chat-empty-ring-inner { animation: none !important; }
+                  .chat-empty-appear { animation: none !important; opacity: 1 !important; }
+                }
+              `}</style>
+
+              {/* Breathing rings + icon */}
+              <div className="relative mb-8 flex items-center justify-center" style={{ width: 140, height: 140 }}>
+                {/* Outer breathing ring */}
                 <div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl"
+                  className="chat-empty-ring absolute inset-0 rounded-full"
                   style={{
-                    background: "linear-gradient(135deg, var(--acc) 0%, rgb(168,85,247) 100%)",
-                    boxShadow: "0 8px 32px rgba(108,71,255,0.2)",
+                    border: "1px solid var(--acc)",
+                    animation: "chat-breathe 4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
+                  }}
+                />
+                {/* Inner breathing ring */}
+                <div
+                  className="chat-empty-ring-inner absolute rounded-full"
+                  style={{
+                    inset: 20,
+                    border: "1px solid var(--acc)",
+                    animation: "chat-breathe-inner 4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
+                    animationDelay: "0.3s",
+                  }}
+                />
+                {/* Static center circle */}
+                <div
+                  className="relative flex h-14 w-14 items-center justify-center rounded-full"
+                  style={{
+                    background: "var(--acc-subtle)",
+                    border: "1px solid var(--acc-border)",
                   }}
                 >
-                  <Zap size={26} color="white" />
+                  <Zap size={24} style={{ color: "var(--acc)" }} />
                 </div>
-                <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                  AI Chat — {platform === "google" ? "Google Ads" : "Meta Ads"}
+              </div>
+
+              {/* Text */}
+              <div
+                className="chat-empty-appear flex flex-col items-center gap-1.5"
+                style={{ animation: "chat-appear 600ms cubic-bezier(0.25, 1, 0.5, 1) 200ms both" }}
+              >
+                <h2 className="text-base font-medium tracking-tight" style={{ color: "var(--text-primary)" }}>
+                  {platform === "google" ? "Google Ads" : "Meta Ads"} Assistant
                 </h2>
-                <p className="max-w-md text-center text-xs leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
-                  {platform === "google"
-                    ? "I can analyze your Google campaigns, keywords, quality scores, and give you actionable recommendations — all from live Google Ads data."
-                    : "I can analyze your campaigns, compare audiences, find budget leaks, and give you actionable recommendations — all from live Meta data."}
+                <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                  Ask anything about your campaigns, budgets, and performance
                 </p>
-              </div>
-
-              {/* Data sources bar */}
-              <div className="mb-6 flex items-center gap-2">
-                <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
-                  Connected to
-                </span>
-                <div className="flex gap-1">
-                  {DATA_SOURCES.map((src) => {
-                    const Icon = src.icon
-                    return (
-                      <div
-                        key={src.label}
-                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                        style={{
-                          background: `color-mix(in srgb, ${src.color} 8%, transparent)`,
-                          color: src.color,
-                        }}
-                        title={src.label}
-                      >
-                        <Icon size={10} />
-                        {src.label}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Prompt cards */}
-              <div className="grid w-full max-w-xl grid-cols-2 gap-2.5">
-                {SUGGESTED_PROMPTS.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => sendMessage(item.prompt)}
-                      disabled={!accountId}
-                      className="group flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-all disabled:opacity-30"
-                      style={{
-                        borderColor: "var(--border-default)",
-                        background: "var(--bg-base)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = item.color
-                        e.currentTarget.style.background = `color-mix(in srgb, ${item.color} 4%, var(--bg-base))`
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "var(--border-default)"
-                        e.currentTarget.style.background = "var(--bg-base)"
-                      }}
-                    >
-                      <div
-                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-                        style={{ background: `color-mix(in srgb, ${item.color} 12%, transparent)` }}
-                      >
-                        <Icon size={13} style={{ color: item.color }} />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                          {item.label}
-                        </span>
-                        <span className="text-[10.5px] leading-snug" style={{ color: "var(--text-tertiary)" }}>
-                          {item.prompt.length > 65 ? item.prompt.slice(0, 62) + "..." : item.prompt}
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
               </div>
             </div>
           ) : messagesQuery.isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 size={20} className="animate-spin" style={{ color: "var(--text-tertiary)" }} />
+            <div className="mx-auto max-w-2xl px-4 py-6">
+              {/* Skeleton: user message */}
+              <div className="mb-5 flex justify-end">
+                <div
+                  className="h-10 w-[60%] animate-pulse rounded-2xl rounded-br-md"
+                  style={{ background: "var(--bg-subtle)" }}
+                />
+              </div>
+              {/* Skeleton: assistant message */}
+              <div className="mb-6 flex gap-3">
+                <div
+                  className="mt-1 h-7 w-7 shrink-0 animate-pulse rounded-lg"
+                  style={{ background: "var(--bg-subtle)" }}
+                />
+                <div className="flex-1 space-y-2">
+                  <div
+                    className="h-3 w-20 animate-pulse rounded"
+                    style={{ background: "var(--bg-subtle)" }}
+                  />
+                  <div
+                    className="h-24 w-full animate-pulse rounded-xl rounded-tl-md"
+                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-subtle)" }}
+                  />
+                </div>
+              </div>
+              {/* Skeleton: user message */}
+              <div className="mb-5 flex justify-end">
+                <div
+                  className="h-10 w-[45%] animate-pulse rounded-2xl rounded-br-md"
+                  style={{ background: "var(--bg-subtle)" }}
+                />
+              </div>
+              {/* Skeleton: assistant message */}
+              <div className="mb-6 flex gap-3">
+                <div
+                  className="mt-1 h-7 w-7 shrink-0 animate-pulse rounded-lg"
+                  style={{ background: "var(--bg-subtle)" }}
+                />
+                <div className="flex-1 space-y-2">
+                  <div
+                    className="h-3 w-20 animate-pulse rounded"
+                    style={{ background: "var(--bg-subtle)" }}
+                  />
+                  <div
+                    className="h-32 w-full animate-pulse rounded-xl rounded-tl-md"
+                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-subtle)" }}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
             /* ── Conversation ───────────────────────────── */
@@ -843,8 +865,8 @@ export default function ChatPage() {
                 )
               )}
 
-              {/* Loading state */}
-              {chatMutation.isPending && (
+              {/* Typing indicator */}
+              {chatMutation.isPending && messages[messages.length - 1]?.role !== "assistant" && (
                 <div className="mb-6 flex gap-3">
                   <div
                     className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
@@ -867,11 +889,16 @@ export default function ChatPage() {
                         border: "1px solid var(--border-subtle)",
                       }}
                     >
-                      <Loader2 size={13} className="animate-spin" style={{ color: "var(--acc)" }} />
-                      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                        Pulling data from {platform === "google" ? "Google" : "Meta"} and analyzing...
-                      </span>
-                      <TypingDots />
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "var(--text-tertiary)" }} />
+                          <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "var(--text-tertiary)", animationDelay: "150ms" }} />
+                          <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "var(--text-tertiary)", animationDelay: "300ms" }} />
+                        </div>
+                        <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                          Analyzing your data...
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -909,7 +936,35 @@ export default function ChatPage() {
               </span>
             </div>
           ) : (
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto max-w-3xl">
+              {/* Suggestion chips — only when no messages */}
+              {isEmpty && (
+                <div className="flex flex-nowrap justify-center gap-1.5 mb-3 overflow-x-auto">
+                  {SUGGESTED_PROMPTS.map((item, i) => (
+                    <button
+                      key={item.label}
+                      onClick={() => sendMessage(item.prompt)}
+                      disabled={!accountId || chatMutation.isPending}
+                      className="animate-fade-in shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{
+                        border: "1px solid var(--border-default)",
+                        color: "var(--text-secondary)",
+                        animationDelay: `${i * 50}ms`,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "var(--border-strong)"
+                        e.currentTarget.style.color = "var(--text-primary)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "var(--border-default)"
+                        e.currentTarget.style.color = "var(--text-secondary)"
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 {/* New chat button when conversation exists */}
                 {messages.length > 0 && (
@@ -930,11 +985,11 @@ export default function ChatPage() {
 
                 {/* Text input */}
                 <div
-                  className="flex flex-1 items-end gap-2 rounded-xl border px-3.5 py-2.5 transition-colors"
+                  className={`flex flex-1 items-end gap-2 rounded-xl border px-3.5 py-2.5 transition-colors ${chatMutation.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
                   style={{
                     background: "var(--bg-base)",
-                    borderColor: input ? "var(--acc)" : "var(--border-default)",
-                    boxShadow: input ? "0 0 0 1px var(--acc)" : "none",
+                    borderColor: input && !chatMutation.isPending ? "var(--acc)" : "var(--border-default)",
+                    boxShadow: input && !chatMutation.isPending ? "0 0 0 1px var(--acc)" : "none",
                   }}
                 >
                   <textarea
@@ -942,19 +997,19 @@ export default function ChatPage() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask about your campaigns, performance, audiences..."
+                    placeholder={chatMutation.isPending ? "Waiting for response..." : "Ask about your campaigns, performance, audiences..."}
                     rows={1}
-                    className="max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none placeholder:text-text-tertiary"
+                    className="max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none placeholder:text-text-tertiary disabled:cursor-not-allowed"
                     style={{ color: "var(--text-primary)" }}
                     disabled={chatMutation.isPending}
                   />
                   <button
                     onClick={() => sendMessage()}
                     disabled={!input.trim() || chatMutation.isPending}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-20"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                     style={{
-                      background: input.trim() ? "#6c47ff" : "var(--bg-subtle)",
-                      color: input.trim() ? "white" : "var(--text-tertiary)",
+                      background: input.trim() && !chatMutation.isPending ? "#6c47ff" : "var(--bg-subtle)",
+                      color: input.trim() && !chatMutation.isPending ? "white" : "var(--text-tertiary)",
                     }}
                   >
                     {chatMutation.isPending ? (

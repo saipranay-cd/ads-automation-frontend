@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { apiFetch } from "@/lib/api-fetch"
 import { useGoogleWizardStore } from "@/lib/google-wizard-store"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ const MATCH_TYPE_FORMAT: Record<string, (text: string) => string> = {
 type PublishState = "idle" | "publishing" | "success" | "error"
 
 export function GoogleStepReview() {
+  const router = useRouter()
   const { draft, goToStep } = useGoogleWizardStore()
   const [publishState, setPublishState] = useState<PublishState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
@@ -236,6 +238,13 @@ export function GoogleStepReview() {
       <div className="flex flex-col items-center gap-4 pt-4">
         {publishState === "idle" && (
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/")}
+            >
+              Save & Exit
+            </Button>
             <Button
               variant="outline"
               size="sm"

@@ -8,6 +8,7 @@ import {
   Globe, Facebook, Link2,
 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { showSuccess } from "@/components/layout/ErrorToast"
 import {
   useCurrentOrg, useOrgMembers, useInviteUser, useUpdateMemberRole, useRemoveMember,
   useSyncStatuses, useTriggerSync, useAuditLog,
@@ -131,8 +132,19 @@ function MembersTab({ orgId }: { orgId: string }) {
   const [inviteRole, setInviteRole] = useState("READ")
   const [inviteSuccess, setInviteSuccess] = useState<{ message: string; inviteUrl?: string; emailSent?: boolean } | null>(null)
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string; isPending: boolean } | null>(null)
+  const [sortBy, setSortBy] = useState<"name" | "role">("name")
+  const [page, setPage] = useState(1)
+  const pageSize = 20
 
-  const members = Array.isArray(membersData?.data) ? membersData.data : []
+  const allMembers = Array.isArray(membersData?.data) ? membersData.data : []
+
+  const members = [...allMembers].sort((a, b) => {
+    if (sortBy === "role") return a.role.localeCompare(b.role)
+    return (a.user.name || a.user.email).localeCompare(b.user.name || b.user.email)
+  })
+
+  const totalPages = Math.ceil(members.length / pageSize)
+  const paginatedMembers = members.slice((page - 1) * pageSize, page * pageSize)
 
   function handleInvite() {
     if (!inviteEmail.trim()) return
@@ -158,9 +170,26 @@ function MembersTab({ orgId }: { orgId: string }) {
     <div className="flex flex-col gap-4">
       {/* Invite button + form */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-          {members.length} member{members.length !== 1 ? "s" : ""}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+            {members.length} member{members.length !== 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-1">
+            {(["name", "role"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => { setSortBy(s); setPage(1) }}
+                className="rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+                style={{
+                  background: sortBy === s ? "var(--acc-subtle)" : "transparent",
+                  color: sortBy === s ? "var(--acc-text)" : "var(--text-tertiary)",
+                }}
+              >
+                {s === "name" ? "A–Z" : "Role"}
+              </button>
+            ))}
+          </div>
+        </div>
         {isAdmin && (
           <button
             onClick={() => setShowInvite(!showInvite)}
@@ -176,7 +205,7 @@ function MembersTab({ orgId }: { orgId: string }) {
       {/* Invite form */}
       {showInvite && (
         <div
-          className="rounded-xl p-5"
+          className="rounded-lg p-5"
           style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
         >
           <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>
@@ -265,6 +294,7 @@ function MembersTab({ orgId }: { orgId: string }) {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(inviteSuccess.inviteUrl!)
+                  showSuccess("Link copied")
                 }}
                 className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[10px] font-medium transition-all"
                 style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
@@ -279,7 +309,7 @@ function MembersTab({ orgId }: { orgId: string }) {
 
       {/* Members list */}
       <div
-        className="rounded-xl overflow-hidden"
+        className="rounded-lg overflow-hidden"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         {isLoading ? (
@@ -290,10 +320,10 @@ function MembersTab({ orgId }: { orgId: string }) {
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
-            {members.map((member, idx) => {
+            {paginatedMembers.map((member) => {
               const cfg = roleConfig[member.role] || roleConfig.READ
               const RoleIcon = cfg.icon
-              const isOrgCreator = idx === 0 && member.role === "ADMIN" && member.status !== "pending"
+              const isOrgCreator = member.role === "ADMIN" && member.status !== "pending" && allMembers.indexOf(member) === 0
               return (
                 <div
                   key={member.id}
@@ -301,7 +331,7 @@ function MembersTab({ orgId }: { orgId: string }) {
                 >
                   <div className="flex items-center gap-3">
                     {member.user.image ? (
-                      <Image src={member.user.image} alt="" width={32} height={32} className="h-8 w-8 rounded-full" unoptimized />
+                      <Image src={member.user.image} alt={member.user.name || "Team member"} width={32} height={32} className="h-8 w-8 rounded-full" />
                     ) : (
                       <div
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-medium"
@@ -342,6 +372,7 @@ function MembersTab({ orgId }: { orgId: string }) {
                         onClick={() => {
                           const url = `${window.location.origin}/accept-invite?token=${member.user.inviteToken}`
                           navigator.clipboard.writeText(url)
+                          showSuccess("Link copied")
                         }}
                         className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
                         style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
@@ -369,6 +400,31 @@ function MembersTab({ orgId }: { orgId: string }) {
           </div>
         )}
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-[11px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, members.length)} of {members.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-30"
+              style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+            >
+              Prev
+            </button>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page === totalPages}
+              className="rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-30"
+              style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
       <ConfirmDialog
         open={!!memberToRemove}
         onCancel={() => setMemberToRemove(null)}
@@ -402,7 +458,7 @@ function SyncTab({ orgId }: { orgId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="rounded-xl overflow-hidden"
+        className="rounded-lg overflow-hidden"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         {statuses.length === 0 ? (
@@ -481,7 +537,7 @@ function AuditTab({ orgId }: { orgId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="rounded-xl overflow-hidden"
+        className="rounded-lg overflow-hidden"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         {isLoading ? (

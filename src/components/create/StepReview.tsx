@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useWizardStore } from "@/lib/wizard-store"
 import { usePublish } from "@/hooks/use-campaigns"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,7 @@ function CollapsibleSection({ title, defaultOpen = false, children }: { title: s
 }
 
 export function StepReview() {
+  const router = useRouter()
   const { draft, draftId } = useWizardStore()
   const publish = usePublish()
   const [publishState, setPublishState] = useState<PublishState>("idle")
@@ -194,6 +196,13 @@ export function StepReview() {
       <div className="flex flex-col items-center gap-4 pt-4">
         {publishState === "idle" && (
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/")}
+            >
+              Save & Exit
+            </Button>
             <Button
               variant="outline"
               size="sm"

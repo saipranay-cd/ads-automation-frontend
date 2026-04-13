@@ -5,15 +5,19 @@ import { apiFetch } from "@/lib/api-fetch"
 import { useAuth } from "@/hooks/use-auth"
 import { useLogout } from "@/hooks/use-logout"
 import { useSearchParams } from "next/navigation"
-import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X } from "lucide-react"
+import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X, Plus } from "lucide-react"
 import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
 import type { AiModelOption } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { showSuccess } from "@/components/layout/ErrorToast"
 import { usePlatform } from "@/hooks/use-platform"
 import type { Platform } from "@/hooks/use-platform"
 import { useGoogleAuthStatus } from "@/hooks/use-google"
-import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useZohoFields, useUpdateFieldMap, useHistoryConfig, useUpdateHistoryConfig } from "@/hooks/use-crm"
-import type { CrmConnection, QualityMapping, SourceMapping, ZohoField } from "@/hooks/use-crm"
+import { useCrmConnection, useSyncCrm, useCrmQualityMap, useUpdateQualityMap, useDiscoverStages, useSourceMap, useUpdateSourceMap, useDiscoverSources, useFieldMap, useCrmFields, useUpdateFieldMap, useHistoryConfig, useUpdateHistoryConfig } from "@/hooks/use-crm"
+import type { CrmConnection, QualityMapping, SourceMapping, CrmField } from "@/hooks/use-crm"
+import { CrmProviderPicker } from "@/components/crm/crm-provider-picker"
+import { CrmAccountMapping } from "@/components/crm/crm-account-mapping"
 import { useIsAdmin } from "@/hooks/use-role"
 
 export default function SettingsPageWrapper() {
@@ -27,16 +31,35 @@ export default function SettingsPageWrapper() {
 function SettingsSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="rounded-xl" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+    <div
+      className="rounded-lg"
+      style={{
+        background: "var(--bg-base)",
+        border: "1px solid var(--border-default)",
+      }}
+    >
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium transition-colors"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-4 py-3 text-[13px] font-medium transition-colors"
         style={{ color: "var(--text-primary)" }}
       >
         {title}
-        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} style={{ color: "var(--text-tertiary)" }} />
+        <ChevronDown
+          size={13}
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          style={{ color: "var(--text-tertiary)" }}
+        />
       </button>
-      {open && <div className="border-t px-5 pb-5 pt-4" style={{ borderColor: "var(--border-subtle)" }}>{children}</div>}
+      {open && (
+        <div
+          role="region"
+          className="border-t px-4 pb-4 pt-3"
+          style={{ borderColor: "var(--border-subtle)" }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -44,6 +67,7 @@ function SettingsSection({ title, defaultOpen = false, children }: { title: stri
 function SettingsPage() {
   const { user: authUser } = useAuth()
   const logout = useLogout()
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const { data: accountsData } = useAdAccounts()
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
@@ -52,10 +76,10 @@ function SettingsPage() {
   const selectedAccount = accounts.find((a) => a.id === selectedAdAccountId)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-4">
       {/* Account */}
       <SettingsSection title="Account" defaultOpen={true}>
-        <div className="space-y-3">
+        <div>
           <Row label="Email" value={authUser?.email || "—"} />
           <Row label="Name" value={authUser?.name || "—"} />
         </div>
@@ -68,7 +92,7 @@ function SettingsPage() {
       {/* Ad Account */}
       {selectedAccount && (
         <SettingsSection title="Active Ad Account">
-          <div className="space-y-3">
+          <div>
             <Row label="Account Name" value={selectedAccount.name} />
             <Row label="Account ID" value={selectedAccount.account_id} mono />
             <Row label="Currency" value={selectedAccount.currency} />
@@ -140,7 +164,7 @@ function SettingsPage() {
             </p>
           </div>
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
             style={{
               border: "1px solid rgba(248, 113, 113, 0.3)",
@@ -152,6 +176,15 @@ function SettingsPage() {
             <LogOut size={12} />
             Sign Out
           </button>
+          <ConfirmDialog
+            open={showLogoutConfirm}
+            onCancel={() => setShowLogoutConfirm(false)}
+            onConfirm={() => { setShowLogoutConfirm(false); logout() }}
+            title="Sign out"
+            description="You'll need to sign in again to access your account."
+            confirmLabel="Sign Out"
+            variant="danger"
+          />
         </div>
       </SettingsSection>
 
@@ -190,7 +223,7 @@ function ModelSwitcher({ adAccountId }: { adAccountId: string }) {
   }
 
   return (
-    <div className="rounded-lg p-5" style={sectionStyle}>
+    <div className="rounded-lg p-4" style={sectionStyle}>
       <div className="flex items-center gap-2.5">
         <div
           className="flex h-8 w-8 items-center justify-center rounded-lg"
@@ -334,7 +367,7 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
   }
 
   return (
-    <div className="rounded-lg p-5" style={sectionStyle}>
+    <div className="rounded-lg p-4" style={sectionStyle}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -485,27 +518,52 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
   const [expanded, setExpanded] = useState(false)
   const [sourceExpanded, setSourceExpanded] = useState(false)
   const [fieldExpanded, setFieldExpanded] = useState(false)
+  const [showAddCrm, setShowAddCrm] = useState(false)
+  const [activeConnId, setActiveConnId] = useState<string | null>(null)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const isAdmin = useIsAdmin()
 
-  const connection = connData?.data?.find((c: CrmConnection) => c.isActive)
+  const allConnections = (connData?.data || []) as CrmConnection[]
+  const activeConnections = allConnections.filter((c: CrmConnection) => c.isActive)
 
-  const handleConnect = async () => {
-    if (!isAdmin || !adAccountId) return
-    try {
-      const res = await apiFetch(`/api/crm/zoho/auth?adAccountId=${adAccountId}`)
-      const data = await res.json()
-      if (data.authUrl) {
-        window.location.href = data.authUrl
-      }
-    } catch {
-      // Handle error
+  // Group connections by CRM account (same nangoConnectionId = same CRM)
+  // Each group gets one tab, and we use the first connection as the representative
+  const crmGroups: { key: string; label: string; accountLabel: string | null; provider: string; representative: CrmConnection; connections: CrmConnection[] }[] = []
+  const seenNangoIds = new Map<string, number>()
+  for (const conn of activeConnections) {
+    const key = conn.nangoConnectionId || conn.id
+    if (seenNangoIds.has(key)) {
+      crmGroups[seenNangoIds.get(key)!].connections.push(conn)
+    } else {
+      seenNangoIds.set(key, crmGroups.length)
+      crmGroups.push({
+        key,
+        label: conn.provider,
+        accountLabel: conn.accountLabel,
+        provider: conn.provider,
+        representative: conn,
+        connections: [conn],
+      })
     }
+  }
+
+  // Use selected tab or default to first group's representative
+  const activeGroup = activeConnId
+    ? crmGroups.find(g => g.key === activeConnId) || crmGroups[0]
+    : crmGroups[0]
+  const connection = activeGroup?.representative
+
+  // Reset tab if selected group no longer exists
+  if (activeConnId && !crmGroups.find(g => g.key === activeConnId)) {
+    setActiveConnId(null)
   }
 
   const handleDisconnect = async () => {
     if (!connection || !isAdmin) return
     try {
       await apiFetch(`/api/crm/connections?id=${connection.id}`, { method: "DELETE" })
+      setActiveConnId(null)
+      setShowDisconnectConfirm(false)
       refetch()
     } catch {
       // Handle error
@@ -523,7 +581,7 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
   }
 
   return (
-    <div className="rounded-lg p-5" style={sectionStyle}>
+    <div className="rounded-lg p-4" style={sectionStyle}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -544,12 +602,12 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
             </p>
           </div>
         </div>
-        {connection && (
+        {activeConnections.length > 0 && (
           <span
             className="rounded-full px-2 py-0.5 text-[11px] font-medium"
             style={{ background: "rgba(74, 222, 128, 0.1)", color: "#4ade80" }}
           >
-            Zoho Connected
+            {activeConnections.length} CRM{activeConnections.length > 1 ? "s" : ""} Connected
           </span>
         )}
       </div>
@@ -558,6 +616,30 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
         <div className="mt-4 h-16 animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} />
       ) : connection ? (
         <div className="mt-4 space-y-3">
+          {/* Connection tabs — show when multiple CRM accounts exist */}
+          {crmGroups.length > 1 && (
+            <div className="flex gap-1 rounded-md p-0.5" style={{ background: "var(--bg-muted)" }}>
+              {crmGroups.map(g => (
+                <button
+                  key={g.key}
+                  onClick={() => setActiveConnId(g.key)}
+                  className="rounded px-2.5 py-1 text-[11px] font-medium transition-all"
+                  style={{
+                    background: activeGroup?.key === g.key ? "var(--bg-base)" : "transparent",
+                    color: activeGroup?.key === g.key ? "var(--text-primary)" : "var(--text-tertiary)",
+                    boxShadow: activeGroup?.key === g.key ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <span className="capitalize">{g.provider}</span>
+                  {g.accountLabel && <span className="ml-1 opacity-60">({g.accountLabel.split("(")[0].trim()})</span>}
+                  {g.connections.length > 1 && (
+                    <span className="ml-1 opacity-50">({g.connections.length} accounts)</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Connection info */}
           <div className="flex items-center justify-between">
             <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Provider</span>
@@ -565,6 +647,14 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
               {connection.provider}
             </span>
           </div>
+          {connection.accountLabel && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Account</span>
+              <span className="text-sm" style={{ color: "var(--text-primary)" }}>
+                {connection.accountLabel}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Leads Synced</span>
             <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>
@@ -602,14 +692,34 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
               {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               Quality Mapping
             </button>
-            <button
-              onClick={handleDisconnect}
-              className="ml-auto flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{ border: "1px solid rgba(248, 113, 113, 0.3)", color: "#f87171" }}
-            >
-              <Unlink size={12} />
-              Disconnect
-            </button>
+            {showDisconnectConfirm ? (
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="text-[10px]" style={{ color: "#f87171" }}>Delete all leads & mappings?</span>
+                <button
+                  onClick={handleDisconnect}
+                  className="rounded-md px-2 py-1 text-[10px] font-medium"
+                  style={{ background: "rgba(248, 113, 113, 0.15)", color: "#f87171" }}
+                >
+                  Yes, disconnect
+                </button>
+                <button
+                  onClick={() => setShowDisconnectConfirm(false)}
+                  className="rounded-md px-2 py-1 text-[10px] font-medium"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDisconnectConfirm(true)}
+                className="ml-auto flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+                style={{ border: "1px solid rgba(248, 113, 113, 0.3)", color: "#f87171" }}
+              >
+                <Unlink size={12} />
+                Disconnect
+              </button>
+            )}
           </div>
 
           {/* Quality Mapping Editor */}
@@ -642,28 +752,66 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
               Field Mapping
             </button>
             <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-              Map Zoho fields to Meta Campaign ID, Ad Set ID, Ad ID
+              Map CRM fields to Meta Campaign ID, Ad Set ID, Ad ID
             </span>
           </div>
           {fieldExpanded && <FieldMappingEditor connectionId={connection.id} />}
 
           {/* Lead Status History Config */}
           <HistoryConfigEditor connectionId={connection.id} />
+
+          {/* CRM ↔ Ad Account Mapping */}
+          {adAccountId && (
+            <CrmAccountMapping adAccountId={adAccountId} isAdmin={!!isAdmin} />
+          )}
+
+          {/* Connect another CRM */}
+          {isAdmin && adAccountId && (
+            <div className="pt-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+              {showAddCrm ? (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.06em]" style={{ color: "var(--text-tertiary)" }}>
+                      Connect another CRM
+                    </span>
+                    <button
+                      onClick={() => setShowAddCrm(false)}
+                      className="text-[10px]"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <CrmProviderPicker
+                    adAccountId={adAccountId}
+                    connections={allConnections}
+                    isAdmin={!!isAdmin}
+                    onConnected={() => { refetch(); setShowAddCrm(false) }}
+                    addMode
+                  />
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowAddCrm(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium"
+                  style={{ color: "var(--acc)" }}
+                >
+                  <Plus size={12} />
+                  Connect another CRM
+                </button>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-4">
-          <p className="mb-3 text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Connect Zoho CRM to track lead quality and compute Cost Per Quality Lead (CPQL).
-          </p>
           {adAccountId ? (
-            <button
-              onClick={handleConnect}
-              className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-white transition-all"
-              style={{ background: "#fb923c" }}
-            >
-              <Link2 size={13} />
-              Connect Zoho CRM
-            </button>
+            <CrmProviderPicker
+              adAccountId={adAccountId}
+              connections={allConnections}
+              isAdmin={!!isAdmin}
+              onConnected={() => refetch()}
+            />
           ) : (
             <p className="text-xs" style={{ color: "var(--text-disabled)" }}>
               Connect a Meta or Google ad account first to enable CRM integration.
@@ -941,24 +1089,24 @@ function SearchSelect({
   )
 }
 
-// ── Field Mapping Editor (Zoho → Ad Platform IDs) ─────────────────
+// ── Field Mapping Editor (CRM → Ad Platform IDs) ─────────────────
 
 const META_FIELDS = [
-  { key: "campaign_id", label: "Campaign ID", description: "Zoho field containing the Meta Campaign ID" },
-  { key: "adset_id", label: "Ad Set ID", description: "Zoho field containing the Meta Ad Set ID" },
-  { key: "ad_id", label: "Ad ID", description: "Zoho field containing the Meta Ad ID" },
+  { key: "campaign_id", label: "Campaign ID", description: "CRM field containing the Meta Campaign ID" },
+  { key: "adset_id", label: "Ad Set ID", description: "CRM field containing the Meta Ad Set ID" },
+  { key: "ad_id", label: "Ad ID", description: "CRM field containing the Meta Ad ID" },
 ] as const
 
 const GOOGLE_FIELDS = [
-  { key: "google_campaign_id", label: "Campaign ID", description: "Zoho field containing the Google Campaign ID (default: UTM_Campaign)" },
-  { key: "google_adgroup_id", label: "Ad Group ID", description: "Zoho field containing the Google Ad Group ID (default: UTM_Content)" },
+  { key: "google_campaign_id", label: "Campaign ID", description: "CRM field containing the Google Campaign ID (default: UTM_Campaign)" },
+  { key: "google_adgroup_id", label: "Ad Group ID", description: "CRM field containing the Google Ad Group ID (default: UTM_Content)" },
 ] as const
 
 const ALL_MAPPING_FIELDS = [...META_FIELDS, ...GOOGLE_FIELDS]
 
 function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const { data: fieldMapData, isLoading: mapLoading } = useFieldMap(connectionId)
-  const { data: zohoFieldsData, isLoading: fieldsLoading } = useZohoFields(connectionId)
+  const { data: crmFieldsData, isLoading: fieldsLoading } = useCrmFields(connectionId)
   const updateMutation = useUpdateFieldMap()
   const isAdmin = useIsAdmin()
   const [localMappings, setLocalMappings] = useState<Record<string, string>>({
@@ -970,11 +1118,11 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   })
   const [saved, setSaved] = useState(false)
 
-  const zohoFields = zohoFieldsData?.data || []
-  const fieldOptions = zohoFields.map((zf: ZohoField) => ({
-    value: zf.apiName,
-    label: zf.displayLabel,
-    sub: zf.dataType,
+  const crmFields = crmFieldsData?.data || []
+  const fieldOptions = crmFields.map((f: CrmField) => ({
+    value: f.apiName,
+    label: f.displayLabel,
+    sub: f.dataType,
   }))
 
   const [syncedFieldMap, setSyncedFieldMap] = useState(fieldMapData?.data)
@@ -982,7 +1130,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
     setSyncedFieldMap(fieldMapData.data)
     const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "", google_campaign_id: "", google_adgroup_id: "" }
     for (const m of fieldMapData.data) {
-      map[m.metaField] = m.zohoField
+      map[m.metaField] = m.crmField
     }
     setLocalMappings(map)
   }
@@ -990,7 +1138,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
   const handleSave = () => {
     const mappings = ALL_MAPPING_FIELDS.map(f => ({
       metaField: f.key,
-      zohoField: localMappings[f.key] || "",
+      crmField: localMappings[f.key] || "",
     }))
     updateMutation.mutate(
       { connectionId, mappings },
@@ -1009,7 +1157,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
       {/* Meta field mappings */}
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
-          Meta — map Zoho fields that contain Meta ad IDs
+          Meta — map CRM fields that contain Meta ad IDs
         </span>
       </div>
 
@@ -1032,7 +1180,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
               value={localMappings[mf.key] || ""}
               onChange={(val) => setLocalMappings(prev => ({ ...prev, [mf.key]: val }))}
               options={fieldOptions}
-              placeholder="Search Zoho fields..."
+              placeholder="Search CRM fields..."
             />
           </div>
         ))}
@@ -1064,7 +1212,7 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
               value={localMappings[gf.key] || ""}
               onChange={(val) => setLocalMappings(prev => ({ ...prev, [gf.key]: val }))}
               options={fieldOptions}
-              placeholder="Search Zoho fields..."
+              placeholder="Search CRM fields..."
             />
           </div>
         ))}
@@ -1087,6 +1235,8 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
     </div>
   )
 }
+
+
 
 // ── Source Mapping Editor ────────────────────────────────────
 
@@ -1146,7 +1296,7 @@ function SourceMappingEditor({ connectionId }: { connectionId: string }) {
 
       {localMappings.length === 0 ? (
         <p className="py-4 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-          No sources found. Click &quot;Discover Sources&quot; to fetch from Zoho.
+          No sources found. Click &quot;Discover Sources&quot; to fetch from your CRM.
         </p>
       ) : (
         <div className="space-y-2">
@@ -1272,7 +1422,7 @@ function QualityMappingEditor({ connectionId }: { connectionId: string }) {
 
       {localMappings.length === 0 ? (
         <p className="py-4 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-          No stages found. Click &quot;Discover Stages&quot; to fetch from Zoho.
+          No stages found. Click &quot;Discover Stages&quot; to fetch from your CRM.
         </p>
       ) : (
         <div className="space-y-2">
@@ -1347,6 +1497,26 @@ function MetaConnection() {
   const isAdmin = useIsAdmin()
   const searchParams = useSearchParams()
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  const handleDisconnect = async () => {
+    if (!isAdmin) return
+    setDisconnecting(true)
+    try {
+      const res = await apiFetch("/api/meta/auth/disconnect", { method: "POST" })
+      if (res.ok) {
+        setToast({ type: "success", message: "Meta Ads disconnected" })
+        refetch()
+      } else {
+        setToast({ type: "error", message: "Failed to disconnect Meta Ads" })
+      }
+    } catch {
+      setToast({ type: "error", message: "Failed to disconnect Meta Ads" })
+    } finally {
+      setDisconnecting(false)
+      setTimeout(() => setToast(null), 4000)
+    }
+  }
 
   useEffect(() => {
     const metaParam = searchParams.get("meta")
@@ -1373,7 +1543,7 @@ function MetaConnection() {
   }
 
   return (
-    <div className="rounded-lg p-5" style={sectionStyle}>
+    <div className="rounded-lg p-4" style={sectionStyle}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -1426,15 +1596,46 @@ function MetaConnection() {
           )}
         </div>
       </div>
+
+      {/* Disconnect option */}
+      {connected && isAdmin && (
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full" style={{ background: "rgb(34,197,94)" }} />
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {accounts.length} ad account{accounts.length !== 1 ? "s" : ""} linked
+            </span>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+            style={{
+              border: "1px solid rgba(248, 113, 113, 0.3)",
+              color: "#f87171",
+              opacity: disconnecting ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(248, 113, 113, 0.08)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent" }}
+          >
+            {disconnecting ? <Loader2 size={12} className="animate-spin" /> : <Unlink size={12} />}
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </button>
+        </div>
+      )}
+
       {toast && (
         <div
-          className="mt-3 rounded-md px-3 py-2 text-xs font-medium"
+          className="mt-3 flex items-center justify-between rounded-md px-3 py-2 text-xs"
           style={{
-            background: toast.type === "success" ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
+            background: toast.type === "success" ? "rgba(74, 222, 128, 0.08)" : "rgba(248, 113, 113, 0.08)",
             color: toast.type === "success" ? "#4ade80" : "#f87171",
           }}
         >
-          {toast.message}
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100">
+            <X size={12} />
+          </button>
         </div>
       )}
     </div>
@@ -1505,7 +1706,7 @@ function GoogleAdsConnection() {
   }
 
   return (
-    <div className="rounded-lg p-5" style={sectionStyle}>
+    <div className="rounded-lg p-4" style={sectionStyle}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -1631,13 +1832,13 @@ function Row({
   badge?: "good" | "warning"
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+    <div className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
         {label}
       </span>
       {badge ? (
         <span
-          className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+          className="rounded-full px-2 py-0.5 text-[10px] font-medium"
           style={{
             background: badge === "good" ? "rgba(74, 222, 128, 0.1)" : "rgba(251, 191, 36, 0.1)",
             color: badge === "good" ? "#4ade80" : "#fbbf24",
@@ -1647,7 +1848,7 @@ function Row({
         </span>
       ) : (
         <span
-          className={`text-sm ${mono ? "font-mono" : ""}`}
+          className={`text-xs ${mono ? "font-mono text-[11px]" : ""}`}
           style={{ color: "var(--text-primary)" }}
         >
           {value}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   LogIn,
   LayoutDashboard,
@@ -9,25 +10,20 @@ import {
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { usePlatform } from "@/hooks/use-platform";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+
+const PerformanceChart = dynamic(
+  () => import("@/components/dashboard/PerformanceChart").then((m) => m.PerformanceChart),
+  { ssr: false, loading: () => <div className="h-[240px] animate-pulse rounded-md" style={{ background: "var(--bg-muted)" }} /> },
+);
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { PredictionsPanel } from "@/components/dashboard/PredictionsPanel";
 import { CampaignTable } from "@/components/dashboard/CampaignTable";
+import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
 import { SyncReminder } from "@/components/dashboard/SyncReminder";
 import {
   useCampaigns,
   useDashboard,
   useAggregatedMetrics,
-  useProposals,
   type DateRange,
 } from "@/hooks/use-campaigns";
 import {
@@ -44,33 +40,11 @@ import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
-// Chart colors extracted for theme-awareness.
-// Recharts SVG doesn't support CSS variables, so we use JS theme switching.
+import { CHART_THEME } from "@/lib/chart-theme";
+
 const CHART_COLORS = {
-  obsidian: {
-    spend: "#5eead4",
-    leads: "#fbbf24",
-    grid: "rgba(255,255,255,0.06)",
-    tick: "rgba(255,255,255,0.35)",
-    legendText: "rgba(255,255,255,0.5)",
-    tooltipBg: "rgba(30, 30, 36, 0.95)",
-    tooltipBorder: "rgba(255,255,255,0.1)",
-    tooltipLabel: "rgba(255,255,255,0.7)",
-    tooltipShadow: "0 8px 24px rgba(0,0,0,0.4)",
-    dotStroke: "#fff",
-  },
-  violet: {
-    spend: "#0d9488",
-    leads: "#d97706",
-    grid: "rgba(0,0,0,0.06)",
-    tick: "rgba(0,0,0,0.35)",
-    legendText: "rgba(0,0,0,0.5)",
-    tooltipBg: "rgba(255, 255, 255, 0.95)",
-    tooltipBorder: "rgba(0,0,0,0.1)",
-    tooltipLabel: "rgba(0,0,0,0.7)",
-    tooltipShadow: "0 8px 24px rgba(0,0,0,0.1)",
-    dotStroke: "#fff",
-  },
+  obsidian: { ...CHART_THEME.obsidian, spend: "#5eead4", leads: "#fbbf24" },
+  violet: { ...CHART_THEME.violet, spend: "#0d9488", leads: "#d97706" },
 } as const;
 
 export default function DashboardPage() {
@@ -378,136 +352,7 @@ export default function DashboardPage() {
               />
             </div>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart
-                  data={chartData}
-                  margin={{ top: 4, right: 4, left: -8, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor={colors.spend}
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={colors.spend}
-                        stopOpacity={0.04}
-                      />
-                    </linearGradient>
-                    <linearGradient id="gradLeads" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="0%"
-                        stopColor={colors.leads}
-                        stopOpacity={0.25}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={colors.leads}
-                        stopOpacity={0.03}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke={colors.grid}
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10, fill: colors.tick }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    yAxisId="spend"
-                    tick={{ fontSize: 10, fill: colors.tick }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) =>
-                      v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`
-                    }
-                  />
-                  <YAxis
-                    yAxisId="leads"
-                    orientation="right"
-                    tick={{ fontSize: 10, fill: colors.tick }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: colors.tooltipBg,
-                      border: `1px solid ${colors.tooltipBorder}`,
-                      borderRadius: 8,
-                      fontSize: 12,
-                      boxShadow: colors.tooltipShadow,
-                    }}
-                    itemStyle={{ padding: "2px 0" }}
-                    labelStyle={{
-                      color: colors.tooltipLabel,
-                      marginBottom: 4,
-                      fontWeight: 500,
-                    }}
-                    formatter={(value, name) => {
-                      if (name === "Spend")
-                        return [
-                          new Intl.NumberFormat("en-IN", {
-                            style: "currency",
-                            currency: "INR",
-                            maximumFractionDigits: 0,
-                          }).format(Number(value)),
-                          name,
-                        ];
-                      return [String(value), name];
-                    }}
-                  />
-                  <Legend
-                    iconType="circle"
-                    iconSize={6}
-                    wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-                    formatter={(val) => (
-                      <span style={{ color: colors.legendText, marginLeft: 2 }}>
-                        {val}
-                      </span>
-                    )}
-                  />
-                  <Area
-                    yAxisId="spend"
-                    type="monotone"
-                    dataKey="spend"
-                    name="Spend"
-                    stroke={colors.spend}
-                    strokeWidth={2}
-                    fill="url(#gradSpend)"
-                    dot={false}
-                    activeDot={{
-                      r: 4,
-                      stroke: colors.dotStroke,
-                      strokeWidth: 2,
-                      fill: colors.spend,
-                    }}
-                  />
-                  <Area
-                    yAxisId="leads"
-                    type="monotone"
-                    dataKey="leads"
-                    name="Leads"
-                    stroke={colors.leads}
-                    strokeWidth={2}
-                    fill="url(#gradLeads)"
-                    dot={false}
-                    activeDot={{
-                      r: 4,
-                      stroke: colors.dotStroke,
-                      strokeWidth: 2,
-                      fill: colors.leads,
-                    }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <PerformanceChart data={chartData} colors={colors} />
             ) : (
               <EmptyState
                 icon={BarChart3}
@@ -630,11 +475,11 @@ export default function DashboardPage() {
                                   background:
                                     c.platform === "meta"
                                       ? "rgba(59,130,246,0.12)"
-                                      : "rgba(234,179,8,0.12)",
+                                      : "rgba(180,83,9,0.12)",
                                   color:
                                     c.platform === "meta"
                                       ? "#60a5fa"
-                                      : "#facc15",
+                                      : "#d97706",
                                 }}
                               >
                                 {c.platform === "meta" ? "Meta" : "Google"}
@@ -729,145 +574,3 @@ export default function DashboardPage() {
   );
 }
 
-// ── AI Insights Sidebar ───────────────────────────────
-
-const riskColors = {
-  low: "#22c55e",
-  medium: "#f59e0b",
-  high: "#ef4444",
-} as const;
-const statusColors: Record<string, string> = {
-  pending: "#60a5fa",
-  approved: "#22c55e",
-  executed: "#a78bfa",
-  rejected: "#71717a",
-  failed: "#ef4444",
-  superseded: "#71717a",
-  undone: "#71717a",
-};
-
-function DashboardInsights({ adAccountId }: { adAccountId: string | null }) {
-  const { data: proposalsData } = useProposals(adAccountId);
-  const proposals = useMemo(
-    () => proposalsData?.data || [],
-    [proposalsData?.data],
-  );
-
-  // Show the most relevant: pending first, then recent executed/approved
-  const sorted = useMemo(() => {
-    const order: Record<string, number> = {
-      pending: 0,
-      approved: 1,
-      executed: 2,
-      failed: 3,
-      rejected: 4,
-      superseded: 5,
-      undone: 5,
-    };
-    return [...proposals]
-      .sort(
-        (a, b) =>
-          (order[a.status] ?? 9) - (order[b.status] ?? 9) ||
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .slice(0, 5);
-  }, [proposals]);
-
-  return (
-    <div className="w-[320px] shrink-0">
-      <div className="mb-2 flex items-center justify-between">
-        <h2
-          className="text-sm font-medium"
-          style={{ color: "var(--text-primary)" }}
-        >
-          AI Insights
-        </h2>
-        {proposals.length > 0 && (
-          <Link
-            href="/insights"
-            className="text-xs font-medium"
-            style={{ color: "var(--acc)" }}
-          >
-            View all
-          </Link>
-        )}
-      </div>
-      <div className="flex flex-col gap-2">
-        {sorted.length === 0 ? (
-          <div
-            className="flex h-24 items-center justify-center rounded-lg"
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              No insights yet — sync and analyze campaigns to get AI
-              recommendations
-            </span>
-          </div>
-        ) : (
-          sorted.map((p) => (
-            <Link
-              key={p.id}
-              href="/insights"
-              className="group rounded-lg p-3 transition-colors"
-              style={{
-                background: "var(--bg-base)",
-                border: "1px solid var(--border-default)",
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="truncate text-xs font-medium"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {p.title}
-                    </span>
-                    <span
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase"
-                      style={{
-                        background: `${statusColors[p.status] || "#71717a"}20`,
-                        color: statusColors[p.status] || "#71717a",
-                      }}
-                    >
-                      {p.status}
-                    </span>
-                    <div
-                      className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: riskColors[p.risk] || "#71717a" }}
-                    />
-                  </div>
-                  <p
-                    className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    {p.description}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span
-                      className="text-[10px]"
-                      style={{ color: "var(--text-tertiary)" }}
-                    >
-                      {p.campaignName}
-                    </span>
-                    {p.estimatedSavings != null && p.estimatedSavings > 0 && (
-                      <span
-                        className="text-[10px] font-medium"
-                        style={{ color: "#22c55e" }}
-                      >
-                        Save {formatCurrency(p.estimatedSavings)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}

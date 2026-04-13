@@ -28,13 +28,29 @@ export async function GET(req: Request) {
     }
   }
 
-  // GET Zoho fields list
-  if (action === "get-zoho-fields") {
+  // GET CRM fields list (provider-agnostic — was "get-zoho-fields")
+  if (action === "get-crm-fields" || action === "get-zoho-fields") {
     const connectionId = searchParams.get("connectionId")
     if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
     try {
       const res = await fetch(
-        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/zoho-fields`,
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/crm-fields`,
+        { headers: { Authorization: `Bearer ${auth.token}` } }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+  }
+
+  // GET source field config
+  if (action === "get-source-field") {
+    const connectionId = searchParams.get("connectionId")
+    if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/source-field`,
         { headers: { Authorization: `Bearer ${auth.token}` } }
       )
       const data = await res.json()
@@ -239,6 +255,26 @@ export async function POST(req: Request) {
     }
   }
 
+  if (action === "update-source-field" && connectionId) {
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/source-field`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sourceField: body.sourceField }),
+        }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "Source field update failed" }, { status: 500 })
+    }
+  }
+
   if (action === "update-source-map" && connectionId) {
     try {
       const res = await fetch(
@@ -279,6 +315,45 @@ export async function POST(req: Request) {
       return NextResponse.json(data)
     } catch {
       return NextResponse.json({ error: "History config update failed" }, { status: 500 })
+    }
+  }
+
+  if (action === "assign-ad-accounts") {
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/assign`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sourceConnectionId: body.sourceConnectionId,
+            adAccountIds: body.adAccountIds,
+          }),
+        }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "Assignment failed" }, { status: 500 })
+    }
+  }
+
+  if (action === "unassign-ad-account" && connectionId) {
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/crm/connections/${connectionId}/unassign`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${auth.token}` },
+        }
+      )
+      const data = await res.json()
+      return NextResponse.json(data)
+    } catch {
+      return NextResponse.json({ error: "Unassign failed" }, { status: 500 })
     }
   }
 

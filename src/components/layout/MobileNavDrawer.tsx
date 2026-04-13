@@ -78,6 +78,8 @@ function getNavSections(platform: "meta" | "google") {
     {
       label: "SYSTEM",
       items: [
+        { label: "Automation", href: "/automation", icon: Zap },
+        { label: "Team", href: "/team", icon: Users },
         { label: "Settings", href: "/settings", icon: Settings },
       ],
     },
@@ -345,7 +347,7 @@ export function MobileNavDrawer({ isOpen, onClose }: MobileNavDrawerProps) {
                   color: "var(--acc-text)",
                 }}
               >
-                <LogIn size={13} />
+                <LogIn size={14} />
               </div>
               Sign In
             </Link>

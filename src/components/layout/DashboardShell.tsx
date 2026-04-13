@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { Sidebar } from "./Sidebar"
 import { Topbar } from "./Topbar"
 import { MobileNavDrawer } from "./MobileNavDrawer"
@@ -9,8 +10,43 @@ import { useMobileNav } from "@/hooks/use-mobile-nav"
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isOpen, open, close } = useMobileNav()
 
+  useEffect(() => {
+    function handleGlobalShortcuts(e: KeyboardEvent) {
+      // Don't trigger in input/textarea/contenteditable
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return
+
+      const mod = e.metaKey || e.ctrlKey
+
+      if (mod && e.key === "n") {
+        e.preventDefault()
+        window.location.href = "/create"
+      }
+
+      if (mod && e.key === "/") {
+        e.preventDefault()
+        const searchInput = document.querySelector<HTMLInputElement>(
+          'input[type="search"], input[placeholder*="search" i], input[placeholder*="filter" i]'
+        )
+        if (searchInput) {
+          searchInput.focus()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalShortcuts)
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts)
+  }, [])
+
   return (
     <div className="flex h-screen overflow-hidden">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg"
+        style={{ background: "var(--acc)", color: "white" }}
+      >
+        Skip to content
+      </a>
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <RateLimitWarning />

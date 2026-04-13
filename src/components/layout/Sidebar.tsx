@@ -153,9 +153,15 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 sm:px-1 lg:px-2.5">
-        {navSections.map((section) => (
-          <div key={section.label} className="mb-4">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1 sm:px-1 lg:px-2.5">
+        {navSections.map((section, sIdx) => (
+          <div key={section.label} className="mb-2">
+            {sIdx > 0 && (
+              <div
+                className="mx-2.5 mb-2 mt-1 hidden group-hover/sidebar:sm:block lg:block"
+                style={{ borderTop: "1px solid var(--border-subtle)" }}
+              />
+            )}
             <span
               className="mb-1 hidden whitespace-nowrap px-2.5 text-[10px] font-medium uppercase tracking-[0.06em] group-hover/sidebar:sm:block lg:block"
               style={{ color: "var(--text-tertiary)" }}
@@ -182,22 +188,20 @@ export function Sidebar() {
                   className={cn(
                     "group/nav-item relative flex items-center rounded-md text-[13px] transition-colors",
                     // Tablet collapsed: centered icon
-                    "sm:justify-center sm:px-0 sm:py-2",
+                    "sm:justify-center sm:px-0 sm:py-1.5",
                     // Tablet hover expanded / Desktop: normal layout
-                    "group-hover/sidebar:sm:justify-start group-hover/sidebar:sm:gap-2.5 group-hover/sidebar:sm:px-2.5 group-hover/sidebar:sm:py-1.5",
-                    "lg:justify-start lg:gap-2.5 lg:px-2.5 lg:py-1.5",
+                    "group-hover/sidebar:sm:justify-start group-hover/sidebar:sm:gap-2.5 group-hover/sidebar:sm:px-2.5 group-hover/sidebar:sm:py-[6px]",
+                    "lg:justify-start lg:gap-2.5 lg:px-2.5 lg:py-[6px]",
                     isActive ? "font-medium" : "",
                   )}
                   style={{
-                    background: isActive
-                      ? "var(--acc-subtle)"
-                      : "transparent",
+                    background: isActive ? "var(--acc-subtle)" : "transparent",
                     color: isActive
                       ? "var(--acc-text)"
                       : "var(--text-secondary)",
                   }}
                 >
-                  <Icon size={15} className="shrink-0" aria-hidden="true" />
+                  <Icon size={16} className="shrink-0" aria-hidden="true" />
                   {/* Label: hidden in collapsed tablet, visible on hover and desktop */}
                   <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
                     {item.label}
@@ -332,7 +336,7 @@ export function Sidebar() {
                 color: "var(--acc-text)",
               }}
             >
-              <LogIn size={13} />
+              <LogIn size={14} />
             </div>
             <span className="hidden whitespace-nowrap group-hover/sidebar:sm:inline lg:inline">
               Sign In

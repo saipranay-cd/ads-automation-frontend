@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pause, Play, DollarSign, X } from "lucide-react";
 import { useBulkAction } from "@/hooks/use-campaigns";
+import { showSuccess } from "@/components/layout/ErrorToast";
 
 interface BulkActionBarProps {
   selectedIds: string[];
@@ -22,17 +23,29 @@ export function BulkActionBar({
 
   if (count === 0) return null;
 
+  const entityLabel = entityLevel === "adset" ? "ad sets" : `${entityLevel}s`;
+
   const handlePause = () => {
     bulkAction.mutate(
       { entityIds: selectedIds, entityLevel, action: "pause" },
-      { onSuccess: onClear },
+      {
+        onSuccess: () => {
+          showSuccess(`${count} ${entityLabel} paused. Use Activate to reverse.`);
+          onClear();
+        },
+      },
     );
   };
 
   const handleActivate = () => {
     bulkAction.mutate(
       { entityIds: selectedIds, entityLevel, action: "activate" },
-      { onSuccess: onClear },
+      {
+        onSuccess: () => {
+          showSuccess(`${count} ${entityLabel} activated.`);
+          onClear();
+        },
+      },
     );
   };
 
@@ -48,6 +61,7 @@ export function BulkActionBar({
       },
       {
         onSuccess: () => {
+          showSuccess("Budget updated");
           onClear();
           setShowBudget(false);
           setBudget("");
@@ -79,7 +93,7 @@ export function BulkActionBar({
       <button
         onClick={handlePause}
         disabled={bulkAction.isPending}
-        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-80 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:opacity-80 disabled:opacity-50"
         style={{
           background: "var(--bg-muted)",
           color: "var(--text-primary)",
@@ -92,7 +106,7 @@ export function BulkActionBar({
       <button
         onClick={handleActivate}
         disabled={bulkAction.isPending}
-        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-80 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:opacity-80 disabled:opacity-50"
         style={{
           background: "var(--accent-primary)",
           color: "white",
@@ -151,6 +165,7 @@ export function BulkActionBar({
 
       <button
         onClick={onClear}
+        aria-label="Clear selection"
         className="rounded-lg p-1.5 transition-colors hover:opacity-80"
         style={{ color: "var(--text-tertiary)" }}
       >

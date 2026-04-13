@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { AlertTriangle, X, Clock } from "lucide-react"
+import { AlertTriangle, X, Clock, CheckCircle } from "lucide-react"
 import { create } from "zustand"
 
 // ── Toast Store ────────────────────────────────────────
@@ -9,7 +9,7 @@ import { create } from "zustand"
 interface Toast {
   id: string
   message: string
-  type: "error" | "warning" | "info"
+  type: "error" | "warning" | "info" | "success"
   duration?: number
 }
 
@@ -54,6 +54,10 @@ export function showApiError(error: unknown) {
   store.addToast({ message: "An unexpected error occurred. Please try again or refresh the page.", type: "error" })
 }
 
+export function showSuccess(message: string) {
+  useToastStore.getState().addToast({ message, type: "success", duration: 3000 })
+}
+
 // ── Toast Container ────────────────────────────────────
 
 export function ToastContainer() {
@@ -80,6 +84,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     error: { bg: "var(--red-bg)", border: "color-mix(in srgb, var(--red-text) 30%, transparent)", color: "var(--red-text)", icon: AlertTriangle },
     warning: { bg: "var(--amber-bg)", border: "color-mix(in srgb, var(--amber-text) 30%, transparent)", color: "var(--amber-text)", icon: Clock },
     info: { bg: "var(--blue-bg)", border: "color-mix(in srgb, var(--blue-text) 30%, transparent)", color: "var(--blue-text)", icon: AlertTriangle },
+    success: { bg: "var(--green-bg)", border: "color-mix(in srgb, var(--green-text) 30%, transparent)", color: "var(--green-text)", icon: CheckCircle },
   }[toast.type]
 
   const Icon = config.icon

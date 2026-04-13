@@ -9,12 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 
-function formatNumber(n: number): string {
-  if (!n) return "—"
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
-}
+import { fmtCompactIntl as formatNumber } from "@/lib/format"
 
 function subtypeLabel(subtype: string): string {
   if (subtype === "LOOKALIKE") return "Lookalike"

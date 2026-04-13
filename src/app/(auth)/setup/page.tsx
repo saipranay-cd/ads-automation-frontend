@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Zap, ChevronRight, ChevronLeft, Check, ExternalLink, Loader2 } from "lucide-react"
 import { apiFetch } from "@/lib/api-fetch"
 import { useCurrentOrg } from "@/hooks/use-org"
+import { AuthInput } from "@/components/auth/AuthInput"
 
 const STEPS = ["Meta Ads", "Google Ads"] as const
 
@@ -51,30 +52,6 @@ export default function SetupPage() {
     } finally {
       setSaving(false)
     }
-  }
-
-  const inputStyle = {
-    background: "var(--bg-subtle)",
-    border: "1px solid var(--border-default)",
-    color: "var(--text-primary)",
-  }
-
-  function InputField({ id, label, value, onChange, placeholder, type = "text" }: {
-    id: string; label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string
-  }) {
-    return (
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{label}</label>
-        <input
-          id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors font-mono"
-          style={inputStyle}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-        />
-      </div>
-    )
   }
 
   return (
@@ -124,8 +101,8 @@ export default function SetupPage() {
                 </a>
                 . Add <code className="rounded px-1 py-0.5 text-[10px]" style={{ background: "var(--bg-muted)" }}>your-domain.com/api/meta/auth/callback</code> as Valid OAuth Redirect URI.
               </div>
-              <InputField id="metaAppId" label="Meta App ID" value={metaAppId} onChange={setMetaAppId} placeholder="e.g. 1839885030074651" />
-              <InputField id="metaAppSecret" label="Meta App Secret" value={metaAppSecret} onChange={setMetaAppSecret} placeholder="e.g. a1317a048b6a550971c5fe..." type="password" />
+              <AuthInput id="metaAppId" label="Meta App ID" value={metaAppId} onChange={setMetaAppId} placeholder="e.g. 1839885030074651" />
+              <AuthInput id="metaAppSecret" label="Meta App Secret" value={metaAppSecret} onChange={setMetaAppSecret} placeholder="e.g. a1317a048b6a550971c5fe..." type="password" />
             </>
           )}
 
@@ -141,9 +118,9 @@ export default function SetupPage() {
                   Google Ads API Center <ExternalLink size={10} />
                 </a>.
               </div>
-              <InputField id="googleClientId" label="Google Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="e.g. 976969857948-...apps.googleusercontent.com" />
-              <InputField id="googleClientSecret" label="Google Client Secret" value={googleClientSecret} onChange={setGoogleClientSecret} placeholder="e.g. GOCSPX-..." type="password" />
-              <InputField id="googleDevToken" label="Google Ads Developer Token" value={googleDevToken} onChange={setGoogleDevToken} placeholder="e.g. h5Fr8-aNwmDYKjXGpXFDog" type="password" />
+              <AuthInput id="googleClientId" label="Google Client ID" value={googleClientId} onChange={setGoogleClientId} placeholder="e.g. 976969857948-...apps.googleusercontent.com" />
+              <AuthInput id="googleClientSecret" label="Google Client Secret" value={googleClientSecret} onChange={setGoogleClientSecret} placeholder="e.g. GOCSPX-..." type="password" />
+              <AuthInput id="googleDevToken" label="Google Ads Developer Token" value={googleDevToken} onChange={setGoogleDevToken} placeholder="e.g. h5Fr8-aNwmDYKjXGpXFDog" type="password" />
             </>
           )}
 

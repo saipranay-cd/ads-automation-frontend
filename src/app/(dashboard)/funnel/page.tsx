@@ -54,30 +54,7 @@ interface FunnelData {
 
 // ── Helpers ────────────────────────────────────────────
 
-function fmt(n: number | null | undefined): string {
-  if (n == null) return "\u2014"
-  if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(1)}Cr`
-  if (n >= 100_000) return `${(n / 100_000).toFixed(1)}L`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toLocaleString("en-IN")
-}
-
-function fmtCurrency(n: number | null | undefined): string {
-  if (n == null) return "\u2014"
-  return `\u20B9${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-}
-
-function conversionRate(from: number, to: number): string {
-  if (from === 0) return "\u2014"
-  const pct = (to / from) * 100
-  return pct < 1 ? `${pct.toFixed(2)}%` : `${pct.toFixed(1)}%`
-}
-
-function formatDate(d: string | null | undefined): string {
-  if (!d) return "\u2014"
-  const date = new Date(d)
-  return `${date.getDate()} ${date.toLocaleString("en", { month: "short" })}`
-}
+import { fmtCompact as fmt, fmtInr as fmtCurrency, conversionRate, fmtDateShort as formatDate } from "@/lib/format"
 
 const CRM_TIERS = new Set(["Converted", "High", "Medium", "Low", "Junk", "Unknown"])
 
@@ -289,7 +266,7 @@ export default function FunnelPage() {
 
           {totals && totals.leads > 0 && totals.totalSpend > 0 && (
             <div
-              className="flex items-center gap-4 rounded-xl px-5 py-3"
+              className="flex items-center gap-4 rounded-lg px-5 py-3"
               style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
             >
               <MiniStat label="Spend" value={fmtCurrency(totals.totalSpend)} />
@@ -347,7 +324,7 @@ export default function FunnelPage() {
             {/* Ad pipeline stages */}
             <SectionLabel label={pipelineLabel} />
             <div
-              className="mb-4 rounded-xl p-5"
+              className="mb-4 rounded-lg p-5"
               style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
             >
               {metaStages.map((stage, i) => (
@@ -369,7 +346,7 @@ export default function FunnelPage() {
                   : crmLabel
                 } />
                 <div
-                  className="rounded-xl p-5"
+                  className="rounded-lg p-5"
                   style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
                 >
                   {/* Stacked bar — shows whichever view is active */}
@@ -420,7 +397,7 @@ export default function FunnelPage() {
             <div>
               <SectionLabel label={stageView === "crmStage" ? "CRM Stages" : "Quality Tiers"} />
               <div
-                className="rounded-xl overflow-hidden"
+                className="rounded-lg overflow-hidden"
                 style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
               >
                 {crmStageRows.map((row) => {
@@ -732,7 +709,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function EmptyState({ isGoogle }: { isGoogle: boolean }) {
   return (
     <div
-      className="flex flex-col items-center gap-3 rounded-xl py-20"
+      className="flex flex-col items-center gap-3 rounded-lg py-20"
       style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
     >
       <div
@@ -756,7 +733,7 @@ function EmptyState({ isGoogle }: { isGoogle: boolean }) {
 function FunnelSkeleton() {
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+      <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
         {[100, 70, 30, 10].map((w, i) => (
           <div key={i} className="mb-4">
             <div className="mb-2 flex justify-between">
@@ -770,7 +747,7 @@ function FunnelSkeleton() {
           </div>
         ))}
       </div>
-      <div className="rounded-xl p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+      <div className="rounded-lg p-5" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
         {[1, 2, 3].map((i) => (
           <div key={i} className="mb-3 h-12 animate-pulse rounded-lg" style={{ background: "var(--bg-muted)" }} />
         ))}

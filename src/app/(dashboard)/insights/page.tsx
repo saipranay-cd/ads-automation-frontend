@@ -99,10 +99,7 @@ function actionLabel(action: ProposalAction): string {
   }
 }
 
-function fmtInr(n: number | null | undefined): string {
-  if (n == null) return "—"
-  return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-}
+import { fmtInr } from "@/lib/format"
 
 function proxyUrl(url: string): string {
   return `/api/meta/image-proxy?url=${encodeURIComponent(url)}`
@@ -332,7 +329,7 @@ ${items.map((p) => {
     return (
       <div className="flex flex-col gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-32 animate-pulse rounded-xl" style={{ background: "var(--bg-muted)" }} />
+          <div key={i} className="h-32 animate-pulse rounded-lg" style={{ background: "var(--bg-muted)" }} />
         ))}
       </div>
     )
@@ -409,7 +406,7 @@ ${items.map((p) => {
                 className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium text-white transition-all"
                 style={{ background: "var(--acc)", opacity: scanMutation.isPending ? 0.6 : 1 }}
               >
-                <Play size={12} fill="white" />
+                <Play size={13} fill="white" />
                 Full Review
               </button>
             </>
@@ -465,7 +462,7 @@ ${items.map((p) => {
       {/* ── Impact summary ───────────────────────────── */}
       {impact && impact.executed > 0 && (
         <div
-          className="flex items-center gap-6 rounded-xl px-5 py-3"
+          className="flex items-center gap-6 rounded-lg px-5 py-3"
           style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
         >
           <StatPill label="Executed" value={impact.executed} color="#60a5fa" />
@@ -486,7 +483,7 @@ ${items.map((p) => {
 
       {/* ── Stat strip ──────────────────────────────── */}
       <div
-        className="flex items-center gap-6 rounded-xl px-5 py-3.5"
+        className="flex items-center gap-6 rounded-lg px-5 py-3.5"
         style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
       >
         <StatPill label="Pending" value={stats?.pending ?? 0} color="#fbbf24" />
@@ -586,7 +583,7 @@ ${items.map((p) => {
         </div>
       ) : (
         <div
-          className="flex flex-col items-center gap-3 rounded-xl py-14 px-6"
+          className="flex flex-col items-center gap-3 rounded-lg py-14 px-6"
           style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
         >
           {proposals.length ? (
@@ -679,7 +676,7 @@ function ProposalCard({
 
   return (
     <div
-      className="overflow-hidden rounded-xl"
+      className="overflow-hidden rounded-lg"
       style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}
     >
       {/* ── Card header ── */}

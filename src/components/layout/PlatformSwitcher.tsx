@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Facebook, Globe, ChevronDown } from "lucide-react"
 import { usePlatform, setDefaultPlatform, type Platform } from "@/hooks/use-platform"
+import { useGoogleAuthStatus } from "@/hooks/use-google"
+import { showApiError } from "@/components/layout/ErrorToast"
 
 const platforms: { id: Platform; label: string; icon: typeof Facebook }[] = [
   { id: "meta", label: "Meta Ads", icon: Facebook },
@@ -32,7 +34,9 @@ export function PlatformSwitcher() {
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const googleAuth = useGoogleAuthStatus()
 
   const current = platforms.find((p) => p.id === platform) || platforms[0]
 
@@ -54,8 +58,15 @@ export function PlatformSwitcher() {
       setOpen(false)
       return
     }
+    if (target === "google" && googleAuth.data && !googleAuth.data.connected) {
+      showApiError(new Error("Google Ads connection expired. Reconnect in Settings."))
+      setOpen(false)
+      return
+    }
+    setSwitching(true)
     setDefaultPlatform(target)
     setOpen(false)
+    setTimeout(() => setSwitching(false), 600)
 
     // On shared pages, stay on the same page (sidebar + topbar re-render via usePlatform)
     if (sharedPages.includes(pathname)) {
@@ -85,8 +96,8 @@ export function PlatformSwitcher() {
           color: "var(--text-primary)",
         }}
       >
-        <current.icon size={14} style={{ color: "var(--text-secondary)" }} />
-        <span className="flex-1 text-left text-xs font-medium">{current.label}</span>
+        <current.icon size={14} style={{ color: "var(--text-secondary)" }} className={switching ? "animate-pulse" : ""} />
+        <span className="flex-1 text-left text-xs font-medium">{switching ? "Switching..." : current.label}</span>
         <ChevronDown
           size={12}
           style={{ color: "var(--text-tertiary)" }}

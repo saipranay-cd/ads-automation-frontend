@@ -3,8 +3,10 @@
 import { StatusBadge } from "@/components/campaigns/StatusBadge"
 import { PacingBar } from "@/components/campaigns/PacingBar"
 import { CampaignToggle } from "@/components/campaigns/CampaignToggle"
+import { ChevronRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Pagination, usePagination } from "@/components/ui/pagination"
+import { fmt, fmtCurrencyPrecise as fmtCurrency } from "@/lib/format"
 import type { CampaignTableRow } from "@/types/adsflow"
 
 interface CampaignTableProps {
@@ -32,28 +34,14 @@ const scrollHeaders = [
   "",
 ]
 
-function fmt(n: number): string {
-  return new Intl.NumberFormat("en-IN").format(n)
-}
+import { stickyCol, stickyColBg, stickyHeaderBg, thClass, thStyle } from "@/lib/table-styles"
 
-function fmtCurrency(n: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n)
-}
-
-const stickyCol =
-  "sticky left-0 z-20 px-3 py-2.5 min-w-[220px] max-w-[280px]"
-const stickyColBg = { background: "var(--bg-base)" }
-const stickyHeaderBg = { background: "var(--bg-muted)" }
-const thClass =
-  "whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-[0.06em]"
-const thStyle = {
-  color: "var(--text-tertiary)",
-  borderBottom: "1px solid var(--border-subtle)",
+const headerTitles: Record<string, string> = {
+  CPL: "Cost Per Lead",
+  CPR: "Cost Per Result",
+  CPM: "Cost Per Mille (1000 impressions)",
+  CTR: "Click-Through Rate",
+  CPC: "Cost Per Click",
 }
 
 export function CampaignTable({
@@ -100,7 +88,7 @@ export function CampaignTable({
   return (
     <>
     <div
-      className="relative max-h-[70vh] overflow-auto rounded-lg"
+      className="table-scroll-container relative max-h-[70vh] overflow-auto rounded-lg animate-fade-in"
       style={{
         background: "var(--bg-base)",
         border: "1px solid var(--border-default)",
@@ -142,7 +130,7 @@ export function CampaignTable({
               Campaign
             </th>
             {scrollHeaders.map((h) => (
-              <th key={h} className={thClass} style={{ ...stickyHeaderBg, ...thStyle }}>
+              <th key={h} className={thClass} style={{ ...stickyHeaderBg, ...thStyle }} title={headerTitles[h] || undefined}>
                 {h}
               </th>
             ))}
@@ -178,7 +166,7 @@ export function CampaignTable({
               return (
                 <tr
                   key={c.id}
-                  className={`group transition-colors duration-100${onRowClick ? " cursor-pointer" : ""}`}
+                  className={`group transition-colors duration-150${onRowClick ? " cursor-pointer" : ""}`}
                   style={{
                     borderBottom: isLast
                       ? "none"
@@ -324,6 +312,13 @@ export function CampaignTable({
                       campaignName={c.name}
                     />
                   </td>
+
+                  {/* Row click indicator */}
+                  {onRowClick && (
+                    <td className="px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--text-tertiary)" }}>
+                      <ChevronRight size={14} />
+                    </td>
+                  )}
                 </tr>
               )
             })}

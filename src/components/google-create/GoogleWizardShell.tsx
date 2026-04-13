@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useGoogleWizardStore } from "@/lib/google-wizard-store"
 import type { GoogleWizardDraft } from "@/lib/google-wizard-store"
@@ -72,6 +72,16 @@ export function GoogleWizardShell() {
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const hasWork = !!draft.campaignName
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasWork) { e.preventDefault(); e.returnValue = "" }
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [draft.campaignName])
+
   const completedSteps = useMemo(() => {
     const completed: number[] = []
     if (draft.campaignName && draft.dailyBudgetMicros > 0) completed.push(1)
@@ -85,6 +95,12 @@ export function GoogleWizardShell() {
       completed.push(4)
     }
     return completed
+  }, [draft])
+
+  // Clear validation errors when user edits the draft
+  useEffect(() => {
+    if (validationErrors.length > 0) setValidationErrors([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft])
 
   const handleCancel = useCallback(() => {

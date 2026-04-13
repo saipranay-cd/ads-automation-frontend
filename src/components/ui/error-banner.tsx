@@ -25,7 +25,7 @@ function ErrorBanner({
       data-slot="error-banner"
       role="alert"
       className={cn(
-        "flex items-center gap-2 rounded-lg bg-red-bg px-3 py-2 text-sm text-red-text",
+        "flex items-center gap-2 rounded-lg bg-red-bg px-3 py-2 text-sm text-red-text animate-fade-in",
         sticky && "sticky top-0 z-40",
         className
       )}

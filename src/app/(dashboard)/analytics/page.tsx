@@ -66,7 +66,7 @@ const METRICS = [
 
 type MetricKey = (typeof METRICS)[number]["key"]
 
-const CITY_COLORS = ["#2dd4bf", "#fbbf24", "#a78bfa", "#4ade80", "#fb923c", "#f87171", "#38bdf8", "#818cf8"]
+import { PALETTE as CITY_COLORS } from "@/lib/chart-theme"
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -93,16 +93,7 @@ function cplColor(value: number): string {
   return "#f87171"
 }
 
-// ── Skeleton ─────────────────────────────────────────────
-
-function Skeleton({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-md ${className}`}
-      style={{ background: "var(--bg-muted)" }}
-    />
-  )
-}
+import { Skeleton } from "@/components/ui/skeleton"
 
 // ── Google Analytics View ────────────────────────────────
 
@@ -123,7 +114,7 @@ const GOOGLE_KPI_CARDS: {
   { key: "cpm", label: "CPM", good: "down" },
 ]
 
-const DONUT_COLORS = ["#2dd4bf", "#fbbf24", "#a78bfa", "#4ade80", "#fb923c", "#818cf8"]
+const DONUT_COLORS = CITY_COLORS.slice(0, 6)
 
 function fmtGoogleVal(key: GoogleMetricKey, value: number): string {
   switch (key) {

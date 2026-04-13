@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { Plus, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -7,6 +8,7 @@ import { ThemeToggle } from "./ThemeToggle"
 import { AccountSelector } from "./AccountSelector"
 import { GoogleAccountSelector } from "./GoogleAccountSelector"
 import { NotificationCenter } from "./NotificationCenter"
+import { Breadcrumbs } from "./Breadcrumbs"
 import { usePlatform } from "@/hooks/use-platform"
 
 const pageTitles: Record<string, string> = {
@@ -49,18 +51,23 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         {/* Hamburger menu — visible only on mobile (<640px) */}
         <button
           onClick={onMenuClick}
-          className="flex h-8 w-8 items-center justify-center rounded-md transition-colors sm:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-md transition-colors sm:hidden"
           style={{ color: "var(--text-secondary)" }}
           aria-label="Open navigation menu"
         >
           <Menu size={18} />
         </button>
-        <h1
-          className="text-[13px] font-medium sm:text-[14px] lg:text-[15px]"
-          style={{ color: "var(--text-primary)" }}
-        >
-          {title}
-        </h1>
+        <div className="flex flex-col">
+          <h1
+            className="text-[13px] font-medium sm:text-[14px] lg:text-[15px]"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {title}
+          </h1>
+          <Suspense>
+            <Breadcrumbs />
+          </Suspense>
+        </div>
         {platform === "google" ? <GoogleAccountSelector /> : <AccountSelector />}
       </div>
 
@@ -68,14 +75,16 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5">
         <Link
           href="/create"
-          className="hidden items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium text-white transition-all sm:flex"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-white transition-all sm:h-auto sm:w-auto sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-xs sm:font-medium"
           style={{
             background: "var(--acc)",
             boxShadow: "var(--shadow-glow)",
           }}
+          aria-label="New Campaign"
+          title="New Campaign (⌘N)"
         >
           <Plus size={13} />
-          New Campaign
+          <span className="hidden sm:inline">New Campaign</span>
         </Link>
         <NotificationCenter />
         {/* Theme toggle hidden on mobile (available in mobile drawer instead) */}

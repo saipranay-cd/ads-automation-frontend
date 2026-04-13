@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -12,7 +13,7 @@ interface MetricCardProps {
   isFirst?: boolean
 }
 
-export function MetricCard({
+export const MetricCard = memo(function MetricCard({
   label,
   value,
   delta,
@@ -65,4 +66,4 @@ export function MetricCard({
       )}
     </div>
   )
-}
+})

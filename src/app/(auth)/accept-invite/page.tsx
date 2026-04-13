@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
 import { Zap, AlertCircle, Loader2, CheckCircle } from "lucide-react"
 import { AuthStore } from "@/lib/auth-store"
+import { AuthInput } from "@/components/auth/AuthInput"
 
 interface InviteInfo {
   email: string
@@ -97,12 +98,6 @@ function AcceptInviteForm() {
     }
   }
 
-  const inputStyle = {
-    background: "var(--bg-subtle)",
-    border: "1px solid var(--border-default)",
-    color: "var(--text-primary)",
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-page">
       <div
@@ -172,61 +167,9 @@ function AcceptInviteForm() {
             ) : (
               <>
                 {/* New user: show name + password fields */}
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="name" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your full name"
-                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-                    style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="password" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
-                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-                    style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="confirm-password" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Confirm Password
-                  </label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    required
-                    minLength={8}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter your password"
-                    className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-                    style={inputStyle}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-                  />
-                </div>
+                <AuthInput id="name" label="Name" required value={name} onChange={setName} placeholder="Your full name" />
+                <AuthInput id="password" label="Password" type="password" required value={password} onChange={setPassword} placeholder="At least 8 characters" />
+                <AuthInput id="confirm-password" label="Confirm Password" type="password" required value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter your password" />
 
                 <button
                   type="submit"

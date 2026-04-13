@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { useQuery } from "@tanstack/react-query"
 import NextImage from "next/image"
 import { apiFetch } from "@/lib/api-fetch"
@@ -49,15 +49,7 @@ interface Creative {
 
 // ── Helpers ────────────────────────────────────────────
 
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n)
-}
-
-function fmtNum(n: number) {
-  if (n >= 100_000) return `${(n / 100_000).toFixed(1)}L`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toLocaleString("en-IN")
-}
+import { fmtCurrency, fmtCompact as fmtNum } from "@/lib/format"
 
 // ── Main ───────────────────────────────────────────────
 
@@ -124,7 +116,7 @@ export default function CreativesPage() {
           </p>
         </div>
         {creatives.length > 0 && (
-          <div className="hidden items-center gap-4 rounded-xl px-5 py-3 sm:flex" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
+          <div className="hidden items-center gap-4 rounded-lg px-5 py-3 sm:flex" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }}>
             <HeaderStat label="Creatives" value={String(creatives.length)} icon={<Layers size={13} />} />
             <Divider />
             <HeaderStat label="Spend" value={fmtCurrency(totalSpend)} icon={<BarChart3 size={13} />} />
@@ -172,7 +164,7 @@ export default function CreativesPage() {
       {isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-80 animate-pulse rounded-xl" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }} />
+            <div key={i} className="h-80 animate-pulse rounded-lg" style={{ background: "var(--bg-base)", border: "1px solid var(--border-default)" }} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -284,6 +276,7 @@ function CreativeMedia({
         {/* Carousel arrows */}
         <button
           onClick={(e) => { e.stopPropagation(); setCarouselIdx(Math.max(0, carouselIdx - 1)) }}
+          aria-label="Previous image"
           className="absolute left-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm disabled:opacity-30"
           disabled={carouselIdx === 0}
         >
@@ -291,6 +284,7 @@ function CreativeMedia({
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setCarouselIdx(Math.min(c.carouselImages!.length - 1, carouselIdx + 1)) }}
+          aria-label="Next image"
           className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm disabled:opacity-30"
           disabled={carouselIdx === c.carouselImages!.length - 1}
         >
@@ -352,10 +346,27 @@ function NoPreview() {
 // ── Lightbox ───────────────────────────────────────────
 
 function Lightbox({ creative: c, onClose }: { creative: Creative; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeRef.current?.focus()
+  }, [])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose()
+      }
+    },
+    [onClose],
+  )
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
+      onKeyDown={handleKeyDown}
+      tabIndex={-1}
     >
       <div
         className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl"
@@ -363,7 +374,9 @@ function Lightbox({ creative: c, onClose }: { creative: Creative; onClose: () =>
         onClick={(e) => e.stopPropagation()}
       >
         <button
+          ref={closeRef}
           onClick={onClose}
+          aria-label="Close lightbox"
           className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
         >
           <X size={16} />
@@ -445,7 +458,7 @@ function CreativeCard({ creative: c, rank, onOpenLightbox }: { creative: Creativ
   const borderColor = c.isWinner ? "rgba(74,222,128,0.35)" : c.isFatigued ? "rgba(251,191,36,0.25)" : "var(--border-default)"
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl transition-all" style={{ background: "var(--bg-base)", border: `1.5px solid ${borderColor}` }}>
+    <div className="flex flex-col overflow-hidden rounded-lg transition-all" style={{ background: "var(--bg-base)", border: `1.5px solid ${borderColor}` }}>
       {/* Creative media */}
       <div className="relative">
         <CreativeMedia creative={c} onClick={onOpenLightbox} className="h-48" />

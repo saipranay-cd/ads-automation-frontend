@@ -395,6 +395,22 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ─── Table Scroll Indicator ─────────────────────────────── */
+.table-scroll-container {
+  position: relative;
+}
+.table-scroll-container::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--bg-base));
+  z-index: 40;
+}
+
 /* ─── Reduced Motion ────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
 
@@ -402,6 +418,8 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

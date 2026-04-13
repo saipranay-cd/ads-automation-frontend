@@ -3,7 +3,10 @@
 import { useState, useMemo, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Search, RefreshCw, FolderOpen } from "lucide-react"
+import { FolderOpen } from "lucide-react"
+import { StatusTabs } from "@/components/dashboard/StatusTabs"
+import { SearchInput } from "@/components/dashboard/SearchInput"
+import { SyncButton } from "@/components/dashboard/SyncButton"
 import { SearchSelect } from "@/components/ui/search-select"
 import { useGoogleAdGroups, useGoogleSync } from "@/hooks/use-google"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
@@ -15,45 +18,14 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { GoogleAuthBanner } from "@/components/layout/GoogleAuthBanner"
 import { Pagination } from "@/components/ui/pagination"
+import { fmtUS as fmt, fmtCurrencyPrecise as fmtCurrency, fmtPercent } from "@/lib/format"
+import { googleStatusMap as statusMap } from "@/lib/chart-theme"
 import type { GoogleAdGroupRow } from "@/types/google-ads"
 
 const statusTabs = ["All", "Enabled", "Paused", "Removed"] as const
 type StatusTab = (typeof statusTabs)[number]
 
-function fmt(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n)
-}
-
-function fmtCurrency(n: number): string {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n)
-}
-
-function fmtPercent(n: number): string {
-  return `${n.toFixed(2)}%`
-}
-
-function statusMap(s: string) {
-  switch (s) {
-    case "ENABLED":
-      return { status: "active" as const, label: "Enabled" }
-    case "PAUSED":
-      return { status: "paused" as const, label: "Paused" }
-    case "REMOVED":
-      return { status: "error" as const, label: "Removed" }
-    default:
-      return { status: "info" as const, label: s }
-  }
-}
-
-const stickyCol =
-  "sticky left-0 z-20 px-3 py-2.5 min-w-[220px] max-w-[280px]"
-const stickyHeaderBg = { background: "var(--bg-muted)" }
-const thClass =
-  "whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-[0.06em]"
-const thStyle = {
-  color: "var(--text-tertiary)",
-  borderBottom: "1px solid var(--border-subtle)",
-}
+import { stickyCol, stickyHeaderBg, thClass, thStyle } from "@/lib/table-styles"
 
 const scrollHeaders = ["Campaign", "Status", "CPC Bid", "Impressions", "Clicks", "CTR", "Conversions"]
 
@@ -127,27 +99,7 @@ function GoogleAdGroupsContent() {
 
       {/* Status tabs + DateRangePicker */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                background:
-                  activeTab === tab
-                    ? "var(--acc-subtle)"
-                    : "transparent",
-                color:
-                  activeTab === tab
-                    ? "var(--acc-text)"
-                    : "var(--text-secondary)",
-              }}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <StatusTabs tabs={statusTabs} active={activeTab} onChange={setActiveTab} />
         <DateRangePicker days={days} dateRange={dateRange} onPreset={(d) => { setDays(d); setDateRange(undefined) }} onCustomRange={(r) => setDateRange(r)} />
       </div>
 
@@ -161,35 +113,8 @@ function GoogleAdGroupsContent() {
             placeholder="All Campaigns"
           />
         )}
-        <div
-          className="flex w-[220px] items-center gap-2 rounded-md px-3 py-1.5"
-          style={{
-            background: "var(--bg-subtle)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <Search size={13} style={{ color: "var(--text-tertiary)" }} />
-          <input
-            type="text"
-            placeholder="Search ad groups..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
-            style={{ color: "var(--text-primary)" }}
-          />
-        </div>
-        <button
-          onClick={() => sync.mutate(selectedGoogleAccountId || undefined)}
-          disabled={sync.isPending}
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
-          style={{
-            border: "1px solid var(--border-default)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          <RefreshCw size={12} className={sync.isPending ? "animate-spin" : ""} />
-          {sync.isPending ? "Syncing..." : "Sync Now"}
-        </button>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search ad groups..." />
+        <SyncButton onClick={() => sync.mutate(selectedGoogleAccountId || undefined)} isSyncing={sync.isPending} />
       </div>
 
       {/* Auth expired banner */}

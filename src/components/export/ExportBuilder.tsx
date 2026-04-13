@@ -156,38 +156,78 @@ export function ExportBuilder({ open, onClose, allGroupData, filePrefix, dateLab
   const dimensionCat = CATEGORIES.filter((c) => c.key === "dimension")
   const metricCats = CATEGORIES.filter((c) => c.key !== "dimension")
 
+  function CategorySection({ categories }: { categories: typeof CATEGORIES }) {
+    return (
+      <>
+        {categories.map((cat) => {
+          const points = DATA_POINTS.filter((dp) => dp.category === cat.key)
+          const allOn = points.every((dp) => selectedPoints.has(dp.key))
+          return (
+            <div key={cat.key}>
+              <div
+                className="sticky top-0 z-10 flex items-center justify-between px-3 py-1.5"
+                style={{ background: "var(--bg-subtle)", borderBottom: "1px solid var(--border-default)" }}
+              >
+                <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  {cat.label}
+                </span>
+                <button onClick={() => toggleCategory(cat.key, !allOn)} className="text-[10px] font-medium" style={{ color: "var(--acc-text)" }}>
+                  {allOn ? "None" : "All"}
+                </button>
+              </div>
+              <div className="flex flex-col gap-0.5 px-2 py-1">
+                {points.map((dp) => {
+                  const sel = selectedPoints.has(dp.key)
+                  const relevant = relevantPoints.has(dp.key)
+                  return (
+                    <button
+                      key={dp.key}
+                      onClick={() => togglePoint(dp.key)}
+                      className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors"
+                      style={{ background: sel ? "var(--bg-subtle)" : "transparent", opacity: relevant ? 1 : 0.4 }}
+                    >
+                      <div
+                        className="flex size-3.5 shrink-0 items-center justify-center rounded-sm"
+                        style={{ border: `1px solid ${sel ? "var(--acc)" : "var(--border-default)"}`, background: sel ? "var(--acc)" : "transparent" }}
+                      >
+                        {sel && <Check size={9} style={{ color: "var(--acc-text)" }} />}
+                      </div>
+                      <span className="text-xs" style={{ color: sel ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                        {dp.label}
+                      </span>
+                      {!relevant && dp.groups && (
+                        <span className="ml-auto text-[9px]" style={{ color: "var(--text-tertiary)" }}>
+                          {dp.groups.map((g) => DATA_GROUPS.find((dg) => dg.key === g)?.name ?? g).join(", ")}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </>
+    )
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose()
-      }}
-    >
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="sm:max-w-3xl" showCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-baseline gap-2">
             Custom Report
-            <span
-              className="text-[11px] font-normal"
-              style={{ color: "var(--text-tertiary)" }}
-            >
-              {dateLabel}
-            </span>
+            <span className="text-[11px] font-normal" style={{ color: "var(--text-tertiary)" }}>{dateLabel}</span>
           </DialogTitle>
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
             Select data sources and columns. Each source becomes a sheet with its applicable columns.
           </p>
         </DialogHeader>
 
-        {/* Data Sources — horizontal chips */}
+        {/* Data Sources */}
         <div>
           <div className="mb-2">
-            <span
-              className="text-[10px] font-medium uppercase tracking-wider"
-              style={{ color: "var(--text-tertiary)" }}
-            >
-              Data Sources
-            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>Data Sources</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {DATA_GROUPS.map((group) => {
@@ -214,182 +254,13 @@ export function ExportBuilder({ open, onClose, allGroupData, filePrefix, dateLab
           </div>
         </div>
 
-        {/* Two-column grid: Dimensions left, Metrics+Budget+Creative right */}
-        <div
-          className="grid grid-cols-2 overflow-hidden rounded-lg"
-          style={{
-            border: "1px solid var(--border-default)",
-            height: 340,
-            maxHeight: "50vh",
-          }}
-        >
-          {/* Left column — Dimensions */}
-          <div
-            className="flex flex-col overflow-y-auto"
-            style={{
-              borderRight: "1px solid var(--border-default)",
-              background: "var(--bg-base)",
-            }}
-          >
-            {dimensionCat.map((cat) => {
-              const points = DATA_POINTS.filter((dp) => dp.category === cat.key)
-              const allOn = points.every((dp) => selectedPoints.has(dp.key))
-              return (
-                <div key={cat.key}>
-                  <div
-                    className="sticky top-0 z-10 flex items-center justify-between px-3 py-1.5"
-                    style={{
-                      background: "var(--bg-subtle)",
-                      borderBottom: "1px solid var(--border-default)",
-                    }}
-                  >
-                    <span
-                      className="text-[10px] font-medium uppercase tracking-wider"
-                      style={{ color: "var(--text-tertiary)" }}
-                    >
-                      {cat.label}
-                    </span>
-                    <button
-                      onClick={() => toggleCategory(cat.key, !allOn)}
-                      className="text-[10px] font-medium"
-                      style={{ color: "var(--acc-text)" }}
-                    >
-                      {allOn ? "None" : "All"}
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-0.5 px-2 py-1">
-                    {points.map((dp) => {
-                      const selected = selectedPoints.has(dp.key)
-                      const relevant = relevantPoints.has(dp.key)
-                      return (
-                        <button
-                          key={dp.key}
-                          onClick={() => togglePoint(dp.key)}
-                          className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors"
-                          style={{
-                            background: selected ? "var(--bg-subtle)" : "transparent",
-                            opacity: relevant ? 1 : 0.4,
-                          }}
-                        >
-                          <div
-                            className="flex size-3.5 shrink-0 items-center justify-center rounded-sm"
-                            style={{
-                              border: `1px solid ${selected ? "var(--acc)" : "var(--border-default)"}`,
-                              background: selected ? "var(--acc)" : "transparent",
-                            }}
-                          >
-                            {selected && (
-                              <Check size={9} style={{ color: "var(--acc-text)" }} />
-                            )}
-                          </div>
-                          <span
-                            className="text-xs"
-                            style={{
-                              color: selected ? "var(--text-primary)" : "var(--text-secondary)",
-                            }}
-                          >
-                            {dp.label}
-                          </span>
-                          {!relevant && dp.groups && (
-                            <span
-                              className="ml-auto text-[9px]"
-                              style={{ color: "var(--text-tertiary)" }}
-                            >
-                              {dp.groups
-                                .map((g) => DATA_GROUPS.find((dg) => dg.key === g)?.name ?? g)
-                                .join(", ")}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+        {/* Two-column grid */}
+        <div className="grid grid-cols-2 overflow-hidden rounded-lg" style={{ border: "1px solid var(--border-default)", height: 340, maxHeight: "50vh" }}>
+          <div className="flex flex-col overflow-y-auto" style={{ borderRight: "1px solid var(--border-default)", background: "var(--bg-base)" }}>
+            <CategorySection categories={dimensionCat} />
           </div>
-
-          {/* Right column — Performance, Budget & Results, Creative */}
-          <div
-            className="flex flex-col overflow-y-auto"
-            style={{ background: "var(--bg-base)" }}
-          >
-            {metricCats.map((cat) => {
-              const points = DATA_POINTS.filter((dp) => dp.category === cat.key)
-              const allOn = points.every((dp) => selectedPoints.has(dp.key))
-              return (
-                <div key={cat.key}>
-                  <div
-                    className="sticky top-0 z-10 flex items-center justify-between px-3 py-1.5"
-                    style={{
-                      background: "var(--bg-subtle)",
-                      borderBottom: "1px solid var(--border-default)",
-                    }}
-                  >
-                    <span
-                      className="text-[10px] font-medium uppercase tracking-wider"
-                      style={{ color: "var(--text-tertiary)" }}
-                    >
-                      {cat.label}
-                    </span>
-                    <button
-                      onClick={() => toggleCategory(cat.key, !allOn)}
-                      className="text-[10px] font-medium"
-                      style={{ color: "var(--acc-text)" }}
-                    >
-                      {allOn ? "None" : "All"}
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-0.5 px-2 py-1">
-                    {points.map((dp) => {
-                      const selected = selectedPoints.has(dp.key)
-                      const relevant = relevantPoints.has(dp.key)
-                      return (
-                        <button
-                          key={dp.key}
-                          onClick={() => togglePoint(dp.key)}
-                          className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors"
-                          style={{
-                            background: selected ? "var(--bg-subtle)" : "transparent",
-                            opacity: relevant ? 1 : 0.4,
-                          }}
-                        >
-                          <div
-                            className="flex size-3.5 shrink-0 items-center justify-center rounded-sm"
-                            style={{
-                              border: `1px solid ${selected ? "var(--acc)" : "var(--border-default)"}`,
-                              background: selected ? "var(--acc)" : "transparent",
-                            }}
-                          >
-                            {selected && (
-                              <Check size={9} style={{ color: "var(--acc-text)" }} />
-                            )}
-                          </div>
-                          <span
-                            className="text-xs"
-                            style={{
-                              color: selected ? "var(--text-primary)" : "var(--text-secondary)",
-                            }}
-                          >
-                            {dp.label}
-                          </span>
-                          {!relevant && dp.groups && (
-                            <span
-                              className="ml-auto text-[9px]"
-                              style={{ color: "var(--text-tertiary)" }}
-                            >
-                              {dp.groups
-                                .map((g) => DATA_GROUPS.find((dg) => dg.key === g)?.name ?? g)
-                                .join(", ")}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
+          <div className="flex flex-col overflow-y-auto" style={{ background: "var(--bg-base)" }}>
+            <CategorySection categories={metricCats} />
           </div>
         </div>
 

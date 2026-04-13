@@ -5,6 +5,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Zap, AlertCircle, Loader2 } from "lucide-react"
 import { AuthStore } from "@/lib/auth-store"
+import { AuthInput } from "@/components/auth/AuthInput"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -36,7 +37,10 @@ export default function SignupPage() {
 
       if (!res.ok) {
         const err = data.error
-        setError(typeof err === "string" ? err : err?.message || data.message || "Could not create your account. The email may already be in use.")
+        const msg = typeof err === "string" ? err : err?.message || data.message
+        if (res.status === 409) setError("This email is already registered. Try signing in instead.")
+        else if (res.status === 429) setError("Too many attempts. Please wait a minute and try again.")
+        else setError(msg || "Could not create your account. Please try again.")
         return
       }
 
@@ -54,12 +58,6 @@ export default function SignupPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const inputStyle = {
-    background: "var(--bg-subtle)",
-    border: "1px solid var(--border-default)",
-    color: "var(--text-primary)",
   }
 
   return (
@@ -98,79 +96,10 @@ export default function SignupPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="orgName" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Organization Name
-            </label>
-            <input
-              id="orgName"
-              type="text"
-              required
-              minLength={2}
-              value={orgName}
-              onChange={(e) => setOrgName(e.target.value)}
-              placeholder="Acme Inc."
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="name" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Your Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="John Doe"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--acc)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
-            />
-          </div>
+          <AuthInput id="orgName" label="Organization Name" required value={orgName} onChange={setOrgName} placeholder="Acme Inc." />
+          <AuthInput id="name" label="Your Name" required value={name} onChange={setName} placeholder="John Doe" />
+          <AuthInput id="email" label="Email" type="email" required value={email} onChange={setEmail} placeholder="you@company.com" />
+          <AuthInput id="password" label="Password" type="password" required value={password} onChange={setPassword} placeholder="At least 8 characters" />
 
           <button
             type="submit"

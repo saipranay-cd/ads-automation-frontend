@@ -38,7 +38,7 @@ export function SyncReminder() {
       >
         <div className="flex items-center gap-2">
           <RefreshCw size={14} className="animate-spin" style={{ color: "var(--blue-text)" }} />
-          <span className="text-xs font-medium" style={{ color: "var(--blue-text)" }}>
+          <span className="animate-pulse text-xs font-medium" style={{ color: "var(--blue-text)" }}>
             Syncing "{selected.name}" in the background...
           </span>
         </div>

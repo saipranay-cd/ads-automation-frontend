@@ -7,12 +7,14 @@ const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500"],
+  display: "swap",
 })
 
 const dmMono = DM_Mono({
   variable: "--font-dm-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
+  display: "swap",
 })
 
 export const metadata: Metadata = {

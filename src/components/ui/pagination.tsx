@@ -36,7 +36,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, totalItems, 
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           aria-label="Previous page"
-          className="flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-30"
+          className="flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150 hover:bg-[var(--bg-subtle)] active:scale-95 disabled:opacity-30"
           style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
         >
           <ChevronLeft size={14} />
@@ -48,7 +48,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, totalItems, 
             <button
               key={p}
               onClick={() => onPageChange(p as number)}
-              className="flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-[11px] font-medium transition-colors"
+              className="flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-[11px] font-medium transition-all duration-150 hover:bg-[var(--bg-subtle)] active:scale-95"
               style={{
                 background: p === currentPage ? "var(--acc)" : "transparent",
                 color: p === currentPage ? "white" : "var(--text-secondary)",
@@ -63,7 +63,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, totalItems, 
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           aria-label="Next page"
-          className="flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-30"
+          className="flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150 hover:bg-[var(--bg-subtle)] active:scale-95 disabled:opacity-30"
           style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
         >
           <ChevronRight size={14} />

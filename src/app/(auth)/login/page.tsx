@@ -5,6 +5,7 @@ import { Suspense, useState } from "react"
 import Link from "next/link"
 import { Zap, AlertCircle, Loader2 } from "lucide-react"
 import { AuthStore } from "@/lib/auth-store"
+import { AuthInput } from "@/components/auth/AuthInput"
 
 function LoginForm() {
   const router = useRouter()
@@ -31,7 +32,10 @@ function LoginForm() {
 
       if (!res.ok) {
         const err = data.error
-        setError(typeof err === "string" ? err : err?.message || data.message || "Invalid email or password.")
+        const msg = typeof err === "string" ? err : err?.message || data.message
+        if (res.status === 429) setError("Too many attempts. Please wait a minute and try again.")
+        else if (res.status === 401) setError(msg || "Invalid email or password. Please check your credentials.")
+        else setError(msg || "Something went wrong. Please try again.")
         return
       }
 
@@ -125,65 +129,8 @@ function LoginForm() {
         )}
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="email"
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--acc)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-default)")
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="password"
-              className="text-xs font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your password"
-              className="w-full rounded-md px-3 py-2 text-sm outline-none transition-colors"
-              style={{
-                background: "var(--bg-subtle)",
-                border: "1px solid var(--border-default)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) =>
-                (e.currentTarget.style.borderColor = "var(--acc)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-default)")
-              }
-            />
-          </div>
+          <AuthInput id="email" label="Email" type="email" required value={email} onChange={setEmail} placeholder="you@company.com" />
+          <AuthInput id="password" label="Password" type="password" required value={password} onChange={setPassword} placeholder="Your password" />
 
           <button
             type="submit"
