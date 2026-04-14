@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="obsidian">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adsflow — Insights V2 In-Depth Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — Obsidian Theme
+   ═══════════════════════════════════════════════ */
+:root {
+  --acc: #a78bfa;
+  --acc-hover: #c4b5fd;
+  --acc-subtle: #1e1b30;
+  --acc-text: #c4b5fd;
+  --acc-border: rgba(167, 139, 250, 0.25);
+  --bg-page: #0c0c10;
+  --bg-base: #111116;
+  --bg-subtle: #18181e;
+  --bg-muted: #222228;
+  --text-primary: #ededf0;
+  --text-secondary: #a0a0aa;
+  --text-tertiary: #55555f;
+  --text-disabled: #38383f;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+  --shadow-popup: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+  --green-text: #4ade80; --green-solid: #22c55e; --green-bg: #071a0a;
+  --amber-text: #fbbf24; --amber-solid: #f59e0b; --amber-bg: #1a1400;
+  --red-text: #f87171; --red-solid: #ef4444; --red-bg: #1a0a0a;
+  --blue-text: #60a5fa; --blue-solid: #3b82f6; --blue-bg: #0a1020;
+  --cyan-text: #2dd4bf;
+  --t-fast: 120ms cubic-bezier(0.25,1,0.5,1);
+  --t-base: 200ms cubic-bezier(0.25,1,0.5,1);
+  --t-slow: 300ms cubic-bezier(0.25,1,0.5,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: 'DM Mono', ui-monospace, monospace; }
+
+/* ═══════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════ */
+.page { max-width: 1320px; margin: 0 auto; padding: 24px 32px 80px; }
+.section { margin-bottom: 32px; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.section-title .num { font-size: 10px; font-weight: 500; color: var(--acc); background: var(--acc-subtle); border: 1px solid var(--acc-border); border-radius: 4px; padding: 1px 6px; letter-spacing: 0.5px; }
+.section-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+.card { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-6 { gap: 24px; }
+.flex-1 { flex: 1; } .flex-wrap { flex-wrap: wrap; }
+.w-full { width: 100%; }
+.text-right { text-align: right; }
+.relative { position: relative; }
+.hidden { display: none !important; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ═══════════════════════════════════════════════
+   BADGES
+   ═══════════════════════════════════════════════ */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+.badge-accent { background: rgba(167,139,250,0.10); color: var(--acc-text); }
+.badge-green { background: rgba(74,222,128,0.10); color: var(--green-text); }
+.badge-amber { background: rgba(251,191,36,0.10); color: var(--amber-text); }
+.badge-red { background: rgba(248,113,113,0.10); color: var(--red-text); }
+.badge-blue { background: rgba(96,165,250,0.10); color: var(--blue-text); }
+.badge-muted { background: rgba(255,255,255,0.04); color: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════ */
+.btn { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border-default); background: transparent; color: var(--text-secondary); cursor: pointer; transition: all var(--t-fast); white-space: nowrap; }
+.btn:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-accent { background: var(--acc); color: #111116; border-color: var(--acc); font-weight: 600; }
+.btn-accent:hover { background: var(--acc-hover); }
+.btn-green { background: var(--green-solid); color: #fff; border-color: var(--green-solid); font-weight: 600; }
+.btn-green:hover { background: #16a34a; }
+.btn-red { background: rgba(239,68,68,0.12); color: var(--red-text); border-color: rgba(239,68,68,0.25); }
+.btn-red:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { font-size: 11px; padding: 4px 10px; }
+.btn-xs { font-size: 10px; padding: 2px 8px; border-radius: 5px; }
+.btn-icon { padding: 6px; border-radius: 6px; }
+
+/* ═══════════════════════════════════════════════
+   PAGE HEADER
+   ═══════════════════════════════════════════════ */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-subtle); }
+.page-title { font-size: 18px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 10px; }
+.page-title svg { color: var(--acc); }
+.page-desc { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* ═══════════════════════════════════════════════
+   FEATURE LABEL (prototype annotation)
+   ═══════════════════════════════════════════════ */
+.feature-label { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--acc); margin-bottom: 12px; padding: 4px 10px; background: var(--acc-subtle); border: 1px solid var(--acc-border); border-radius: 5px; }
+.feature-label .p { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+.feature-label .p0 { background: rgba(248,113,113,0.15); color: var(--red-text); }
+.feature-label .p1 { background: rgba(251,191,36,0.15); color: var(--amber-text); }
+.feature-label .p2 { background: rgba(96,165,250,0.15); color: var(--blue-text); }
+.feature-label .p3 { background: rgba(255,255,255,0.08); color: var(--text-tertiary); }
+
+/* Divider */
+.divider { height: 1px; background: var(--border-subtle); margin: 32px 0; }
+
+/* ═══════════════════════════════════════════════
+   SAVED VIEWS BAR
+   ═══════════════════════════════════════════════ */
+.views-bar { display: flex; align-items: center; gap: 4px; padding: 5px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 9px; overflow-x: auto; }
+.view-tab { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 6px; color: var(--text-tertiary); cursor: pointer; transition: all var(--t-fast); border: none; background: none; display: flex; align-items: center; gap: 5px; white-space: nowrap; position: relative; }
+.view-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+.view-tab.active { color: var(--text-primary); background: var(--bg-muted); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.view-tab .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.view-tab .close-x { display: none; font-size: 11px; margin-left: 4px; color: var(--text-disabled); cursor: pointer; width: 14px; height: 14px; border-radius: 3px; align-items: center; justify-content: center; }
+.view-tab:hover .close-x { display: inline-flex; }
+.view-tab .close-x:hover { background: rgba(255,255,255,0.08); color: var(--text-secondary); }
+.view-add { margin-left: auto; font-size: 11px; color: var(--text-tertiary); cursor: pointer; padding: 5px 12px; border-radius: 6px; border: 1px dashed var(--border-default); background: none; transition: all var(--t-fast); white-space: nowrap; flex-shrink: 0; }
+.view-add:hover { color: var(--acc-text); border-color: var(--acc-border); background: var(--acc-subtle); }
+
+/* ═══════════════════════════════════════════════
+   SAVINGS TRACKER
+   ═══════════════════════════════════════════════ */
+.savings-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.savings-card { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card); cursor: pointer; transition: all var(--t-fast); }
+.savings-card:hover { border-color: var(--border-strong); }
+.savings-card.highlight { border-color: var(--acc-border); background: linear-gradient(135deg, var(--bg-base) 0%, var(--acc-subtle) 100%); }
+.savings-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+.savings-value { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: var(--text-primary); }
+.savings-value.green { color: var(--green-text); }
+.savings-value.accent { color: var(--acc-text); }
+.savings-delta { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 500; margin-top: 4px; }
+.savings-delta.up { color: var(--green-text); }
+.savings-delta.down { color: var(--red-text); }
+.savings-spark { margin-top: 8px; height: 28px; display: flex; align-items: flex-end; gap: 2px; }
+.savings-spark .bar { flex: 1; border-radius: 2px; background: var(--acc); opacity: 0.25; transition: all var(--t-fast); cursor: pointer; position: relative; }
+.savings-spark .bar:hover { opacity: 0.9; }
+.savings-spark .bar.current { opacity: 0.7; }
+.savings-spark .bar:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1a1a22; color: var(--text-primary); font-size: 10px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid var(--border-default); font-family: 'DM Mono', monospace; pointer-events: none; z-index: 10; }
+
+/* Savings expanded breakdown */
+.savings-breakdown { margin-top: 12px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow-card); }
+.savings-breakdown-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
+.savings-breakdown-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); transition: background var(--t-fast); font-size: 12px; }
+.savings-breakdown-row:last-child { border-bottom: none; }
+.savings-breakdown-row:hover { background: var(--bg-subtle); }
+.savings-breakdown-row.header { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600; background: var(--bg-subtle); }
+
+/* ═══════════════════════════════════════════════
+   DAILY BRIEF
+   ═══════════════════════════════════════════════ */
+.brief-card { background: linear-gradient(135deg, var(--bg-base) 0%, #14121f 100%); border: 1px solid var(--acc-border); border-radius: 12px; padding: 20px 24px; box-shadow: var(--shadow-card), 0 0 40px rgba(167,139,250,0.04); }
+.brief-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.brief-greeting { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.brief-greeting span { color: var(--acc-text); }
+.brief-date { font-size: 11px; color: var(--text-tertiary); }
+.brief-items { display: flex; flex-direction: column; gap: 6px; }
+.brief-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); transition: all var(--t-fast); cursor: pointer; position: relative; }
+.brief-item:hover { background: rgba(255,255,255,0.04); border-color: var(--border-default); }
+.brief-item.dismissed { opacity: 0.3; pointer-events: none; text-decoration: line-through; }
+.brief-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+.brief-icon.red { background: rgba(248,113,113,0.12); color: var(--red-text); }
+.brief-icon.amber { background: rgba(251,191,36,0.12); color: var(--amber-text); }
+.brief-icon.green { background: rgba(74,222,128,0.12); color: var(--green-text); }
+.brief-icon.blue { background: rgba(96,165,250,0.12); color: var(--blue-text); }
+.brief-icon.accent { background: rgba(167,139,250,0.12); color: var(--acc-text); }
+.brief-text { font-size: 13px; color: var(--text-secondary); line-height: 20px; flex: 1; }
+.brief-text strong { color: var(--text-primary); font-weight: 600; }
+.brief-text .val { font-family: 'DM Mono', monospace; color: var(--acc-text); font-weight: 500; }
+.brief-text .val-green { font-family: 'DM Mono', monospace; color: var(--green-text); font-weight: 500; }
+.brief-text .val-red { font-family: 'DM Mono', monospace; color: var(--red-text); font-weight: 500; }
+.brief-text .val-amber { font-family: 'DM Mono', monospace; color: var(--amber-text); font-weight: 500; }
+.brief-meta { font-size: 10px; color: var(--text-tertiary); margin-top: 3px; }
+.brief-item-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity var(--t-fast); margin-top: 2px; }
+.brief-item:hover .brief-item-actions { opacity: 1; }
+.brief-item-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border-default); background: var(--bg-muted); color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--t-fast); font-size: 11px; }
+.brief-item-btn:hover { background: var(--bg-subtle); color: var(--text-primary); border-color: var(--border-strong); }
+.brief-expand { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-tertiary); line-height: 20px; }
+.brief-expand .rec { padding: 8px 12px; background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.12); border-radius: 6px; margin-top: 6px; color: var(--green-text); font-size: 11px; }
+.brief-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+
+/* ═══════════════════════════════════════════════
+   PRIORITY / DO THESE NOW
+   ═══════════════════════════════════════════════ */
+.priority-list { display: flex; flex-direction: column; gap: 8px; }
+.priority-item { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); cursor: pointer; transition: all var(--t-base); position: relative; overflow: hidden; }
+.priority-item:hover { border-color: var(--border-strong); }
+.priority-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.priority-item.urgency-critical::before { background: var(--red-solid); }
+.priority-item.urgency-high::before { background: var(--amber-solid); }
+.priority-item.urgency-medium::before { background: var(--blue-solid); }
+.priority-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+.priority-rank { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; color: var(--text-tertiary); width: 20px; text-align: center; flex-shrink: 0; }
+.priority-agent-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.priority-content { flex: 1; min-width: 0; }
+.priority-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.priority-detail { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.priority-metrics { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.priority-metric { text-align: right; }
+.priority-metric-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); }
+.priority-metric-value { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; }
+.urgency-bar { width: 48px; height: 4px; background: var(--bg-muted); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.urgency-bar-fill { height: 100%; border-radius: 2px; }
+
+/* Priority expanded detail */
+.priority-expand { padding: 0 16px 16px; border-top: 1px solid var(--border-subtle); margin-top: 0; }
+.priority-expand-inner { padding-top: 14px; }
+.pex-section { margin-bottom: 14px; }
+.pex-section:last-child { margin-bottom: 0; }
+.pex-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.pex-section-title .icon { width: 16px; height: 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+.pex-text { font-size: 12px; color: var(--text-secondary); line-height: 20px; }
+.pex-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-subtle); border-radius: 8px; overflow: hidden; margin-top: 12px; }
+.pex-metric { padding: 10px 12px; background: var(--bg-subtle); }
+.pex-metric-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); }
+.pex-metric-value { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; margin-top: 2px; }
+.pex-metric-delta { font-size: 10px; font-family: 'DM Mono', monospace; margin-top: 2px; }
+.pex-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.pex-confidence { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.pex-confidence-bar { flex: 1; max-width: 200px; height: 6px; background: var(--bg-muted); border-radius: 3px; overflow: hidden; }
+.pex-confidence-fill { height: 100%; border-radius: 3px; background: var(--acc); }
+.pex-urgency-breakdown { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
+.pex-urgency-breakdown span { display: flex; align-items: center; gap: 4px; }
+.pex-urgency-breakdown .val { font-family: 'DM Mono', monospace; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════════
+   MODAL / OVERLAY
+   ═══════════════════════════════════════════════ */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fade-in 150ms ease; }
+.modal { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 12px; box-shadow: var(--shadow-popup); width: 100%; max-width: 520px; max-height: 85vh; overflow-y: auto; animation: scale-in 200ms ease; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
+.modal-title { font-size: 14px; font-weight: 600; }
+.modal-close { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-default); background: none; color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--t-fast); font-size: 16px; }
+.modal-close:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+.modal-body { padding: 20px; }
+.modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border-subtle); }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scale-in { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Action list in modal */
+.action-list { display: flex; flex-direction: column; gap: 6px; }
+.action-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 7px; font-size: 12px; }
+.action-item.auto { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.12); color: var(--green-text); }
+.action-item.manual { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.12); color: var(--amber-text); }
+.action-icon { width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; margin-top: 1px; }
+
+/* Execution result */
+.exec-result { margin-top: 12px; padding: 12px; border-radius: 8px; }
+.exec-result.success { background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.15); }
+.exec-result.failed { background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15); }
+.exec-steps { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.exec-step { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 4px 0; }
+.exec-step-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+.exec-step-icon.done { background: rgba(74,222,128,0.15); color: var(--green-text); }
+.exec-step-icon.fail { background: rgba(248,113,113,0.15); color: var(--red-text); }
+.exec-step-icon.pending { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════
+   SMART ALERTS
+   ═══════════════════════════════════════════════ */
+.alerts-panel { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.alerts-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); }
+.alert-count { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; background: var(--red-solid); color: #fff; padding: 1px 6px; border-radius: 10px; }
+.alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); transition: background var(--t-fast); cursor: pointer; }
+.alert-item:last-child { border-bottom: none; }
+.alert-item:hover { background: var(--bg-subtle); }
+.alert-item.unread { background: rgba(167,139,250,0.03); }
+.alert-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+.alert-dot.critical { background: var(--red-solid); }
+.alert-dot.warning { background: var(--amber-solid); }
+.alert-dot.info { background: var(--blue-solid); }
+.alert-dot.success { background: var(--green-solid); }
+.alert-content { flex: 1; min-width: 0; }
+.alert-title { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.alert-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.alert-time { font-size: 10px; color: var(--text-disabled); flex-shrink: 0; margin-top: 2px; }
+.alert-expand { padding: 8px 16px 12px 34px; border-bottom: 1px solid var(--border-subtle); font-size: 11px; color: var(--text-secondary); line-height: 18px; }
+.alert-expand-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+/* Alert config */
+.alert-config { padding: 12px 16px; }
+.alert-config-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 10px; }
+.alert-threshold { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+.alert-threshold:last-child { border-bottom: none; }
+.alert-threshold-label { font-size: 11px; color: var(--text-secondary); }
+.alert-threshold-value { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--acc-text); background: var(--acc-subtle); padding: 3px 10px; border-radius: 5px; border: 1px solid var(--acc-border); cursor: pointer; transition: all var(--t-fast); }
+.alert-threshold-value:hover { border-color: var(--acc); }
+.channel-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border-default); background: none; color: var(--text-tertiary); cursor: pointer; transition: all var(--t-fast); }
+.channel-btn:hover { border-color: var(--border-strong); color: var(--text-secondary); }
+.channel-btn.active { background: var(--acc-subtle); color: var(--acc-text); border-color: var(--acc-border); }
+
+/* Slider */
+.slider-container { display: flex; align-items: center; gap: 10px; }
+.slider { -webkit-appearance: none; width: 120px; height: 4px; border-radius: 2px; background: var(--bg-muted); outline: none; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--acc); cursor: pointer; border: 2px solid var(--bg-base); box-shadow: 0 0 0 1px var(--acc-border); }
+
+/* ═══════════════════════════════════════════════
+   NARRATIVE STORIES
+   ═══════════════════════════════════════════════ */
+.story-card { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.story-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background var(--t-fast); }
+.story-header:hover { background: var(--bg-subtle); }
+.story-agent-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.story-agent-name { font-size: 11px; font-weight: 600; color: var(--text-primary); }
+.story-campaign { font-size: 10px; color: var(--text-tertiary); }
+.story-body { padding: 16px; }
+.story-narrative { font-size: 13px; line-height: 22px; color: var(--text-secondary); }
+.story-narrative strong { color: var(--text-primary); font-weight: 500; }
+.story-narrative .highlight { color: var(--acc-text); font-weight: 500; }
+.story-narrative .metric-up { color: var(--green-text); font-family: 'DM Mono', monospace; font-weight: 500; }
+.story-narrative .metric-down { color: var(--red-text); font-family: 'DM Mono', monospace; font-weight: 500; }
+.story-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 14px; background: var(--border-subtle); border-radius: 8px; overflow: hidden; }
+.story-metric { padding: 10px 12px; background: var(--bg-subtle); }
+.story-metric-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); }
+.story-metric-value { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; margin-top: 2px; }
+.story-metric-sub { font-size: 10px; color: var(--text-tertiary); margin-top: 1px; font-family: 'DM Mono', monospace; }
+.story-footer { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-subtle); }
+
+/* Story chart (simple SVG line chart) */
+.story-chart { margin-top: 14px; width: 100%; height: 80px; border-radius: 8px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); overflow: hidden; position: relative; }
+.story-chart svg { width: 100%; height: 100%; }
+.story-chart .label { position: absolute; font-size: 9px; color: var(--text-tertiary); }
+
+/* Timeline within story */
+.story-timeline { margin-top: 14px; padding: 12px; background: var(--bg-subtle); border-radius: 8px; border: 1px solid var(--border-subtle); }
+.story-timeline-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 8px; }
+.story-tl-item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 11px; color: var(--text-secondary); }
+.story-tl-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════
+   COMPARATIVE INSIGHTS
+   ═══════════════════════════════════════════════ */
+.comparison-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.comparison-card { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow-card); cursor: pointer; transition: all var(--t-fast); }
+.comparison-card:hover { border-color: var(--border-strong); }
+.comparison-card.expanded { border-color: var(--acc-border); }
+.comparison-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+.comparison-values { display: flex; align-items: baseline; gap: 8px; }
+.comparison-current { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--text-primary); }
+.comparison-prev { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-tertiary); text-decoration: line-through; }
+.comparison-change { display: inline-flex; align-items: center; gap: 3px; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; margin-top: 6px; padding: 2px 6px; border-radius: 4px; }
+.comparison-change.better { color: var(--green-text); background: rgba(74,222,128,0.08); }
+.comparison-change.worse { color: var(--red-text); background: rgba(248,113,113,0.08); }
+.comparison-bar { margin-top: 10px; height: 6px; background: var(--bg-muted); border-radius: 3px; overflow: hidden; position: relative; }
+.comparison-bar-fill { height: 100%; border-radius: 3px; }
+.comparison-bar-marker { position: absolute; top: -2px; width: 2px; height: 10px; background: var(--text-tertiary); border-radius: 1px; }
+.comparison-context { font-size: 10px; color: var(--text-tertiary); margin-top: 6px; }
+
+/* Comparison drill-down */
+.comparison-drilldown { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.comparison-campaign { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 11px; }
+.comparison-campaign-name { color: var(--text-secondary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comparison-campaign-values { display: flex; align-items: center; gap: 12px; }
+.comparison-mini-bar { width: 50px; height: 3px; background: var(--bg-muted); border-radius: 2px; overflow: hidden; }
+.comparison-mini-bar-fill { height: 100%; border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════
+   CROSS-PLATFORM
+   ═══════════════════════════════════════════════ */
+.cross-platform { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.cross-platform-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+.platform-tabs { display: flex; gap: 2px; background: var(--bg-muted); border-radius: 6px; padding: 2px; }
+.platform-tab { font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 5px; cursor: pointer; transition: all var(--t-fast); background: none; border: none; color: var(--text-tertiary); }
+.platform-tab.active { background: var(--bg-base); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.cross-platform-body { padding: 16px; }
+.platform-comparison-row { display: grid; grid-template-columns: 100px 1fr 50px 1fr 100px; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background var(--t-fast); }
+.platform-comparison-row:hover { background: var(--bg-subtle); margin: 0 -8px; padding: 10px 8px; border-radius: 6px; }
+.platform-comparison-row:last-child { border-bottom: none; }
+.platform-metric-name { font-size: 11px; color: var(--text-tertiary); }
+.platform-bar-container { height: 8px; background: var(--bg-muted); border-radius: 4px; overflow: hidden; }
+.platform-bar-meta { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 4px; }
+.platform-bar-google { height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24); border-radius: 4px; }
+.platform-value { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
+.platform-value.meta { color: var(--blue-text); text-align: right; }
+.platform-value.google { color: var(--amber-text); }
+.cross-platform-insight { margin-top: 14px; padding: 12px 14px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 12px; color: var(--text-secondary); line-height: 20px; }
+
+/* Platform drilldown */
+.platform-drilldown { margin-top: 12px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+.platform-drilldown-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
+.platform-drilldown-row { display: grid; grid-template-columns: 1fr 80px 80px 80px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-size: 11px; }
+.platform-drilldown-row:last-child { border-bottom: none; }
+.platform-drilldown-row.hdr { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-disabled); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════
+   INSIGHT FOLLOW-UPS
+   ═══════════════════════════════════════════════ */
+.followup-item { display: flex; gap: 14px; padding: 14px 16px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; margin-bottom: 4px; box-shadow: var(--shadow-card); cursor: pointer; transition: all var(--t-fast); position: relative; }
+.followup-item:hover { background: var(--bg-subtle); }
+.followup-connector { position: absolute; left: 36px; bottom: -5px; width: 1px; height: 5px; background: var(--border-default); z-index: 1; }
+.followup-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.followup-icon.executed { background: rgba(167,139,250,0.15); color: var(--acc-text); }
+.followup-icon.result-good { background: rgba(74,222,128,0.15); color: var(--green-text); }
+.followup-icon.result-bad { background: rgba(248,113,113,0.15); color: var(--red-text); }
+.followup-content { flex: 1; }
+.followup-title { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.followup-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; line-height: 18px; }
+.followup-result { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+.followup-result.positive { background: rgba(74,222,128,0.08); color: var(--green-text); }
+.followup-result.negative { background: rgba(248,113,113,0.08); color: var(--red-text); }
+.followup-time { font-size: 10px; color: var(--text-disabled); flex-shrink: 0; }
+/* Followup expanded */
+.followup-expand { padding: 0 16px 14px 58px; }
+.followup-ba { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.followup-ba-card { padding: 10px 12px; border-radius: 8px; font-size: 11px; }
+.followup-ba-card.before { background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); }
+.followup-ba-card.after { background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.12); }
+.followup-ba-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 6px; font-weight: 600; }
+.followup-ba-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.followup-ba-row .k { color: var(--text-tertiary); }
+.followup-ba-row .v { font-family: 'DM Mono', monospace; font-weight: 500; }
+.followup-impact-chart { margin-top: 10px; height: 48px; display: flex; align-items: flex-end; gap: 3px; padding: 0 2px; }
+.followup-impact-bar { flex: 1; border-radius: 2px 2px 0 0; transition: height var(--t-base); }
+
+/* ═══════════════════════════════════════════════
+   AUTO-PILOT
+   ═══════════════════════════════════════════════ */
+.autopilot-card { background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.autopilot-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); }
+.autopilot-indicator { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.autopilot-indicator.on { background: var(--green-solid); animation: pulse-glow 2s infinite; }
+.autopilot-indicator.off { background: var(--text-disabled); }
+@keyframes pulse-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 50% { box-shadow: 0 0 0 4px rgba(34,197,94,0); } }
+.toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bg-muted); border: 1px solid var(--border-default); position: relative; cursor: pointer; transition: all var(--t-fast); flex-shrink: 0; }
+.toggle.on { background: var(--acc); border-color: var(--acc); }
+.toggle-knob { width: 14px; height: 14px; border-radius: 50%; background: white; position: absolute; top: 2px; left: 2px; transition: transform var(--t-fast); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.toggle.on .toggle-knob { transform: translateX(16px); }
+.toggle-sm { width: 28px; height: 16px; }
+.toggle-sm .toggle-knob { width: 10px; height: 10px; }
+.toggle-sm.on .toggle-knob { transform: translateX(12px); }
+
+.autopilot-rule { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); transition: background var(--t-fast); cursor: pointer; }
+.autopilot-rule:last-child { border-bottom: none; }
+.autopilot-rule:hover { background: var(--bg-subtle); }
+.autopilot-rule-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.autopilot-rule-content { flex: 1; min-width: 0; }
+.autopilot-rule-name { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.autopilot-rule-desc { font-size: 10px; color: var(--text-tertiary); margin-top: 1px; }
+.autopilot-rule-stats { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.autopilot-stat { text-align: right; }
+.autopilot-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-disabled); }
+.autopilot-stat-value { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+
+/* Autopilot rule expanded */
+.autopilot-rule-expand { padding: 0 16px 14px 56px; border-bottom: 1px solid var(--border-subtle); }
+.rule-config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.rule-config-label { font-size: 11px; color: var(--text-secondary); }
+.rule-config-value { display: flex; align-items: center; gap: 8px; }
+
+/* Activity log */
+.log-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 11px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+.log-item:last-child { border-bottom: none; }
+.log-time { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-disabled); width: 54px; flex-shrink: 0; }
+.log-tag { font-size: 9px; font-weight: 500; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+.log-tag.auto { background: rgba(74,222,128,0.10); color: var(--green-text); }
+.log-tag.alert { background: rgba(251,191,36,0.10); color: var(--amber-text); }
+.log-tag.skip { background: rgba(248,113,113,0.10); color: var(--red-text); }
+.log-tag.revert { background: rgba(167,139,250,0.10); color: var(--acc-text); }
+.log-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-filter-bar { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.log-filter { font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 4px; border: none; background: none; color: var(--text-tertiary); cursor: pointer; transition: all var(--t-fast); }
+.log-filter:hover { color: var(--text-secondary); }
+.log-filter.active { background: var(--bg-muted); color: var(--text-primary); }
+
+/* Notification bell */
+.notif-bell { position: relative; width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border-default); background: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--t-fast); }
+.notif-bell:hover { background: rgba(255,255,255,0.04); }
+.notif-bell .dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--red-solid); }
+
+/* Scanning animation */
+.scan-progress { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.15); border-radius: 8px; margin-bottom: 16px; }
+.scan-spinner { width: 16px; height: 16px; border: 2px solid rgba(96,165,250,0.2); border-top-color: var(--blue-text); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-bar { flex: 1; height: 4px; background: var(--bg-muted); border-radius: 2px; overflow: hidden; }
+.scan-bar-fill { height: 100%; background: var(--blue-solid); border-radius: 2px; transition: width 0.5s ease; }
+.scan-text { font-size: 11px; color: var(--blue-text); white-space: nowrap; }
+.scan-pct { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--blue-text); width: 32px; text-align: right; }
+
+/* Toast notification */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; box-shadow: var(--shadow-popup); padding: 12px 16px; display: flex; align-items: center; gap: 10px; z-index: 2000; animation: slide-up 300ms ease; max-width: 380px; }
+.toast.hidden { display: none; }
+@keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.toast-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
+.toast-icon.success { background: rgba(74,222,128,0.12); color: var(--green-text); }
+.toast-icon.error { background: rgba(248,113,113,0.12); color: var(--red-text); }
+.toast-text { font-size: 12px; color: var(--text-primary); }
+.toast-sub { font-size: 10px; color: var(--text-tertiary); margin-top: 1px; }
+
+/* Tabs */
+.tab-bar { display: flex; gap: 2px; background: var(--bg-muted); border-radius: 6px; padding: 2px; }
+.tab-btn { font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 5px; cursor: pointer; transition: all var(--t-fast); background: none; border: none; color: var(--text-tertiary); }
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { background: var(--bg-base); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-muted); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Input */
+.input { font-family: inherit; font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-subtle); color: var(--text-primary); outline: none; transition: border-color var(--t-fast); }
+.input:focus { border-color: var(--acc); }
+.input-sm { font-size: 11px; padding: 4px 8px; }
+
+/* Tooltip */
+[data-tooltip] { position: relative; }
+[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1a1a22; color: var(--text-primary); font-size: 10px; padding: 4px 10px; border-radius: 5px; white-space: nowrap; border: 1px solid var(--border-default); z-index: 20; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════════ PAGE HEADER ═══════════ -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Insights
+        <span class="badge badge-accent">V2</span>
+      </div>
+      <div class="page-desc">AI-powered optimization across all your ad accounts</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="notif-bell" onclick="toggleSection('alertDropdown')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="dot"></span>
+      </button>
+      <button class="btn btn-sm" onclick="showToast('Export started', 'Generating CSV for 345 proposals...')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="btn btn-accent btn-sm" id="scanBtn" onclick="startScan()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Run Full Scan
+      </button>
+    </div>
+  </div>
+
+  <!-- Scan progress bar (initially hidden) -->
+  <div id="scanProgress" class="scan-progress hidden">
+    <div class="scan-spinner"></div>
+    <div class="scan-text">Scanning 4 ad accounts...</div>
+    <div class="scan-bar"><div class="scan-bar-fill" id="scanBarFill" style="width: 0%"></div></div>
+    <div class="scan-pct" id="scanPct">0%</div>
+    <button class="btn btn-xs" onclick="document.getElementById('scanProgress').classList.add('hidden')">Dismiss</button>
+  </div>
+
+  <!-- ═══════════ F10: SAVED VIEWS ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p3">P3</span> Feature 10 — Saved Views & Custom Dashboards</div>
+    <div class="views-bar" id="viewsBar">
+      <button class="view-tab active" onclick="switchView(this)">
+        <span class="dot" style="background: var(--acc)"></span>
+        Morning Brief
+        <span class="close-x" onclick="event.stopPropagation(); removeView(this.parentElement);">&times;</span>
+      </button>
+      <button class="view-tab" onclick="switchView(this)">
+        <span class="dot" style="background: var(--green-solid)"></span>
+        Performance
+        <span class="close-x" onclick="event.stopPropagation(); removeView(this.parentElement);">&times;</span>
+      </button>
+      <button class="view-tab" onclick="switchView(this)">
+        <span class="dot" style="background: var(--amber-solid)"></span>
+        Budget Watch
+        <span class="close-x" onclick="event.stopPropagation(); removeView(this.parentElement);">&times;</span>
+      </button>
+      <button class="view-tab" onclick="switchView(this)">
+        <span class="dot" style="background: var(--blue-solid)"></span>
+        Client Report
+        <span class="close-x" onclick="event.stopPropagation(); removeView(this.parentElement);">&times;</span>
+      </button>
+      <button class="view-add" onclick="openModal('createViewModal')">+ New View</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ F3: SAVINGS TRACKER ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p1">P1</span> Feature 3 — Savings Tracker & ROI Proof</div>
+    <div class="savings-strip">
+      <div class="savings-card highlight" onclick="toggleSection('savingsBreakdown')">
+        <div class="savings-label">Total Saved (April) <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="savings-value green mono">$2,340</div>
+        <div class="savings-delta up">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          +18% vs March
+        </div>
+        <div class="savings-spark">
+          <div class="bar" style="height:40%" data-tip="W1: $180"></div>
+          <div class="bar" style="height:55%" data-tip="W2: $320"></div>
+          <div class="bar" style="height:35%" data-tip="W3: $210"></div>
+          <div class="bar" style="height:70%" data-tip="W4: $480"></div>
+          <div class="bar" style="height:60%" data-tip="W5: $390"></div>
+          <div class="bar" style="height:80%" data-tip="W6: $520"></div>
+          <div class="bar" style="height:65%" data-tip="W7: $410"></div>
+          <div class="bar" style="height:90%" data-tip="W8: $580"></div>
+          <div class="bar" style="height:75%" data-tip="W9: $490"></div>
+          <div class="bar current" style="height:95%" data-tip="W10: $620"></div>
+        </div>
+      </div>
+      <div class="savings-card" data-tooltip="Click for agent breakdown" onclick="toggleSection('savingsBreakdown')">
+        <div class="savings-label">Proposals Executed</div>
+        <div class="savings-value mono">12</div>
+        <div class="savings-delta up">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          +3 this week
+        </div>
+      </div>
+      <div class="savings-card">
+        <div class="savings-label">Success Rate</div>
+        <div class="savings-value accent mono">89%</div>
+        <div class="savings-delta up">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          +4% vs last month
+        </div>
+      </div>
+      <div class="savings-card">
+        <div class="savings-label">Pending Review</div>
+        <div class="savings-value mono" style="color: var(--amber-text)">7</div>
+        <div class="savings-delta" style="color: var(--text-tertiary)">3 high priority</div>
+      </div>
+      <div class="savings-card">
+        <div class="savings-label">Agent Trust Score</div>
+        <div class="savings-value mono" style="color: var(--cyan-text)">4.2<span style="font-size:12px;color:var(--text-tertiary)">/5</span></div>
+        <div class="savings-delta up">Based on 89% success + user feedback</div>
+      </div>
+    </div>
+    <!-- Savings breakdown table (toggled) -->
+    <div id="savingsBreakdown" class="savings-breakdown hidden" style="margin-top:12px;">
+      <div class="savings-breakdown-header">
+        <span style="font-size:12px;font-weight:600;">Savings Breakdown by Agent</span>
+        <div class="tab-bar">
+          <button class="tab-btn active">By Agent</button>
+          <button class="tab-btn">By Campaign</button>
+          <button class="tab-btn">By Week</button>
+        </div>
+      </div>
+      <div class="savings-breakdown-row header">
+        <div>Agent</div><div style="text-align:right">Proposals</div><div style="text-align:right">Executed</div><div style="text-align:right">Saved</div><div style="text-align:right">Success</div>
+      </div>
+      <div class="savings-breakdown-row">
+        <div class="flex items-center gap-2"><span style="color:var(--red-text)">$</span> Budget Sentinel</div>
+        <div style="text-align:right" class="mono">18</div><div style="text-align:right" class="mono">14</div><div style="text-align:right;color:var(--green-text)" class="mono">$1,240</div><div style="text-align:right;color:var(--green-text)" class="mono">100%</div>
+      </div>
+      <div class="savings-breakdown-row">
+        <div class="flex items-center gap-2"><span style="color:var(--blue-text)">&#9881;</span> Bid Optimizer</div>
+        <div style="text-align:right" class="mono">12</div><div style="text-align:right" class="mono">9</div><div style="text-align:right;color:var(--green-text)" class="mono">$680</div><div style="text-align:right;color:var(--green-text)" class="mono">89%</div>
+      </div>
+      <div class="savings-breakdown-row">
+        <div class="flex items-center gap-2"><span style="color:var(--amber-text)">&#9679;</span> Lead Quality</div>
+        <div style="text-align:right" class="mono">8</div><div style="text-align:right" class="mono">5</div><div style="text-align:right;color:var(--green-text)" class="mono">$280</div><div style="text-align:right;color:var(--amber-text)" class="mono">80%</div>
+      </div>
+      <div class="savings-breakdown-row">
+        <div class="flex items-center gap-2"><span style="color:var(--acc-text)">&#9733;</span> Audience Architect</div>
+        <div style="text-align:right" class="mono">5</div><div style="text-align:right" class="mono">3</div><div style="text-align:right;color:var(--green-text)" class="mono">$140</div><div style="text-align:right;color:var(--amber-text)" class="mono">67%</div>
+      </div>
+      <div class="savings-breakdown-row" style="background:var(--bg-subtle);font-weight:600;">
+        <div>Total</div><div style="text-align:right" class="mono">43</div><div style="text-align:right" class="mono">31</div><div style="text-align:right;color:var(--green-text)" class="mono">$2,340</div><div style="text-align:right;color:var(--green-text)" class="mono">89%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ F1: DAILY BRIEF ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p0">P0</span> Feature 1 — Daily Brief / Morning Summary</div>
+    <div class="brief-card">
+      <div class="brief-header">
+        <div>
+          <div class="brief-greeting">Good morning. <span>Here's what changed overnight.</span></div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">5 items need attention &middot; 2 critical</div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="brief-date">Monday, April 14 2026 &middot; Last scan 6h ago</div>
+          <div class="tab-bar">
+            <button class="tab-btn active">All</button>
+            <button class="tab-btn">Critical</button>
+            <button class="tab-btn">Positive</button>
+          </div>
+        </div>
+      </div>
+      <div class="brief-items">
+        <!-- Brief item 1 — expandable -->
+        <div class="brief-item" id="brief1" onclick="toggleBriefExpand('brief1')">
+          <div class="brief-icon red">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="brief-text">
+              <strong>Budget Sentinel</strong> flagged <span class="val-red">2 campaigns</span> overspending by <span class="val-red">23%</span> — <strong>Spring Sale</strong> and <strong>Retargeting Q2</strong> are burning through daily budget by 2pm.
+            </div>
+            <div class="brief-meta">Detected 4h ago &middot; Est. savings: $180/day &middot; <span style="color:var(--red-text)">High priority</span></div>
+            <div class="brief-expand hidden" id="brief1-expand">
+              <div style="margin-bottom:8px"><strong>Spring Sale:</strong> Daily budget $150, exhausted by 2:15pm. CPM spiked to $18.20 (was $12.40). Auction competition from seasonal advertisers.</div>
+              <div style="margin-bottom:8px"><strong>Retargeting Q2:</strong> Daily budget $120, exhausted by 3:00pm. Frequency at 4.2x driving up costs.</div>
+              <div class="rec">
+                <strong>Recommendation:</strong> Reduce daily budget by 20% on Spring Sale. Switch Retargeting Q2 to accelerated delivery with frequency cap of 3x.
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); openModal('execModal')">Review Proposals</button>
+                <button class="btn btn-sm" onclick="event.stopPropagation(); dismissBrief('brief1')">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <div class="brief-item-actions">
+            <button class="brief-item-btn" data-tooltip="Expand" onclick="event.stopPropagation(); toggleBriefExpand('brief1')">&#x25BC;</button>
+            <button class="brief-item-btn" data-tooltip="Dismiss" onclick="event.stopPropagation(); dismissBrief('brief1')">&#x2715;</button>
+          </div>
+        </div>
+        <!-- Brief item 2 -->
+        <div class="brief-item" id="brief2" onclick="toggleBriefExpand('brief2')">
+          <div class="brief-icon amber">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="brief-text">
+              <strong>Lead quality</strong> dropped <span class="val-red">-12%</span> on <strong>Campaign: Demo Requests</strong> since Thursday. Junk leads up from <span class="val-amber">8%</span> to <span class="val-red">19%</span>.
+            </div>
+            <div class="brief-meta">Trend detected over 4 days &middot; Affects $2,100/week spend</div>
+            <div class="brief-expand hidden" id="brief2-expand">
+              <div style="margin-bottom:8px"><strong>Root cause analysis:</strong> Ad Set "Broad Interest — 25-45" is the primary contributor. 68% of junk leads come from this single ad set. The audience appears too broad for demo-request intent.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0;">
+                <div style="padding:8px;background:var(--bg-subtle);border-radius:6px;font-size:11px;">
+                  <div style="font-size:9px;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.5px;">Quality Now</div>
+                  <div class="mono" style="font-size:14px;color:var(--red-text);margin-top:2px;">64%</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-subtle);border-radius:6px;font-size:11px;">
+                  <div style="font-size:9px;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.5px;">Quality Before</div>
+                  <div class="mono" style="font-size:14px;color:var(--green-text);margin-top:2px;">76%</div>
+                </div>
+                <div style="padding:8px;background:var(--bg-subtle);border-radius:6px;font-size:11px;">
+                  <div style="font-size:9px;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.5px;">Wasted Spend</div>
+                  <div class="mono" style="font-size:14px;color:var(--red-text);margin-top:2px;">$300/wk</div>
+                </div>
+              </div>
+              <div class="rec">
+                <strong>Recommendation:</strong> Pause "Broad Interest — 25-45" ad set. Redirect budget to "Lookalike — Demo Completers" which has 82% quality score.
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="btn btn-accent btn-sm" onclick="event.stopPropagation();">Pause Ad Set</button>
+                <button class="btn btn-sm" onclick="event.stopPropagation();">View Lead Quality</button>
+              </div>
+            </div>
+          </div>
+          <div class="brief-item-actions">
+            <button class="brief-item-btn" onclick="event.stopPropagation(); toggleBriefExpand('brief2')">&#x25BC;</button>
+            <button class="brief-item-btn" onclick="event.stopPropagation(); dismissBrief('brief2')">&#x2715;</button>
+          </div>
+        </div>
+        <!-- Brief item 3 -->
+        <div class="brief-item" id="brief3" onclick="toggleBriefExpand('brief3')">
+          <div class="brief-icon green">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="brief-text">
+              Last week's proposals saved <span class="val-green">$420</span> total. <strong>Bid Optimizer</strong> reduced CPA by <span class="val-green">15%</span> on <strong>Brand Awareness</strong> — consistently outperforming.
+            </div>
+            <div class="brief-meta">Weekly summary &middot; 5 proposals executed successfully</div>
+            <div class="brief-expand hidden" id="brief3-expand">
+              <div style="font-size:11px;margin-bottom:8px;color:var(--text-secondary);">Breakdown of savings:</div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 8px;background:var(--bg-subtle);border-radius:4px;">
+                  <span>Bid cap reduction on Brand Awareness</span><span class="mono" style="color:var(--green-text)">$230</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 8px;background:var(--bg-subtle);border-radius:4px;">
+                  <span>Budget reallocation from Spring Sale</span><span class="mono" style="color:var(--green-text)">$110</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 8px;background:var(--bg-subtle);border-radius:4px;">
+                  <span>Paused underperforming ad set</span><span class="mono" style="color:var(--green-text)">$80</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="brief-item-actions">
+            <button class="brief-item-btn" onclick="event.stopPropagation(); toggleBriefExpand('brief3')">&#x25BC;</button>
+            <button class="brief-item-btn" onclick="event.stopPropagation(); dismissBrief('brief3')">&#x2715;</button>
+          </div>
+        </div>
+        <!-- Brief item 4 -->
+        <div class="brief-item" id="brief4" onclick="toggleBriefExpand('brief4')">
+          <div class="brief-icon blue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="brief-text">
+              <strong>Creative Fatigue</strong> detected on <span class="val">3 ad sets</span> — frequency above <span class="val-amber">4.2x</span> with CTR declining. Fresh creatives recommended.
+            </div>
+            <div class="brief-meta">Affects 40% of total spend &middot; Medium priority</div>
+            <div class="brief-expand hidden" id="brief4-expand">
+              <div style="font-size:11px;margin-bottom:6px;color:var(--text-secondary)">Affected ad sets and their frequency / CTR trend:</div>
+              <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="padding:6px 0;color:var(--text-tertiary);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">Ad Set</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--text-tertiary);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">Freq</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--text-tertiary);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">CTR Now</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--text-tertiary);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">CTR 7d ago</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--text-tertiary);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;">Change</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="padding:6px 0;">Retargeting — Visitors</td>
+                  <td style="padding:6px 0;text-align:right" class="mono" style="color:var(--amber-text)">4.8x</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">1.2%</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">1.9%</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--red-text)" class="mono">-37%</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="padding:6px 0;">Retargeting — Engaged</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">4.2x</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">1.6%</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">2.1%</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--red-text)" class="mono">-24%</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;">Lookalike — Converters</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">3.9x</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">1.8%</td>
+                  <td style="padding:6px 0;text-align:right" class="mono">2.3%</td>
+                  <td style="padding:6px 0;text-align:right;color:var(--red-text)" class="mono">-22%</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          <div class="brief-item-actions">
+            <button class="brief-item-btn" onclick="event.stopPropagation(); toggleBriefExpand('brief4')">&#x25BC;</button>
+            <button class="brief-item-btn" onclick="event.stopPropagation(); dismissBrief('brief4')">&#x2715;</button>
+          </div>
+        </div>
+        <!-- Brief item 5 -->
+        <div class="brief-item" id="brief5" onclick="toggleBriefExpand('brief5')">
+          <div class="brief-icon accent">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="brief-text">
+              <strong>Performance Prophet</strong>: Next week's projected spend is <span class="val">$8,200</span> with expected ROAS of <span class="val-green">3.2x</span> — up from 2.8x if current trends hold.
+            </div>
+            <div class="brief-meta">7-day forecast &middot; 82% confidence</div>
+            <div class="brief-expand hidden" id="brief5-expand">
+              <div style="font-size:11px;margin-bottom:8px;color:var(--text-secondary)">Forecast breakdown by platform:</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="padding:10px;background:var(--bg-subtle);border-radius:6px;">
+                  <div style="font-size:10px;font-weight:600;color:var(--blue-text);margin-bottom:6px;">Meta Ads</div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">Spend</span><span class="mono">$5,600</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">ROAS</span><span class="mono" style="color:var(--green-text)">3.4x</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">Leads</span><span class="mono">~240</span></div>
+                </div>
+                <div style="padding:10px;background:var(--bg-subtle);border-radius:6px;">
+                  <div style="font-size:10px;font-weight:600;color:var(--amber-text);margin-bottom:6px;">Google Ads</div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">Spend</span><span class="mono">$2,600</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">ROAS</span><span class="mono" style="color:var(--green-text)">2.8x</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--text-tertiary)">Leads</span><span class="mono">~105</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="brief-item-actions">
+            <button class="brief-item-btn" onclick="event.stopPropagation(); toggleBriefExpand('brief5')">&#x25BC;</button>
+            <button class="brief-item-btn" onclick="event.stopPropagation(); dismissBrief('brief5')">&#x2715;</button>
+          </div>
+        </div>
+      </div>
+      <div class="brief-actions">
+        <button class="btn btn-accent btn-sm" onclick="openModal('execModal')">Review All 7 Proposals</button>
+        <button class="btn btn-sm">Dismiss Brief</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-disabled)">Auto-refreshes every 6 hours &middot; <a href="#" style="color:var(--acc-text);text-decoration:none;">Configure</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ F2: DO THESE NOW ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p0">P0</span> Feature 2 — Priority Ranking / "Do These Now"</div>
+    <div class="section-header">
+      <div>
+        <div class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Do These Now
+          <span class="num">3 urgent</span>
+        </div>
+        <div class="section-subtitle">Ranked by urgency = savings &times; time-sensitivity &times; confidence &times; agent trust</div>
+      </div>
+      <button class="btn btn-xs" onclick="toggleSection('urgencyExplainer')">How scoring works</button>
+    </div>
+    <!-- Urgency explainer (toggled) -->
+    <div id="urgencyExplainer" class="hidden" style="margin-bottom:12px;padding:12px 14px;background:var(--bg-base);border:1px solid var(--border-default);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:20px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Urgency Score Formula</div>
+      <div style="font-family:'DM Mono',monospace;color:var(--acc-text);padding:8px;background:var(--bg-subtle);border-radius:6px;margin-bottom:8px;">
+        urgency = (savings_magnitude &times; 0.35) + (time_sensitivity &times; 0.30) + (confidence &times; 0.20) + (agent_trust &times; 0.15)
+      </div>
+      <div><strong>Savings magnitude:</strong> Normalized estimated weekly savings (0-100 scale)</div>
+      <div><strong>Time sensitivity:</strong> How quickly value decays — budget bleeding = 100, creative fatigue = 50</div>
+      <div><strong>Confidence:</strong> AI agent's confidence in the diagnosis and recommendation</div>
+      <div><strong>Agent trust:</strong> Historical success rate of this specific agent</div>
+    </div>
+
+    <div class="priority-list">
+      <!-- Priority #1 -->
+      <div class="priority-item urgency-critical" id="priority1" onclick="togglePriorityExpand('priority1')">
+        <div class="priority-row">
+          <div class="priority-rank mono">#1</div>
+          <div class="priority-agent-icon" style="background:rgba(248,113,113,0.12);color:var(--red-text)">$</div>
+          <div class="priority-content">
+            <div class="priority-title">Reduce daily budget on "Spring Sale" by 20%</div>
+            <div class="priority-detail">
+              <span class="badge badge-red" style="font-size:9px;padding:1px 5px;">Budget Sentinel</span>
+              <span>Campaign overspending $90/day</span>
+              <span>&middot;</span>
+              <span>Burning out by 2pm daily</span>
+            </div>
+          </div>
+          <div class="priority-metrics">
+            <div class="priority-metric"><div class="priority-metric-label">Save</div><div class="priority-metric-value" style="color:var(--green-text)">$630/wk</div></div>
+            <div class="priority-metric"><div class="priority-metric-label">Confidence</div><div class="priority-metric-value mono" style="color:var(--acc-text)">94%</div></div>
+            <div><div class="priority-metric-label">Urgency</div><div class="urgency-bar"><div class="urgency-bar-fill" style="width:95%;background:var(--red-solid);"></div></div></div>
+          </div>
+          <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); openModal('execModal')">Execute</button>
+        </div>
+        <div class="priority-expand hidden" id="priority1-expand">
+          <div class="priority-expand-inner">
+            <div class="pex-urgency-breakdown">
+              <span>Savings: <span class="val">35/35</span></span>
+              <span>Time-sens: <span class="val">29/30</span></span>
+              <span>Confidence: <span class="val">19/20</span></span>
+              <span>Trust: <span class="val">15/15</span></span>
+              <span>&rarr; <strong style="color:var(--red-text)">Score: 98</strong></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;">
+              <div>
+                <div class="pex-section">
+                  <div class="pex-section-title" style="color:var(--blue-text)"><span class="icon" style="background:rgba(96,165,250,0.12)">?</span> What's happening</div>
+                  <div class="pex-text">Campaign "Spring Sale" has consistently exhausted its $150 daily budget before 2:15pm for the past 5 days. This means ads stop showing during the 2pm-10pm window — typically the highest-converting hours for e-commerce.</div>
+                </div>
+                <div class="pex-section">
+                  <div class="pex-section-title" style="color:var(--amber-text)"><span class="icon" style="background:rgba(251,191,36,0.12)">!</span> Why</div>
+                  <div class="pex-text">CPM increased 47% (from $12.40 to $18.20) due to seasonal auction competition. More advertisers are bidding for the same audiences. Your bid strategy hasn't adjusted for the increased competition.</div>
+                </div>
+              </div>
+              <div>
+                <div class="pex-section">
+                  <div class="pex-section-title" style="color:var(--green-text)"><span class="icon" style="background:rgba(74,222,128,0.12)">&#10003;</span> What to do</div>
+                  <div class="pex-text">Reduce daily budget from $150 to $120 and switch bid strategy from "Lowest Cost" to "Cost Cap" at $22 CPA target. This preserves delivery across the full day while limiting overspend during expensive morning hours.</div>
+                </div>
+                <div class="pex-section">
+                  <div class="pex-section-title" style="color:var(--acc-text)"><span class="icon" style="background:rgba(167,139,250,0.12)">&#9733;</span> Expected outcome</div>
+                  <div class="pex-text">Daily spend will reduce by ~$30 while maintaining or improving lead volume. Full-day delivery should capture 15-20% more evening conversions. Estimated 7-day impact: +$630 saved, +12% more leads.</div>
+                </div>
+              </div>
+            </div>
+            <div class="pex-metrics">
+              <div class="pex-metric">
+                <div class="pex-metric-label">Current Daily Budget</div>
+                <div class="pex-metric-value" style="color:var(--text-primary)">$150</div>
+                <div class="pex-metric-delta" style="color:var(--text-tertiary)">&rarr; $120 proposed</div>
+              </div>
+              <div class="pex-metric">
+                <div class="pex-metric-label">Current CPM</div>
+                <div class="pex-metric-value" style="color:var(--red-text)">$18.20</div>
+                <div class="pex-metric-delta" style="color:var(--text-tertiary)">Was $12.40</div>
+              </div>
+              <div class="pex-metric">
+                <div class="pex-metric-label">Budget Exhaustion</div>
+                <div class="pex-metric-value" style="color:var(--amber-text)">2:15 PM</div>
+                <div class="pex-metric-delta" style="color:var(--green-text)">&rarr; All-day delivery</div>
+              </div>
+              <div class="pex-metric">
+                <div class="pex-metric-label">Est. Weekly Savings</div>
+                <div class="pex-metric-value" style="color:var(--green-text)">$630</div>
+                <div class="pex-metric-delta" style="color:var(--green-text)">+12% more leads</div>
+              </div>
+            </div>
+            <div class="pex-confidence">
+              <span style="font-size:10px;color:var(--text-tertiary)">Confidence</span>
+              <div class="pex-confidence-bar"><div class="pex-confidence-fill" style="width:94%"></div></div>
+              <span class="mono" style="font-size:11px;color:var(--acc-text)">94%</span>
+              <span class="badge badge-red" style="font-size:9px;">High Risk</span>
+            </div>
+            <div class="pex-actions">
+              <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); openModal('execModal')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Approve &amp; Execute
+              </button>
+              <button class="btn btn-red btn-sm" onclick="event.stopPropagation(); showToast('Rejected', 'Proposal moved to rejected.')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Reject
+              </button>
+              <button class="btn btn-sm" onclick="event.stopPropagation();">Snooze 24h</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Priority #2 -->
+      <div class="priority-item urgency-high" id="priority2" onclick="togglePriorityExpand('priority2')">
+        <div class="priority-row">
+          <div class="priority-rank mono">#2</div>
+          <div class="priority-agent-icon" style="background:rgba(251,191,36,0.12);color:var(--amber-text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div class="priority-content">
+            <div class="priority-title">Pause low-quality ad set "Broad Interest — 25-45"</div>
+            <div class="priority-detail">
+              <span class="badge badge-amber" style="font-size:9px;padding:1px 5px;">Lead Quality</span>
+              <span>19% junk rate, up from 8%</span>
+              <span>&middot;</span>
+              <span>Wasting $300/wk</span>
+            </div>
+          </div>
+          <div class="priority-metrics">
+            <div class="priority-metric"><div class="priority-metric-label">Save</div><div class="priority-metric-value" style="color:var(--green-text)">$300/wk</div></div>
+            <div class="priority-metric"><div class="priority-metric-label">Confidence</div><div class="priority-metric-value mono" style="color:var(--acc-text)">88%</div></div>
+            <div><div class="priority-metric-label">Urgency</div><div class="urgency-bar"><div class="urgency-bar-fill" style="width:78%;background:var(--amber-solid);"></div></div></div>
+          </div>
+          <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); openModal('execModal')">Execute</button>
+        </div>
+        <div class="priority-expand hidden" id="priority2-expand">
+          <div class="priority-expand-inner">
+            <div class="pex-urgency-breakdown">
+              <span>Savings: <span class="val">24/35</span></span>
+              <span>Time-sens: <span class="val">22/30</span></span>
+              <span>Confidence: <span class="val">18/20</span></span>
+              <span>Trust: <span class="val">12/15</span></span>
+              <span>&rarr; <strong style="color:var(--amber-text)">Score: 76</strong></span>
+            </div>
+            <div style="margin-top:14px;">
+              <div class="pex-section">
+                <div class="pex-section-title" style="color:var(--blue-text)"><span class="icon" style="background:rgba(96,165,250,0.12)">?</span> What's happening</div>
+                <div class="pex-text">Ad set "Broad Interest — 25-45" in Campaign "Demo Requests" has seen junk leads increase from 8% to 19% over the past 4 days. Of the 47 leads generated, 9 were marked as junk in your CRM. The CPQL (cost per quality lead) for this ad set is $42 vs the campaign average of $18.</div>
+              </div>
+            </div>
+            <div class="pex-metrics">
+              <div class="pex-metric"><div class="pex-metric-label">Junk Rate</div><div class="pex-metric-value" style="color:var(--red-text)">19%</div><div class="pex-metric-delta" style="color:var(--text-tertiary)">Was 8%</div></div>
+              <div class="pex-metric"><div class="pex-metric-label">CPQL</div><div class="pex-metric-value" style="color:var(--red-text)">$42.00</div><div class="pex-metric-delta" style="color:var(--text-tertiary)">Avg: $18</div></div>
+              <div class="pex-metric"><div class="pex-metric-label">Leads (7d)</div><div class="pex-metric-value">47</div><div class="pex-metric-delta" style="color:var(--red-text)">9 junk</div></div>
+              <div class="pex-metric"><div class="pex-metric-label">Weekly Spend</div><div class="pex-metric-value">$300</div><div class="pex-metric-delta" style="color:var(--red-text)">Low ROI</div></div>
+            </div>
+            <div class="pex-actions">
+              <button class="btn btn-accent btn-sm" onclick="event.stopPropagation(); simulateExecution('priority2')">Approve &amp; Execute</button>
+              <button class="btn btn-red btn-sm" onclick="event.stopPropagation();">Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Priority #3 -->
+      <div class="priority-item urgency-medium" id="priority3" onclick="togglePriorityExpand('priority3')">
+        <div class="priority-row">
+          <div class="priority-rank mono">#3</div>
+          <div class="priority-agent-icon" style="background:rgba(96,165,250,0.12);color:var(--blue-text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div class="priority-content">
+            <div class="priority-title">Refresh creatives on "Retargeting Q2" — frequency at 4.2x</div>
+            <div class="priority-detail">
+              <span class="badge badge-blue" style="font-size:9px;padding:1px 5px;">Creative Fatigue</span>
+              <span>CTR down 22% in 7 days</span>
+              <span>&middot;</span>
+              <span>3 ad sets affected</span>
+            </div>
+          </div>
+          <div class="priority-metrics">
+            <div class="priority-metric"><div class="priority-metric-label">Impact</div><div class="priority-metric-value" style="color:var(--amber-text)">High</div></div>
+            <div class="priority-metric"><div class="priority-metric-label">Confidence</div><div class="priority-metric-value mono" style="color:var(--acc-text)">91%</div></div>
+            <div><div class="priority-metric-label">Urgency</div><div class="urgency-bar"><div class="urgency-bar-fill" style="width:62%;background:var(--blue-solid);"></div></div></div>
+          </div>
+          <button class="btn btn-sm" onclick="event.stopPropagation();">Review</button>
+        </div>
+        <div class="priority-expand hidden" id="priority3-expand">
+          <div class="priority-expand-inner">
+            <div class="pex-section">
+              <div class="pex-section-title" style="color:var(--blue-text)"><span class="icon" style="background:rgba(96,165,250,0.12)">?</span> What's happening</div>
+              <div class="pex-text">Three ad sets in "Retargeting Q2" have average frequency above 4.2x (threshold: 3.5x). CTR has declined from 2.1% to 1.64% over 7 days. Top creative "Demo in 30 seconds" still holds at 2.8% CTR, but the other two variants are dragging performance down.</div>
+            </div>
+            <div style="padding:10px;background:var(--bg-subtle);border-radius:8px;border:1px solid var(--border-subtle);margin-top:10px;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Creative Performance</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-subtle);font-size:11px;">
+                <span style="width:12px;height:12px;border-radius:3px;background:var(--green-solid);flex-shrink:0;"></span>
+                <span style="flex:1">"Demo in 30 seconds"</span>
+                <span class="mono" style="color:var(--green-text)">2.8% CTR</span>
+                <span class="badge badge-green" style="font-size:9px;">Keep</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-subtle);font-size:11px;">
+                <span style="width:12px;height:12px;border-radius:3px;background:var(--red-solid);flex-shrink:0;"></span>
+                <span style="flex:1">"Try It Free — V2"</span>
+                <span class="mono" style="color:var(--red-text)">0.9% CTR</span>
+                <span class="badge badge-red" style="font-size:9px;">Replace</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font-size:11px;">
+                <span style="width:12px;height:12px;border-radius:3px;background:var(--red-solid);flex-shrink:0;"></span>
+                <span style="flex:1">"Trusted by 500+ agencies"</span>
+                <span class="mono" style="color:var(--red-text)">1.1% CTR</span>
+                <span class="badge badge-red" style="font-size:9px;">Replace</span>
+              </div>
+            </div>
+            <div class="pex-actions">
+              <button class="btn btn-sm" onclick="event.stopPropagation();">Upload New Creatives</button>
+              <button class="btn btn-sm" onclick="event.stopPropagation();">Snooze 7 days</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════ F5: INSIGHT STORIES ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p2">P2</span> Feature 5 — Insight Stories (Narrative Mode)</div>
+    <div class="section-header">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Insight Stories <span class="num">Deep analysis</span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <!-- Story 1 -->
+      <div class="story-card">
+        <div class="story-header" onclick="toggleSection('story1body')">
+          <div class="story-agent-icon" style="background:rgba(248,113,113,0.12);color:var(--red-text);">$</div>
+          <div style="flex:1"><div class="story-agent-name">Budget Sentinel</div><div class="story-campaign">Campaign: Spring Sale 2026</div></div>
+          <span class="badge badge-red">High Risk</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="story1body">
+          <div class="story-body">
+            <div class="story-narrative">
+              <strong>Spring Sale</strong> spent <span class="metric-down">34% more</span> than planned this week but generated <span class="metric-down">8% fewer leads</span>. The issue started <strong>Tuesday</strong> when CPM spiked from <span class="highlight">$12.40</span> to <span class="metric-down">$18.20</span> — likely due to increased auction competition from seasonal advertisers.
+              <br><br>
+              Budget Sentinel recommends <strong>reducing daily budget by 20%</strong> and shifting <span class="highlight">$45/day</span> to <strong>Retargeting Q2</strong>, which currently delivers <span class="metric-up">3.1x ROAS</span> at only 60% budget utilization.
+            </div>
+            <!-- Inline chart -->
+            <div class="story-chart">
+              <svg viewBox="0 0 400 80" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cpm-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f87171" stop-opacity="0.15"/><stop offset="100%" stop-color="#f87171" stop-opacity="0"/></linearGradient>
+                </defs>
+                <path d="M0,60 L57,58 L114,55 L171,52 L228,20 L285,15 L342,18 L400,12" fill="url(#cpm-fill)" stroke="none"/>
+                <path d="M0,60 L57,58 L114,55 L171,52 L228,20 L285,15 L342,18 L400,12" fill="none" stroke="#f87171" stroke-width="2"/>
+                <line x1="171" y1="0" x2="171" y2="80" stroke="var(--border-default)" stroke-width="1" stroke-dasharray="3,3"/>
+                <circle cx="171" cy="52" r="3" fill="#f87171"/>
+                <circle cx="228" cy="20" r="3" fill="#f87171"/>
+              </svg>
+              <span class="label" style="left:8px;top:4px;">CPM over 14 days</span>
+              <span class="label" style="left:165px;top:4px;color:var(--red-text)">Tue &uarr;</span>
+            </div>
+            <div class="story-metrics">
+              <div class="story-metric"><div class="story-metric-label">Weekly Spend</div><div class="story-metric-value" style="color:var(--red-text)">$1,840</div><div class="story-metric-sub" style="color:var(--text-tertiary)">Target: $1,370</div></div>
+              <div class="story-metric"><div class="story-metric-label">CPM Change</div><div class="story-metric-value" style="color:var(--red-text)">+47%</div><div class="story-metric-sub">$12.40 &rarr; $18.20</div></div>
+              <div class="story-metric"><div class="story-metric-label">Lead Volume</div><div class="story-metric-value" style="color:var(--red-text)">-8%</div><div class="story-metric-sub">62 &rarr; 57</div></div>
+              <div class="story-metric"><div class="story-metric-label">Est. Savings</div><div class="story-metric-value" style="color:var(--green-text)">$315/wk</div><div class="story-metric-sub">If executed</div></div>
+            </div>
+            <!-- Timeline of events -->
+            <div class="story-timeline">
+              <div class="story-timeline-title">Timeline</div>
+              <div class="story-tl-item"><div class="story-tl-dot" style="background:var(--text-tertiary)"></div><span class="mono" style="font-size:10px;color:var(--text-disabled);width:60px;flex-shrink:0">Apr 7</span> CPM stable at $12.40, normal delivery</div>
+              <div class="story-tl-item"><div class="story-tl-dot" style="background:var(--amber-solid)"></div><span class="mono" style="font-size:10px;color:var(--text-disabled);width:60px;flex-shrink:0">Apr 8</span> CPM jumps to $15.80, budget exhausted by 4pm</div>
+              <div class="story-tl-item"><div class="story-tl-dot" style="background:var(--red-solid)"></div><span class="mono" style="font-size:10px;color:var(--text-disabled);width:60px;flex-shrink:0">Apr 9</span> CPM hits $18.20, budget exhausted by 2:15pm</div>
+              <div class="story-tl-item"><div class="story-tl-dot" style="background:var(--red-solid)"></div><span class="mono" style="font-size:10px;color:var(--text-disabled);width:60px;flex-shrink:0">Apr 10-13</span> Pattern continues — losing 6+ hours delivery daily</div>
+              <div class="story-tl-item"><div class="story-tl-dot" style="background:var(--acc)"></div><span class="mono" style="font-size:10px;color:var(--text-disabled);width:60px;flex-shrink:0">Apr 14</span> Budget Sentinel generates this proposal</div>
+            </div>
+          </div>
+          <div class="story-footer">
+            <button class="btn btn-accent btn-sm" onclick="openModal('execModal')">Execute Recommendation</button>
+            <button class="btn btn-sm">Share as Report</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Story 2 -->
+      <div class="story-card">
+        <div class="story-header" onclick="toggleSection('story2body')">
+          <div class="story-agent-icon" style="background:rgba(96,165,250,0.12);color:var(--blue-text);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div style="flex:1"><div class="story-agent-name">Creative Fatigue</div><div class="story-campaign">3 Ad Sets across Retargeting Q2</div></div>
+          <span class="badge badge-amber">Medium Risk</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="story2body">
+          <div class="story-body">
+            <div class="story-narrative">
+              Three ad sets in <strong>Retargeting Q2</strong> are showing clear fatigue signals. Average frequency hit <span class="metric-down">4.2x</span> (above the 3.5x threshold) and CTR has declined <span class="metric-down">22%</span> over 7 days — from <span class="highlight">2.1%</span> down to <span class="metric-down">1.64%</span>.
+              <br><br>
+              The top-performing creative (<strong>"Demo in 30 seconds"</strong>) still holds at <span class="metric-up">2.8% CTR</span>, but the other two variants are dragging the set down. Recommend <strong>replacing the two fatigued variants</strong> and keeping the winner active.
+            </div>
+            <div class="story-chart">
+              <svg viewBox="0 0 400 80" preserveAspectRatio="none">
+                <defs><linearGradient id="ctr-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0.15"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/></linearGradient></defs>
+                <path d="M0,15 L57,18 L114,20 L171,25 L228,35 L285,45 L342,52 L400,55" fill="url(#ctr-fill)" stroke="none"/>
+                <path d="M0,15 L57,18 L114,20 L171,25 L228,35 L285,45 L342,52 L400,55" fill="none" stroke="#60a5fa" stroke-width="2"/>
+                <line x1="0" y1="25" x2="400" y2="25" stroke="var(--amber-solid)" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+              </svg>
+              <span class="label" style="left:8px;top:4px;">CTR declining (7 days)</span>
+              <span class="label" style="right:8px;top:20px;color:var(--amber-text);font-size:8px;">3.5x freq threshold</span>
+            </div>
+            <div class="story-metrics">
+              <div class="story-metric"><div class="story-metric-label">Avg Frequency</div><div class="story-metric-value" style="color:var(--amber-text)">4.2x</div><div class="story-metric-sub">Threshold: 3.5x</div></div>
+              <div class="story-metric"><div class="story-metric-label">CTR Decline</div><div class="story-metric-value" style="color:var(--red-text)">-22%</div><div class="story-metric-sub">2.1% &rarr; 1.64%</div></div>
+              <div class="story-metric"><div class="story-metric-label">Affected Spend</div><div class="story-metric-value" style="color:var(--text-primary)">$890/wk</div><div class="story-metric-sub">40% of total</div></div>
+              <div class="story-metric"><div class="story-metric-label">Best Creative</div><div class="story-metric-value" style="color:var(--green-text)">2.8%</div><div class="story-metric-sub">"Demo in 30s"</div></div>
+            </div>
+          </div>
+          <div class="story-footer">
+            <button class="btn btn-sm">Upload New Creatives</button>
+            <button class="btn btn-sm">Share as Report</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ F6: COMPARATIVE INSIGHTS ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p2">P2</span> Feature 6 — Comparative Insights (WoW / Anomaly Detection)</div>
+    <div class="section-header">
+      <div class="section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Week over Week <span class="num">Apr 7–13 vs Mar 31–Apr 6</span>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchCompTab(this)">WoW</button>
+        <button class="tab-btn" onclick="switchCompTab(this)">MoM</button>
+        <button class="tab-btn" onclick="switchCompTab(this)">QoQ</button>
+      </div>
+    </div>
+    <div class="comparison-grid">
+      <div class="comparison-card" onclick="toggleSection('comp-cpl-drill')">
+        <div class="comparison-label">Cost per Lead <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <div class="comparison-values"><div class="comparison-current mono">$12.40</div><div class="comparison-prev mono">$14.80</div></div>
+        <div class="comparison-change better">&#9650; -16.2% better</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:62%;background:var(--green-solid);"></div><div class="comparison-bar-marker" style="left:74%;"></div></div>
+        <div class="comparison-context">Your best CPL in 30 days. Goal: $15.00</div>
+        <div id="comp-cpl-drill" class="comparison-drilldown hidden">
+          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">By Campaign</div>
+          <div class="comparison-campaign"><span class="comparison-campaign-name">Spring Sale</span><div class="comparison-campaign-values"><span class="mono" style="font-size:10px;color:var(--red-text)">$18.40</span><div class="comparison-mini-bar"><div class="comparison-mini-bar-fill" style="width:90%;background:var(--red-solid);"></div></div><span class="mono" style="font-size:10px;color:var(--text-tertiary)">was $15.20</span></div></div>
+          <div class="comparison-campaign"><span class="comparison-campaign-name">Retargeting Q2</span><div class="comparison-campaign-values"><span class="mono" style="font-size:10px;color:var(--green-text)">$8.20</span><div class="comparison-mini-bar"><div class="comparison-mini-bar-fill" style="width:40%;background:var(--green-solid);"></div></div><span class="mono" style="font-size:10px;color:var(--text-tertiary)">was $11.40</span></div></div>
+          <div class="comparison-campaign"><span class="comparison-campaign-name">Brand Awareness</span><div class="comparison-campaign-values"><span class="mono" style="font-size:10px;color:var(--green-text)">$10.60</span><div class="comparison-mini-bar"><div class="comparison-mini-bar-fill" style="width:55%;background:var(--green-solid);"></div></div><span class="mono" style="font-size:10px;color:var(--text-tertiary)">was $12.80</span></div></div>
+        </div>
+      </div>
+      <div class="comparison-card">
+        <div class="comparison-label">Total Spend</div>
+        <div class="comparison-values"><div class="comparison-current mono">$4,280</div><div class="comparison-prev mono">$3,950</div></div>
+        <div class="comparison-change worse">&#9660; +8.4% higher</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:78%;background:var(--amber-solid);"></div><div class="comparison-bar-marker" style="left:72%;"></div></div>
+        <div class="comparison-context">Over weekly target by $280</div>
+      </div>
+      <div class="comparison-card">
+        <div class="comparison-label">Leads Generated</div>
+        <div class="comparison-values"><div class="comparison-current mono">345</div><div class="comparison-prev mono">267</div></div>
+        <div class="comparison-change better">&#9650; +29.2% more</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:85%;background:var(--green-solid);"></div><div class="comparison-bar-marker" style="left:66%;"></div></div>
+        <div class="comparison-context">Highest volume week this quarter</div>
+      </div>
+      <div class="comparison-card">
+        <div class="comparison-label">Quality Lead %</div>
+        <div class="comparison-values"><div class="comparison-current mono">64%</div><div class="comparison-prev mono">71%</div></div>
+        <div class="comparison-change worse">&#9660; -9.9% lower</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:64%;background:var(--red-solid);"></div><div class="comparison-bar-marker" style="left:71%;"></div></div>
+        <div class="comparison-context" style="color:var(--amber-text);">Below 70% threshold</div>
+      </div>
+      <div class="comparison-card">
+        <div class="comparison-label">ROAS (Blended)</div>
+        <div class="comparison-values"><div class="comparison-current mono">3.2x</div><div class="comparison-prev mono">2.8x</div></div>
+        <div class="comparison-change better">&#9650; +14.3% better</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:80%;background:var(--green-solid);"></div><div class="comparison-bar-marker" style="left:70%;"></div></div>
+        <div class="comparison-context">Above target (3.0x)</div>
+      </div>
+      <div class="comparison-card">
+        <div class="comparison-label">Avg CTR</div>
+        <div class="comparison-values"><div class="comparison-current mono">1.82%</div><div class="comparison-prev mono">1.94%</div></div>
+        <div class="comparison-change worse">&#9660; -6.2% lower</div>
+        <div class="comparison-bar"><div class="comparison-bar-fill" style="width:60%;background:var(--amber-solid);"></div><div class="comparison-bar-marker" style="left:64%;"></div></div>
+        <div class="comparison-context">Creative fatigue likely</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════ F4: SMART ALERTS ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p1">P1</span> Feature 4 — Smart Alerts & Configurable Notifications</div>
+    <div class="grid-2">
+      <div>
+        <div class="section-header"><div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Recent Alerts <span class="num">5 new</span></div></div>
+        <div class="alerts-panel">
+          <div class="alerts-header">
+            <div class="flex items-center gap-2"><span style="font-size:12px;font-weight:500;">Today</span><span class="alert-count">3</span></div>
+            <button class="btn btn-xs" onclick="this.textContent='Done!';setTimeout(()=>this.textContent='Mark all read',1500)">Mark all read</button>
+          </div>
+          <div class="alert-item unread" id="alert1" onclick="toggleSection('alert1-expand')">
+            <div class="alert-dot critical"></div>
+            <div class="alert-content">
+              <div class="alert-title">CPA spike on "Spring Sale" — $28.40 (7-day avg: $18.20)</div>
+              <div class="alert-desc">56% above average. Budget Sentinel has a proposal ready.</div>
+            </div>
+            <div class="alert-time">2h ago</div>
+          </div>
+          <div id="alert1-expand" class="alert-expand hidden">
+            <div>This CPA spike correlates with the CPM increase detected Tuesday. The campaign is entering competitive auctions for spring-season audiences. Current CPA is unsustainable at this spend level.</div>
+            <div class="alert-expand-actions">
+              <button class="btn btn-accent btn-xs" onclick="openModal('execModal')">View Proposal</button>
+              <button class="btn btn-xs">Dismiss</button>
+              <button class="btn btn-xs">Mute this alert type</button>
+            </div>
+          </div>
+          <div class="alert-item unread" onclick="this.classList.remove('unread')">
+            <div class="alert-dot warning"></div>
+            <div class="alert-content">
+              <div class="alert-title">Lead quality below threshold on "Demo Requests"</div>
+              <div class="alert-desc">Quality score dropped to 64% (threshold: 70%)</div>
+            </div>
+            <div class="alert-time">4h ago</div>
+          </div>
+          <div class="alert-item unread" onclick="this.classList.remove('unread')">
+            <div class="alert-dot success"></div>
+            <div class="alert-content">
+              <div class="alert-title">Bid optimization delivered results</div>
+              <div class="alert-desc">CPA on "Brand Awareness" improved 15% since adjustment</div>
+            </div>
+            <div class="alert-time">6h ago</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot info"></div>
+            <div class="alert-content"><div class="alert-title">New high-confidence proposal ready</div><div class="alert-desc">Audience Architect: Expand lookalike (93% confidence)</div></div>
+            <div class="alert-time">Yesterday</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot warning"></div>
+            <div class="alert-content"><div class="alert-title">Daily budget exhausted early</div><div class="alert-desc">"Spring Sale" depleted by 2:15pm</div></div>
+            <div class="alert-time">Yesterday</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-header"><div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Alert Configuration</div></div>
+        <div class="alerts-panel">
+          <div class="alert-config">
+            <div class="alert-config-title">Notification Channels</div>
+            <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+              <button class="channel-btn active" onclick="this.classList.toggle('active')">&#128276; In-App</button>
+              <button class="channel-btn active" onclick="this.classList.toggle('active')">&#9993; Email Digest</button>
+              <button class="channel-btn" onclick="this.classList.toggle('active')">&#128241; Push</button>
+              <button class="channel-btn" onclick="this.classList.toggle('active')">&#128172; Slack</button>
+            </div>
+            <div class="alert-config-title">Alert Thresholds</div>
+            <div class="alert-threshold">
+              <div class="alert-threshold-label">CPA spike (vs 7-day avg)</div>
+              <div class="slider-container">
+                <input type="range" class="slider" min="10" max="80" value="30" oninput="this.nextElementSibling.textContent='> '+this.value+'%'">
+                <span class="alert-threshold-value">&gt; 30%</span>
+              </div>
+            </div>
+            <div class="alert-threshold">
+              <div class="alert-threshold-label">Lead quality drop</div>
+              <div class="slider-container">
+                <input type="range" class="slider" min="40" max="90" value="70" oninput="this.nextElementSibling.textContent='< '+this.value+'%'">
+                <span class="alert-threshold-value">&lt; 70%</span>
+              </div>
+            </div>
+            <div class="alert-threshold">
+              <div class="alert-threshold-label">Budget exhaustion before</div>
+              <div class="alert-threshold-value" onclick="this.contentEditable='true';this.focus();" style="cursor:text;">4:00 PM</div>
+            </div>
+            <div class="alert-threshold">
+              <div class="alert-threshold-label">Proposal confidence (notify above)</div>
+              <div class="slider-container">
+                <input type="range" class="slider" min="50" max="100" value="85" oninput="this.nextElementSibling.textContent='> '+this.value+'%'">
+                <span class="alert-threshold-value">&gt; 85%</span>
+              </div>
+            </div>
+            <div class="alert-threshold">
+              <div class="alert-threshold-label">Proposal savings (notify above)</div>
+              <div class="alert-threshold-value" onclick="this.contentEditable='true';this.focus();" style="cursor:text;">&gt; $100/wk</div>
+            </div>
+            <div class="alert-threshold" style="margin-top:4px;">
+              <div class="alert-threshold-label">Email digest frequency</div>
+              <div class="tab-bar" style="background:var(--bg-muted);">
+                <button class="tab-btn active" style="font-size:10px;padding:2px 8px;">Daily 8AM</button>
+                <button class="tab-btn" style="font-size:10px;padding:2px 8px;">Instant</button>
+                <button class="tab-btn" style="font-size:10px;padding:2px 8px;">Weekly</button>
+              </div>
+            </div>
+          </div>
+          <div style="padding:10px 16px;border-top:1px solid var(--border-subtle);"><button class="btn btn-accent btn-sm w-full" style="justify-content:center;">Save Configuration</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════ F9: CROSS-PLATFORM ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p2">P2</span> Feature 9 — Cross-Platform Intelligence</div>
+    <div class="cross-platform">
+      <div class="cross-platform-header">
+        <div class="section-title" style="margin-bottom:0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Meta vs Google — Side by Side
+        </div>
+        <div class="platform-tabs">
+          <button class="platform-tab active" onclick="switchPlatformTab(this)">This Week</button>
+          <button class="platform-tab" onclick="switchPlatformTab(this)">This Month</button>
+          <button class="platform-tab" onclick="switchPlatformTab(this)">Last 90 Days</button>
+        </div>
+      </div>
+      <div class="cross-platform-body">
+        <div style="display:grid;grid-template-columns:100px 1fr 50px 1fr 100px;align-items:center;gap:10px;padding:6px 0;margin-bottom:4px;">
+          <div style="font-size:9px;color:var(--text-disabled);text-transform:uppercase;letter-spacing:0.5px;">Metric</div>
+          <div style="font-size:10px;color:var(--blue-text);text-align:right;font-weight:500;">META</div>
+          <div></div>
+          <div style="font-size:10px;color:var(--amber-text);font-weight:500;">GOOGLE</div>
+          <div style="font-size:9px;color:var(--text-disabled);text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Winner</div>
+        </div>
+        <div class="platform-comparison-row" onclick="toggleSection('platform-cpl-drill')">
+          <div class="platform-metric-name">Cost per Lead</div>
+          <div class="platform-bar-container"><div class="platform-bar-meta" style="width:65%;float:right;"></div></div>
+          <div style="text-align:center"><span class="platform-value meta mono">$12.40</span></div>
+          <div class="platform-bar-container"><div class="platform-bar-google" style="width:82%;"></div></div>
+          <div style="text-align:right"><span class="platform-value google mono">$15.80</span> <span class="badge badge-blue" style="font-size:9px;">Meta</span></div>
+        </div>
+        <div id="platform-cpl-drill" class="platform-drilldown hidden">
+          <div class="platform-drilldown-title">CPL by Campaign</div>
+          <div class="platform-drilldown-row hdr"><div>Campaign</div><div class="text-right">Meta CPL</div><div class="text-right">Google CPL</div><div class="text-right">Delta</div></div>
+          <div class="platform-drilldown-row"><div style="color:var(--text-secondary)">Spring Sale</div><div class="text-right mono" style="color:var(--blue-text)">$18.40</div><div class="text-right mono" style="color:var(--amber-text)">$14.20</div><div class="text-right mono" style="color:var(--amber-text)">Google -23%</div></div>
+          <div class="platform-drilldown-row"><div style="color:var(--text-secondary)">Demo Requests</div><div class="text-right mono" style="color:var(--blue-text)">$9.80</div><div class="text-right mono" style="color:var(--amber-text)">$16.40</div><div class="text-right mono" style="color:var(--blue-text)">Meta -40%</div></div>
+          <div class="platform-drilldown-row"><div style="color:var(--text-secondary)">Brand Awareness</div><div class="text-right mono" style="color:var(--blue-text)">$10.60</div><div class="text-right mono" style="color:var(--amber-text)">$17.90</div><div class="text-right mono" style="color:var(--blue-text)">Meta -41%</div></div>
+        </div>
+        <div class="platform-comparison-row">
+          <div class="platform-metric-name">Conversion Rate</div>
+          <div class="platform-bar-container"><div class="platform-bar-meta" style="width:45%;float:right;"></div></div>
+          <div style="text-align:center"><span class="platform-value meta mono">2.3%</span></div>
+          <div class="platform-bar-container"><div class="platform-bar-google" style="width:70%;"></div></div>
+          <div style="text-align:right"><span class="platform-value google mono">3.8%</span> <span class="badge badge-amber" style="font-size:9px;">Google</span></div>
+        </div>
+        <div class="platform-comparison-row">
+          <div class="platform-metric-name">ROAS</div>
+          <div class="platform-bar-container"><div class="platform-bar-meta" style="width:75%;float:right;"></div></div>
+          <div style="text-align:center"><span class="platform-value meta mono">3.2x</span></div>
+          <div class="platform-bar-container"><div class="platform-bar-google" style="width:55%;"></div></div>
+          <div style="text-align:right"><span class="platform-value google mono">2.4x</span> <span class="badge badge-blue" style="font-size:9px;">Meta</span></div>
+        </div>
+        <div class="platform-comparison-row">
+          <div class="platform-metric-name">Lead Quality</div>
+          <div class="platform-bar-container"><div class="platform-bar-meta" style="width:55%;float:right;"></div></div>
+          <div style="text-align:center"><span class="platform-value meta mono">64%</span></div>
+          <div class="platform-bar-container"><div class="platform-bar-google" style="width:80%;"></div></div>
+          <div style="text-align:right"><span class="platform-value google mono">78%</span> <span class="badge badge-amber" style="font-size:9px;">Google</span></div>
+        </div>
+        <div class="platform-comparison-row">
+          <div class="platform-metric-name">Spend Share</div>
+          <div class="platform-bar-container"><div class="platform-bar-meta" style="width:70%;float:right;"></div></div>
+          <div style="text-align:center"><span class="platform-value meta mono">68%</span></div>
+          <div class="platform-bar-container"><div class="platform-bar-google" style="width:35%;"></div></div>
+          <div style="text-align:right"><span class="platform-value google mono">32%</span> <span class="badge badge-muted" style="font-size:9px;">&mdash;</span></div>
+        </div>
+        <div class="cross-platform-insight">
+          <strong>AI Recommendation:</strong> Google Search converts <span style="color:var(--green-text)" class="mono">2.3x better</span> for demo-request leads, but at higher CPL. Consider shifting <span style="color:var(--acc-text)" class="mono">15% of Meta spend</span> to Google brand terms where quality is highest. Blended CPA would improve by <span style="color:var(--green-text)" class="mono">$1.20/lead</span>.
+          <div style="margin-top:8px;display:flex;gap:6px;">
+            <button class="btn btn-accent btn-xs">Create Budget Shift Proposal</button>
+            <button class="btn btn-xs">View Detailed Breakdown</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════ F8: INSIGHT FOLLOW-UPS ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p0">P0</span> Feature 8 — Insight Follow-ups (Closed Loop)</div>
+    <div class="section-header">
+      <div>
+        <div class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Proposal Outcomes <span class="num">Track impact</span>
+        </div>
+        <div class="section-subtitle">See how past actions performed — builds trust and trains the AI</div>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active">All</button>
+        <button class="tab-btn">Positive</button>
+        <button class="tab-btn">Negative</button>
+      </div>
+    </div>
+    <div>
+      <!-- Follow-up pair 1 -->
+      <div class="followup-item" id="fu1" onclick="toggleSection('fu1-expand')">
+        <div class="followup-icon executed">&#10003;</div>
+        <div class="followup-content">
+          <div class="followup-title">Executed: Reduced bid cap on "Brand Awareness" by 12%</div>
+          <div class="followup-desc">Bid Optimizer &middot; Executed on April 8</div>
+        </div>
+        <div class="followup-time">6 days ago</div>
+        <div class="followup-connector"></div>
+      </div>
+      <div class="followup-item" onclick="toggleSection('fu1-expand')">
+        <div class="followup-icon result-good">&#9650;</div>
+        <div class="followup-content">
+          <div class="followup-title">Follow-up: CPA improved 15% since bid adjustment</div>
+          <div class="followup-desc">CPA dropped from $22.40 to $19.04. Lead volume stable (-2%).</div>
+          <div class="followup-result positive">&#10003; Saved $230 so far &middot; Confidence validated</div>
+        </div>
+        <div class="followup-time">Today</div>
+      </div>
+      <div id="fu1-expand" class="followup-expand hidden">
+        <div class="followup-ba">
+          <div class="followup-ba-card before">
+            <div class="followup-ba-label">Before (Apr 1-7)</div>
+            <div class="followup-ba-row"><span class="k">CPA</span><span class="v">$22.40</span></div>
+            <div class="followup-ba-row"><span class="k">CPM</span><span class="v">$14.20</span></div>
+            <div class="followup-ba-row"><span class="k">Leads/day</span><span class="v">8.2</span></div>
+            <div class="followup-ba-row"><span class="k">Daily Spend</span><span class="v">$184</span></div>
+          </div>
+          <div class="followup-ba-card after">
+            <div class="followup-ba-label" style="color:var(--green-text)">After (Apr 8-14)</div>
+            <div class="followup-ba-row"><span class="k">CPA</span><span class="v" style="color:var(--green-text)">$19.04 (-15%)</span></div>
+            <div class="followup-ba-row"><span class="k">CPM</span><span class="v" style="color:var(--green-text)">$12.80 (-10%)</span></div>
+            <div class="followup-ba-row"><span class="k">Leads/day</span><span class="v">8.0 (-2%)</span></div>
+            <div class="followup-ba-row"><span class="k">Daily Spend</span><span class="v" style="color:var(--green-text)">$152 (-17%)</span></div>
+          </div>
+        </div>
+        <div class="followup-impact-chart">
+          <div class="followup-impact-bar" style="height:70%;background:var(--text-tertiary);opacity:0.3;" data-tooltip="Apr 1"></div>
+          <div class="followup-impact-bar" style="height:75%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:68%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:72%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:78%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:74%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:80%;background:var(--text-tertiary);opacity:0.3;"></div>
+          <div class="followup-impact-bar" style="height:60%;background:var(--green-solid);border:1px solid rgba(74,222,128,0.3);" data-tooltip="Executed"></div>
+          <div class="followup-impact-bar" style="height:55%;background:var(--green-solid);"></div>
+          <div class="followup-impact-bar" style="height:50%;background:var(--green-solid);"></div>
+          <div class="followup-impact-bar" style="height:52%;background:var(--green-solid);"></div>
+          <div class="followup-impact-bar" style="height:48%;background:var(--green-solid);"></div>
+          <div class="followup-impact-bar" style="height:45%;background:var(--green-solid);"></div>
+          <div class="followup-impact-bar" style="height:42%;background:var(--green-solid);"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-disabled);display:flex;justify-content:space-between;padding:2px 2px 0;">
+          <span>Apr 1</span><span style="color:var(--acc-text)">&#9650; Executed Apr 8</span><span>Apr 14</span>
+        </div>
+      </div>
+
+      <div style="height:12px;"></div>
+
+      <!-- Follow-up pair 2 (negative) -->
+      <div class="followup-item" id="fu2">
+        <div class="followup-icon executed">&#10003;</div>
+        <div class="followup-content">
+          <div class="followup-title">Executed: Expanded lookalike audience to 3% on "Retargeting Q2"</div>
+          <div class="followup-desc">Audience Architect &middot; Executed on April 10</div>
+        </div>
+        <div class="followup-time">4 days ago</div>
+        <div class="followup-connector"></div>
+      </div>
+      <div class="followup-item" onclick="toggleSection('fu2-expand')">
+        <div class="followup-icon result-bad">&#10007;</div>
+        <div class="followup-content">
+          <div class="followup-title">Follow-up: Audience expansion underperforming</div>
+          <div class="followup-desc">CPL increased 18%. New segment converting at 1.1% vs 2.3% original.</div>
+          <div class="followup-result negative">&#10007; Underperforming &middot; Revert proposal ready</div>
+        </div>
+        <div class="followup-time">Today</div>
+      </div>
+      <div id="fu2-expand" class="followup-expand hidden">
+        <div class="followup-ba">
+          <div class="followup-ba-card before">
+            <div class="followup-ba-label">Before (1% Lookalike)</div>
+            <div class="followup-ba-row"><span class="k">CPL</span><span class="v">$9.80</span></div>
+            <div class="followup-ba-row"><span class="k">Conv Rate</span><span class="v">2.3%</span></div>
+            <div class="followup-ba-row"><span class="k">Quality</span><span class="v">78%</span></div>
+          </div>
+          <div class="followup-ba-card" style="background:rgba(248,113,113,0.04);border:1px solid rgba(248,113,113,0.12);">
+            <div class="followup-ba-label" style="color:var(--red-text)">After (3% Lookalike)</div>
+            <div class="followup-ba-row"><span class="k">CPL</span><span class="v" style="color:var(--red-text)">$11.56 (+18%)</span></div>
+            <div class="followup-ba-row"><span class="k">Conv Rate</span><span class="v" style="color:var(--red-text)">1.1% (-52%)</span></div>
+            <div class="followup-ba-row"><span class="k">Quality</span><span class="v" style="color:var(--red-text)">61% (-22%)</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <button class="btn btn-accent btn-sm" onclick="showToast('Reverted', 'Audience reverted to 1% lookalike.')">Revert to 1% Lookalike</button>
+          <button class="btn btn-sm">Keep & Monitor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════ F7: AUTO-PILOT ═══════════ -->
+  <div class="section">
+    <div class="feature-label"><span class="p p3">P3</span> Feature 7 — Auto-Pilot Mode</div>
+    <div class="grid-2">
+      <!-- Rules panel -->
+      <div class="autopilot-card">
+        <div class="autopilot-header">
+          <div class="flex items-center gap-2">
+            <div class="autopilot-indicator on" id="apIndicator"></div>
+            <span style="font-size:12px;font-weight:600;color:var(--green-text)" id="apLabel">Auto-Pilot Active</span>
+          </div>
+          <div class="toggle on" id="apToggle" onclick="toggleAutopilot()"><div class="toggle-knob"></div></div>
+        </div>
+        <div>
+          <div class="autopilot-rule" onclick="toggleSection('ap-rule1-expand')">
+            <div class="autopilot-rule-icon" style="background:rgba(248,113,113,0.12);color:var(--red-text)">$</div>
+            <div class="autopilot-rule-content"><div class="autopilot-rule-name">Budget Sentinel — Auto-execute</div><div class="autopilot-rule-desc">If savings &lt; $50 AND confidence &gt; 85%</div></div>
+            <div class="autopilot-rule-stats">
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Runs</div><div class="autopilot-stat-value">8</div></div>
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Win</div><div class="autopilot-stat-value" style="color:var(--green-text)">100%</div></div>
+            </div>
+            <div class="toggle on toggle-sm"><div class="toggle-knob"></div></div>
+          </div>
+          <div id="ap-rule1-expand" class="autopilot-rule-expand hidden">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-tertiary);margin-bottom:8px;">Rule Configuration</div>
+            <div class="rule-config-row">
+              <span class="rule-config-label">Max savings threshold</span>
+              <div class="rule-config-value">
+                <input type="range" class="slider" min="10" max="200" value="50" style="width:100px" oninput="this.nextElementSibling.textContent='$'+this.value">
+                <span class="alert-threshold-value">$50</span>
+              </div>
+            </div>
+            <div class="rule-config-row">
+              <span class="rule-config-label">Min confidence</span>
+              <div class="rule-config-value">
+                <input type="range" class="slider" min="50" max="100" value="85" style="width:100px" oninput="this.nextElementSibling.textContent=this.value+'%'">
+                <span class="alert-threshold-value">85%</span>
+              </div>
+            </div>
+            <div class="rule-config-row">
+              <span class="rule-config-label">Risk level allowed</span>
+              <div class="tab-bar" style="background:var(--bg-muted);">
+                <button class="tab-btn active" style="font-size:10px;padding:2px 8px;">Low only</button>
+                <button class="tab-btn" style="font-size:10px;padding:2px 8px;">Low + Med</button>
+                <button class="tab-btn" style="font-size:10px;padding:2px 8px;">Any</button>
+              </div>
+            </div>
+            <div class="rule-config-row">
+              <span class="rule-config-label">Require human review if</span>
+              <span class="alert-threshold-value" style="cursor:text;" onclick="this.contentEditable='true';this.focus();">savings &gt; $200</span>
+            </div>
+            <div style="margin-top:8px;"><button class="btn btn-accent btn-xs w-full" style="justify-content:center;">Save Rule</button></div>
+          </div>
+          <div class="autopilot-rule">
+            <div class="autopilot-rule-icon" style="background:rgba(96,165,250,0.12);color:var(--blue-text);">&#9881;</div>
+            <div class="autopilot-rule-content"><div class="autopilot-rule-name">Bid Optimizer — Auto-execute</div><div class="autopilot-rule-desc">If adjustment &lt; 15% AND risk = low</div></div>
+            <div class="autopilot-rule-stats">
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Runs</div><div class="autopilot-stat-value">12</div></div>
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Win</div><div class="autopilot-stat-value" style="color:var(--green-text)">92%</div></div>
+            </div>
+            <div class="toggle on toggle-sm"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="autopilot-rule">
+            <div class="autopilot-rule-icon" style="background:rgba(251,191,36,0.12);color:var(--amber-text);">&#9679;</div>
+            <div class="autopilot-rule-content"><div class="autopilot-rule-name">Lead Quality — Notify only</div><div class="autopilot-rule-desc">Always requires manual approval</div></div>
+            <div class="autopilot-rule-stats">
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Alerts</div><div class="autopilot-stat-value">5</div></div>
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Acted</div><div class="autopilot-stat-value">4</div></div>
+            </div>
+            <div class="toggle toggle-sm"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="autopilot-rule">
+            <div class="autopilot-rule-icon" style="background:rgba(255,255,255,0.04);color:var(--text-tertiary);">&#9636;</div>
+            <div class="autopilot-rule-content"><div class="autopilot-rule-name">Creative Fatigue — Notify only</div><div class="autopilot-rule-desc">Requires creative upload — can't auto-execute</div></div>
+            <div class="autopilot-rule-stats">
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Alerts</div><div class="autopilot-stat-value">3</div></div>
+              <div class="autopilot-stat"><div class="autopilot-stat-label">Acted</div><div class="autopilot-stat-value">2</div></div>
+            </div>
+            <div class="toggle toggle-sm"><div class="toggle-knob"></div></div>
+          </div>
+        </div>
+        <div style="padding:10px 16px;border-top:1px solid var(--border-subtle);"><button class="btn btn-sm w-full" style="justify-content:center;" onclick="openModal('createRuleModal')">+ Add New Rule</button></div>
+      </div>
+
+      <!-- Activity log -->
+      <div class="autopilot-card">
+        <div class="autopilot-header">
+          <div class="section-title" style="margin-bottom:0;">Activity Log</div>
+          <span style="font-size:10px;color:var(--text-disabled);">Last 7 days</span>
+        </div>
+        <div style="padding:10px 16px;">
+          <div class="log-filter-bar">
+            <button class="log-filter active" onclick="filterLog(this,'all')">All</button>
+            <button class="log-filter" onclick="filterLog(this,'auto')">Auto</button>
+            <button class="log-filter" onclick="filterLog(this,'alert')">Alerts</button>
+            <button class="log-filter" onclick="filterLog(this,'skip')">Skipped</button>
+            <button class="log-filter" onclick="filterLog(this,'revert')">Reverted</button>
+          </div>
+          <div id="logList">
+            <div class="log-item" data-type="auto"><div class="log-time">2h ago</div><span class="log-tag auto">auto</span><span class="log-text">Bid cap reduced 8% on "Brand Awareness"</span><span class="mono" style="font-size:10px;color:var(--green-text)">-$12/d</span></div>
+            <div class="log-item" data-type="auto"><div class="log-time">6h ago</div><span class="log-tag auto">auto</span><span class="log-text">Budget pacing adjusted on "Demo Requests"</span><span class="mono" style="font-size:10px;color:var(--green-text)">-$8/d</span></div>
+            <div class="log-item" data-type="auto"><div class="log-time">1d ago</div><span class="log-tag auto">auto</span><span class="log-text">Daily budget -5% on "Retargeting Q2"</span><span class="mono" style="font-size:10px;color:var(--green-text)">-$6/d</span></div>
+            <div class="log-item" data-type="alert"><div class="log-time">1d ago</div><span class="log-tag alert">alert</span><span class="log-text">Lead quality drop on "Demo Requests" — needs review</span><span></span></div>
+            <div class="log-item" data-type="auto"><div class="log-time">2d ago</div><span class="log-tag auto">auto</span><span class="log-text">Bid strategy switched to target CPA on "Spring Sale"</span><span class="mono" style="font-size:10px;color:var(--green-text)">-$18/d</span></div>
+            <div class="log-item" data-type="auto"><div class="log-time">2d ago</div><span class="log-tag auto">auto</span><span class="log-text">Budget redistributed: $30/day from Lookalike to Retargeting</span><span></span></div>
+            <div class="log-item" data-type="alert"><div class="log-time">3d ago</div><span class="log-tag alert">alert</span><span class="log-text">Creative fatigue detected — 3 ad sets need fresh creatives</span><span></span></div>
+            <div class="log-item" data-type="revert"><div class="log-time">4d ago</div><span class="log-tag revert">revert</span><span class="log-text">Reverted audience expansion on "Retargeting Q2"</span><span></span></div>
+            <div class="log-item" data-type="skip"><div class="log-time">5d ago</div><span class="log-tag skip">skip</span><span class="log-text">Skipped: Budget cut on "Spring Sale" — confidence 72% (below 85%)</span><span></span></div>
+            <div class="log-item" data-type="auto"><div class="log-time">6d ago</div><span class="log-tag auto">auto</span><span class="log-text">Audience narrowed on "Broad Interest"</span><span class="mono" style="font-size:10px;color:var(--green-text)">-$14/d</span></div>
+          </div>
+        </div>
+        <div style="padding:10px 16px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:11px;color:var(--text-tertiary)"><span class="mono" style="color:var(--green-text)">$420</span> saved by auto-pilot this week</span>
+          <button class="btn btn-xs">Export log</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <div style="text-align:center;padding:48px 0 20px;color:var(--text-disabled);font-size:11px;">
+    Adsflow Insights V2 — In-Depth Interactive Prototype. All data is mock.<br>
+    <span style="color:var(--text-tertiary);margin-top:4px;display:inline-block;">Click cards to expand &middot; Adjust sliders &middot; Toggle switches &middot; Filter logs</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODALS
+     ═══════════════════════════════════════════════ -->
+
+<!-- Execution Confirmation Modal -->
+<div class="modal-overlay hidden" id="execModal" onclick="if(event.target===this)closeModal('execModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Confirm Execution</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">Reduce daily budget on "Spring Sale" by 20%</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('execModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--green-text);margin-bottom:8px;">Automated Actions</div>
+      <div class="action-list">
+        <div class="action-item auto">
+          <div class="action-icon" style="background:rgba(74,222,128,0.15);color:var(--green-text);">&#9654;</div>
+          <div><strong>Update daily budget</strong> from $150 to $120 on campaign "Spring Sale"<br><span style="font-size:10px;color:rgba(74,222,128,0.6)">Campaign level &middot; Reversible</span></div>
+        </div>
+        <div class="action-item auto">
+          <div class="action-icon" style="background:rgba(74,222,128,0.15);color:var(--green-text);">&#9654;</div>
+          <div><strong>Switch bid strategy</strong> to "Cost Cap" with $22 CPA target<br><span style="font-size:10px;color:rgba(74,222,128,0.6)">Campaign level &middot; Reversible</span></div>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--amber-text);margin:16px 0 8px;">Manual Steps (Recommended)</div>
+      <div class="action-list">
+        <div class="action-item manual">
+          <div class="action-icon" style="background:rgba(251,191,36,0.15);color:var(--amber-text);">1</div>
+          <div>Monitor CPA for 48 hours after execution</div>
+        </div>
+        <div class="action-item manual">
+          <div class="action-icon" style="background:rgba(251,191,36,0.15);color:var(--amber-text);">2</div>
+          <div>If CPA doesn't improve, consider pausing the campaign for 24h</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:10px 12px;background:var(--bg-subtle);border-radius:8px;border:1px solid var(--border-subtle);">
+        <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Impact Measurement</div>
+        <div style="font-size:11px;color:var(--text-secondary);">Results will be measured in <strong style="color:var(--acc-text)">3-5 days</strong>. You'll receive a follow-up notification comparing before/after performance.</div>
+      </div>
+      <!-- Execution progress (hidden by default, shown when executing) -->
+      <div id="execProgress" class="hidden" style="margin-top:16px;">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-tertiary);margin-bottom:8px;">Execution Progress</div>
+        <div class="exec-steps" id="execSteps">
+          <div class="exec-step"><div class="exec-step-icon pending">&#8226;</div><span>Updating daily budget...</span></div>
+          <div class="exec-step"><div class="exec-step-icon pending">&#8226;</div><span>Switching bid strategy...</span></div>
+          <div class="exec-step"><div class="exec-step-icon pending">&#8226;</div><span>Verifying changes...</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="execModalFooter">
+      <button class="btn btn-sm" onclick="closeModal('execModal')">Cancel</button>
+      <button class="btn btn-accent btn-sm" id="execBtn" onclick="simulateExecution()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Execute Now
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Create View Modal -->
+<div class="modal-overlay hidden" id="createViewModal" onclick="if(event.target===this)closeModal('createViewModal')">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">Create New View</div>
+      <button class="modal-close" onclick="closeModal('createViewModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">View Name</label>
+        <input class="input w-full" id="newViewName" placeholder="e.g., Weekly Client Report" value="">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">Sections to Include</label>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox" checked> Daily Brief</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox" checked> Do These Now</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox" checked> Savings Tracker</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox"> Insight Stories</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox" checked> Comparative Insights</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox"> Cross-Platform</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox"> Follow-ups</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--bg-subtle);border-radius:6px;border:1px solid var(--border-subtle);"><input type="checkbox"> Auto-Pilot</label>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">View Color</label>
+        <div style="display:flex;gap:6px;">
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--acc);cursor:pointer;border:2px solid var(--acc-hover);"></span>
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--green-solid);cursor:pointer;border:2px solid transparent;" onclick="this.style.borderColor='var(--green-text)';this.previousElementSibling.style.borderColor='transparent'"></span>
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--amber-solid);cursor:pointer;border:2px solid transparent;"></span>
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--blue-solid);cursor:pointer;border:2px solid transparent;"></span>
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--red-solid);cursor:pointer;border:2px solid transparent;"></span>
+          <span style="width:24px;height:24px;border-radius:50%;background:var(--cyan-text);cursor:pointer;border:2px solid transparent;"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm" onclick="closeModal('createViewModal')">Cancel</button>
+      <button class="btn btn-accent btn-sm" onclick="createView()">Create View</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Rule Modal -->
+<div class="modal-overlay hidden" id="createRuleModal" onclick="if(event.target===this)closeModal('createRuleModal')">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <div class="modal-title">Add Auto-Pilot Rule</div>
+      <button class="modal-close" onclick="closeModal('createRuleModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Agent</label>
+        <select class="input w-full" style="padding:8px 10px;">
+          <option>Budget Sentinel</option>
+          <option>Bid Optimizer</option>
+          <option>Lead Quality</option>
+          <option>Audience Architect</option>
+          <option>Creative Fatigue</option>
+          <option>Performance Prophet</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Mode</label>
+        <div class="tab-bar w-full" style="background:var(--bg-muted);">
+          <button class="tab-btn active" style="flex:1;text-align:center;">Auto-execute</button>
+          <button class="tab-btn" style="flex:1;text-align:center;">Notify only</button>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Min confidence to auto-execute</label>
+        <div class="slider-container"><input type="range" class="slider" min="50" max="100" value="85" style="width:100%" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="alert-threshold-value">85%</span></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:4px;">Max risk level</label>
+        <div class="tab-bar w-full" style="background:var(--bg-muted);">
+          <button class="tab-btn active" style="flex:1;text-align:center;">Low</button>
+          <button class="tab-btn" style="flex:1;text-align:center;">Medium</button>
+          <button class="tab-btn" style="flex:1;text-align:center;">Any</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm" onclick="closeModal('createRuleModal')">Cancel</button>
+      <button class="btn btn-accent btn-sm" onclick="closeModal('createRuleModal'); showToast('Rule created', 'Auto-pilot rule added successfully.')">Create Rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast hidden" id="toast">
+  <div class="toast-icon success" id="toastIcon">&#10003;</div>
+  <div><div class="toast-text" id="toastTitle">Success</div><div class="toast-sub" id="toastSub"></div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT — All interactions
+     ═══════════════════════════════════════════════ -->
+<script>
+// Toggle visibility of any section by ID
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden');
+}
+
+// Brief item expand/collapse
+function toggleBriefExpand(id) {
+  const expand = document.getElementById(id + '-expand');
+  if (expand) expand.classList.toggle('hidden');
+}
+
+// Dismiss brief item
+function dismissBrief(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('dismissed');
+}
+
+// Priority proposal expand/collapse
+function togglePriorityExpand(id) {
+  const expand = document.getElementById(id + '-expand');
+  if (expand) expand.classList.toggle('hidden');
+}
+
+// Open/close modals
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  // Reset exec progress
+  if (id === 'execModal') {
+    document.getElementById('execProgress').classList.add('hidden');
+    document.getElementById('execBtn').disabled = false;
+    document.getElementById('execBtn').innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Execute Now';
+    const steps = document.querySelectorAll('#execSteps .exec-step-icon');
+    steps.forEach(s => { s.className = 'exec-step-icon pending'; s.innerHTML = '&#8226;'; });
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+// Simulate execution with step-by-step progress
+function simulateExecution() {
+  const btn = document.getElementById('execBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="scan-spinner" style="width:12px;height:12px;border-width:1.5px;"></div> Executing...';
+
+  const progress = document.getElementById('execProgress');
+  progress.classList.remove('hidden');
+
+  const steps = document.querySelectorAll('#execSteps .exec-step');
+  const icons = document.querySelectorAll('#execSteps .exec-step-icon');
+
+  // Step 1
+  setTimeout(() => {
+    icons[0].className = 'exec-step-icon done';
+    icons[0].innerHTML = '&#10003;';
+    steps[0].querySelector('span').textContent = 'Daily budget updated to $120 ✓';
+  }, 1200);
+
+  // Step 2
+  setTimeout(() => {
+    icons[1].className = 'exec-step-icon done';
+    icons[1].innerHTML = '&#10003;';
+    steps[1].querySelector('span').textContent = 'Bid strategy switched to Cost Cap ($22) ✓';
+  }, 2400);
+
+  // Step 3
+  setTimeout(() => {
+    icons[2].className = 'exec-step-icon done';
+    icons[2].innerHTML = '&#10003;';
+    steps[2].querySelector('span').textContent = 'Changes verified on Meta ✓';
+
+    btn.innerHTML = '&#10003; Executed Successfully';
+    btn.style.background = 'var(--green-solid)';
+    btn.style.borderColor = 'var(--green-solid)';
+    btn.style.color = '#fff';
+
+    // Close after delay
+    setTimeout(() => {
+      closeModal('execModal');
+      showToast('Executed successfully', 'Budget reduced to $120/day. Follow-up in 3-5 days.');
+    }, 1500);
+  }, 3600);
+}
+
+// Scan simulation
+function startScan() {
+  const progress = document.getElementById('scanProgress');
+  const bar = document.getElementById('scanBarFill');
+  const pct = document.getElementById('scanPct');
+  const btn = document.getElementById('scanBtn');
+
+  progress.classList.remove('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="scan-spinner" style="width:12px;height:12px;border-width:1.5px;"></div> Scanning...';
+
+  let p = 0;
+  const interval = setInterval(() => {
+    p += Math.random() * 15 + 5;
+    if (p >= 100) {
+      p = 100;
+      clearInterval(interval);
+      setTimeout(() => {
+        progress.classList.add('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Run Full Scan';
+        showToast('Scan complete', '3 new proposals found across 4 ad accounts.');
+      }, 800);
+    }
+    bar.style.width = p + '%';
+    pct.textContent = Math.round(p) + '%';
+  }, 400);
+}
+
+// Toast notification
+function showToast(title, sub) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastSub').textContent = sub || '';
+  toast.classList.remove('hidden');
+  toast.style.animation = 'none';
+  toast.offsetHeight; // reflow
+  toast.style.animation = '';
+  setTimeout(() => toast.classList.add('hidden'), 4000);
+}
+
+// View management
+function switchView(tab) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+}
+
+function removeView(tab) {
+  if (document.querySelectorAll('.view-tab').length > 1) {
+    const wasActive = tab.classList.contains('active');
+    tab.remove();
+    if (wasActive) {
+      const first = document.querySelector('.view-tab');
+      if (first) first.classList.add('active');
+    }
+  }
+}
+
+function createView() {
+  const name = document.getElementById('newViewName').value || 'Untitled View';
+  const colors = ['var(--acc)', 'var(--green-solid)', 'var(--amber-solid)', 'var(--blue-solid)', 'var(--red-solid)', 'var(--cyan-text)'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+
+  const tab = document.createElement('button');
+  tab.className = 'view-tab';
+  tab.onclick = function() { switchView(this); };
+  tab.innerHTML = `<span class="dot" style="background:${color}"></span>${name}<span class="close-x" onclick="event.stopPropagation(); removeView(this.parentElement);">&times;</span>`;
+
+  const addBtn = document.querySelector('.view-add');
+  addBtn.parentElement.insertBefore(tab, addBtn);
+
+  closeModal('createViewModal');
+  showToast('View created', `"${name}" added to your views.`);
+}
+
+// Comparison tab switching
+function switchCompTab(tab) {
+  tab.parentElement.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+}
+
+// Platform tab switching
+function switchPlatformTab(tab) {
+  tab.parentElement.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+}
+
+// Auto-pilot toggle
+function toggleAutopilot() {
+  const toggle = document.getElementById('apToggle');
+  const indicator = document.getElementById('apIndicator');
+  const label = document.getElementById('apLabel');
+  toggle.classList.toggle('on');
+  if (toggle.classList.contains('on')) {
+    indicator.className = 'autopilot-indicator on';
+    label.textContent = 'Auto-Pilot Active';
+    label.style.color = 'var(--green-text)';
+  } else {
+    indicator.className = 'autopilot-indicator off';
+    label.textContent = 'Auto-Pilot Paused';
+    label.style.color = 'var(--text-tertiary)';
+  }
+}
+
+// Log filtering
+function filterLog(btn, type) {
+  btn.parentElement.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#logList .log-item').forEach(item => {
+    if (type === 'all' || item.dataset.type === type) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+}
+
+// Toggle inline toggles (small ones in autopilot rules)
+document.querySelectorAll('.toggle-sm').forEach(t => {
+  t.addEventListener('click', (e) => {
+    e.stopPropagation();
+    t.classList.toggle('on');
+  });
+});
+</script>
+</body>
+</html>

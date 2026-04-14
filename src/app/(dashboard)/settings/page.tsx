@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api-fetch"
 import { useAuth } from "@/hooks/use-auth"
 import { useLogout } from "@/hooks/use-logout"
 import { useSearchParams } from "next/navigation"
-import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X, Plus } from "lucide-react"
+import { LogOut, Save, RotateCcw, Brain, ChevronDown, ChevronUp, Check, Cpu, Link2, RefreshCw, Unlink, Loader2, Search, X, Plus, AlertCircle, Clock } from "lucide-react"
 import { useAdAccounts, useSkillPrompt, useUpdateSkillPrompt } from "@/hooks/use-campaigns"
 import type { AiModelOption } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
@@ -19,6 +19,7 @@ import type { CrmConnection, QualityMapping, SourceMapping, CrmField } from "@/h
 import { CrmProviderPicker } from "@/components/crm/crm-provider-picker"
 import { CrmAccountMapping } from "@/components/crm/crm-account-mapping"
 import { useIsAdmin } from "@/hooks/use-role"
+import { AccountKBEditor } from "@/components/settings/account-kb-editor"
 
 export default function SettingsPageWrapper() {
   return (
@@ -113,9 +114,14 @@ function SettingsPage() {
         </SettingsSection>
       )}
 
-      {/* AI Model + Skill Prompt */}
+      {/* AI Model + Skill Prompt + Knowledge Base */}
       {selectedAdAccountId && <ModelSwitcher adAccountId={selectedAdAccountId} />}
       {selectedAdAccountId && <SkillPromptEditor adAccountId={selectedAdAccountId} />}
+      {selectedAdAccountId && (
+        <SettingsSection title="Product Knowledge Base">
+          <AccountKBEditor adAccountId={selectedAdAccountId} />
+        </SettingsSection>
+      )}
 
       {/* CRM Integration */}
       <CrmIntegration adAccountId={activeAdAccountId} />
@@ -515,19 +521,18 @@ function SkillPromptEditor({ adAccountId }: { adAccountId: string }) {
 function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
   const { data: connData, isLoading, refetch } = useCrmConnection(adAccountId || "")
   const syncMutation = useSyncCrm()
-  const [expanded, setExpanded] = useState(false)
-  const [sourceExpanded, setSourceExpanded] = useState(false)
-  const [fieldExpanded, setFieldExpanded] = useState(false)
+  const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [showAddCrm, setShowAddCrm] = useState(false)
   const [activeConnId, setActiveConnId] = useState<string | null>(null)
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [disconnectError, setDisconnectError] = useState<string | null>(null)
   const isAdmin = useIsAdmin()
 
   const allConnections = (connData?.data || []) as CrmConnection[]
   const activeConnections = allConnections.filter((c: CrmConnection) => c.isActive)
 
   // Group connections by CRM account (same nangoConnectionId = same CRM)
-  // Each group gets one tab, and we use the first connection as the representative
   const crmGroups: { key: string; label: string; accountLabel: string | null; provider: string; representative: CrmConnection; connections: CrmConnection[] }[] = []
   const seenNangoIds = new Map<string, number>()
   for (const conn of activeConnections) {
@@ -547,26 +552,31 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
     }
   }
 
-  // Use selected tab or default to first group's representative
   const activeGroup = activeConnId
     ? crmGroups.find(g => g.key === activeConnId) || crmGroups[0]
     : crmGroups[0]
   const connection = activeGroup?.representative
 
   // Reset tab if selected group no longer exists
-  if (activeConnId && !crmGroups.find(g => g.key === activeConnId)) {
-    setActiveConnId(null)
-  }
+  useEffect(() => {
+    if (activeConnId && !crmGroups.find(g => g.key === activeConnId)) {
+      setActiveConnId(null)
+    }
+  }, [activeConnId, crmGroups])
 
   const handleDisconnect = async () => {
-    if (!connection || !isAdmin) return
+    if (!connection || !isAdmin || disconnecting) return
+    setDisconnecting(true)
+    setDisconnectError(null)
     try {
       await apiFetch(`/api/crm/connections?id=${connection.id}`, { method: "DELETE" })
       setActiveConnId(null)
       setShowDisconnectConfirm(false)
       refetch()
-    } catch {
-      // Handle error
+    } catch (err) {
+      setDisconnectError(err instanceof Error ? err.message : "Failed to disconnect. Try again.")
+    } finally {
+      setDisconnecting(false)
     }
   }
 
@@ -575,10 +585,45 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
     syncMutation.mutate(connection.id, { onSuccess: () => refetch() })
   }
 
+  const toggleSection = (section: string) => {
+    setExpandedSection(prev => prev === section ? null : section)
+  }
+
   const sectionStyle = {
     background: "var(--bg-base)" as const,
     border: "1px solid var(--border-default)" as const,
   }
+
+  // Consistent config section toggle
+  const ConfigSection = ({ id, title, description, children }: {
+    id: string; title: string; description: string; children: React.ReactNode
+  }) => (
+    <div>
+      <button
+        onClick={() => toggleSection(id)}
+        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left transition-all"
+        style={{ background: "var(--bg-muted)" }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <ChevronDown
+            size={12}
+            className="shrink-0 transition-transform"
+            style={{
+              color: "var(--text-tertiary)",
+              transform: expandedSection === id ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+          <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            {title}
+          </span>
+          <span className="text-[10px] truncate" style={{ color: "var(--text-tertiary)" }}>
+            {description}
+          </span>
+        </div>
+      </button>
+      {expandedSection === id && children}
+    </div>
+  )
 
   return (
     <div className="rounded-lg p-4" style={sectionStyle}>
@@ -640,70 +685,77 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
             </div>
           )}
 
-          {/* Connection info */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Provider</span>
-            <span className="text-sm capitalize" style={{ color: "var(--text-primary)" }}>
-              {connection.provider}
-            </span>
-          </div>
-          {connection.accountLabel && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Account</span>
-              <span className="text-sm" style={{ color: "var(--text-primary)" }}>
-                {connection.accountLabel}
+          {/* Compact connection status */}
+          <div
+            className="flex items-center justify-between rounded-md px-3 py-2.5"
+            style={{ background: "var(--bg-muted)" }}
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-medium capitalize" style={{ color: "var(--text-primary)" }}>
+                {connection.provider}
+                {connection.accountLabel && (
+                  <span className="ml-1.5 font-normal" style={{ color: "var(--text-tertiary)" }}>
+                    ({connection.accountLabel.split("(")[0].trim()})
+                  </span>
+                )}
+              </span>
+              <span className="flex items-center gap-1 font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                {(connection._count?.leads || 0).toLocaleString()} leads
               </span>
             </div>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Leads Synced</span>
-            <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>
-              {connection._count?.leads || 0}
-            </span>
+            <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+              <Clock size={10} />
+              {connection.lastSyncAt
+                ? new Date(connection.lastSyncAt).toLocaleString(undefined, {
+                    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                  })
+                : "Never synced"}
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Last Sync</span>
-            <span className="text-sm" style={{ color: "var(--text-primary)" }}>
-              {connection.lastSyncAt ? new Date(connection.lastSyncAt).toLocaleString() : "Never"}
-            </span>
-          </div>
+
+          {/* Sync error */}
           {connection.syncError && (
-            <div className="rounded-md px-3 py-2 text-xs" style={{ background: "rgba(248, 113, 113, 0.08)", color: "#f87171" }}>
-              Sync error: {connection.syncError}
+            <div
+              className="flex items-start gap-2 rounded-md px-3 py-2 text-xs"
+              style={{ background: "rgba(248, 113, 113, 0.08)", color: "#f87171" }}
+            >
+              <AlertCircle size={12} className="mt-0.5 shrink-0" />
+              <span>{connection.syncError}</span>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 pt-2">
+          {/* Actions — sync and disconnect separated cleanly */}
+          <div className="flex items-center justify-between pt-1">
             <button
               onClick={handleSync}
-              disabled={syncMutation.isPending}
+              disabled={syncMutation.isPending || !isAdmin}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{ background: "var(--acc)", color: "#fff", opacity: syncMutation.isPending ? 0.6 : 1 }}
+              style={{
+                background: "var(--acc)",
+                color: "#fff",
+                opacity: syncMutation.isPending || !isAdmin ? 0.6 : 1,
+              }}
             >
               {syncMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
               {syncMutation.isPending ? "Syncing..." : "Sync Now"}
             </button>
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-            >
-              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              Quality Mapping
-            </button>
+
             {showDisconnectConfirm ? (
-              <div className="ml-auto flex items-center gap-1.5">
-                <span className="text-[10px]" style={{ color: "#f87171" }}>Delete all leads & mappings?</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px]" style={{ color: "#f87171" }}>
+                  Delete all leads & mappings?
+                </span>
                 <button
                   onClick={handleDisconnect}
-                  className="rounded-md px-2 py-1 text-[10px] font-medium"
+                  disabled={disconnecting}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium"
                   style={{ background: "rgba(248, 113, 113, 0.15)", color: "#f87171" }}
                 >
-                  Yes, disconnect
+                  {disconnecting && <Loader2 size={9} className="animate-spin" />}
+                  {disconnecting ? "Removing..." : "Yes, disconnect"}
                 </button>
                 <button
-                  onClick={() => setShowDisconnectConfirm(false)}
+                  onClick={() => { setShowDisconnectConfirm(false); setDisconnectError(null) }}
                   className="rounded-md px-2 py-1 text-[10px] font-medium"
                   style={{ color: "var(--text-tertiary)" }}
                 >
@@ -713,8 +765,13 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
             ) : (
               <button
                 onClick={() => setShowDisconnectConfirm(true)}
-                className="ml-auto flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-                style={{ border: "1px solid rgba(248, 113, 113, 0.3)", color: "#f87171" }}
+                disabled={!isAdmin}
+                className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+                style={{
+                  border: "1px solid rgba(248, 113, 113, 0.3)",
+                  color: "#f87171",
+                  opacity: !isAdmin ? 0.5 : 1,
+                }}
               >
                 <Unlink size={12} />
                 Disconnect
@@ -722,43 +779,51 @@ function CrmIntegration({ adAccountId }: { adAccountId: string | null }) {
             )}
           </div>
 
-          {/* Quality Mapping Editor */}
-          {expanded && <QualityMappingEditor connectionId={connection.id} />}
-
-          {/* Source Mapping */}
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={() => setSourceExpanded(!sourceExpanded)}
-              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+          {/* Disconnect error */}
+          {disconnectError && (
+            <div
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs"
+              style={{ background: "rgba(248, 113, 113, 0.08)", color: "#f87171" }}
             >
-              {sourceExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              Source Mapping
-            </button>
-            <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-              Map CRM lead sources to ad platforms for accurate CPQL
-            </span>
-          </div>
-          {sourceExpanded && <SourceMappingEditor connectionId={connection.id} />}
+              <AlertCircle size={12} className="shrink-0" />
+              {disconnectError}
+            </div>
+          )}
 
-          {/* Field Mapping */}
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={() => setFieldExpanded(!fieldExpanded)}
-              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
-              style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+          {/* Configuration sections — consistent collapsible list */}
+          <div className="space-y-1.5 pt-1">
+            <ConfigSection
+              id="quality"
+              title="Quality Mapping"
+              description="Map CRM stages to quality tiers"
             >
-              {fieldExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              Field Mapping
-            </button>
-            <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-              Map CRM fields to Meta Campaign ID, Ad Set ID, Ad ID
-            </span>
-          </div>
-          {fieldExpanded && <FieldMappingEditor connectionId={connection.id} />}
+              <QualityMappingEditor connectionId={connection.id} />
+            </ConfigSection>
 
-          {/* Lead Status History Config */}
-          <HistoryConfigEditor connectionId={connection.id} />
+            <ConfigSection
+              id="source"
+              title="Source Mapping"
+              description="Map lead sources to ad platforms for accurate CPQL"
+            >
+              <SourceMappingEditor connectionId={connection.id} />
+            </ConfigSection>
+
+            <ConfigSection
+              id="field"
+              title="Field Mapping"
+              description="Map CRM fields to Campaign ID, Ad Set ID, Ad ID"
+            >
+              <FieldMappingEditor connectionId={connection.id} />
+            </ConfigSection>
+
+            <ConfigSection
+              id="history"
+              title="Lead Status History"
+              description="Track best stage a lead ever reached"
+            >
+              <HistoryConfigEditor connectionId={connection.id} />
+            </ConfigSection>
+          </div>
 
           {/* CRM ↔ Ad Account Mapping */}
           {adAccountId && (
@@ -832,14 +897,14 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
   const [relatedList, setRelatedList] = useState("")
   const [stageField, setStageField] = useState("")
   const [saved, setSaved] = useState(false)
-  const [initialized, setInitialized] = useState(false)
 
-  // Sync from server
-  if (data?.data && !initialized) {
-    setRelatedList(data.data.historyRelatedList || "")
-    setStageField(data.data.historyStageField || "")
-    setInitialized(true)
-  }
+  // Sync from server — useEffect instead of setState-during-render
+  useEffect(() => {
+    if (data?.data) {
+      setRelatedList(data.data.historyRelatedList || "")
+      setStageField(data.data.historyStageField || "")
+    }
+  }, [data?.data])
 
   const hasChanges =
     relatedList !== (data?.data?.historyRelatedList || "") ||
@@ -847,11 +912,17 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
 
   const handleSave = () => {
     if (!isAdmin) return
+    const trimmedList = relatedList.trim()
+    const trimmedField = stageField.trim()
+
+    // Validate: both must be filled or both empty
+    if ((trimmedList && !trimmedField) || (!trimmedList && trimmedField)) return
+
     updateMutation.mutate(
       {
         connectionId,
-        historyRelatedList: relatedList.trim() || null,
-        historyStageField: stageField.trim() || null,
+        historyRelatedList: trimmedList || null,
+        historyStageField: trimmedField || null,
       },
       {
         onSuccess: () => {
@@ -862,16 +933,12 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
     )
   }
 
+  const trimmedList = relatedList.trim()
+  const trimmedField = stageField.trim()
+  const partiallyFilled = (trimmedList && !trimmedField) || (!trimmedList && trimmedField)
+
   return (
-    <div className="mt-3 rounded-md p-3" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-subtle)" }}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>
-          Lead Status History
-        </span>
-        <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-          Track the best stage a lead ever reached, even if it later moved to Dead
-        </span>
-      </div>
+    <div className="space-y-3 pt-2">
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <label className="block text-[10px] mb-1" style={{ color: "var(--text-tertiary)" }}>
@@ -886,7 +953,7 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
             className="w-full rounded-md px-2.5 py-1.5 text-[11px]"
             style={{
               background: "var(--bg-base)",
-              border: "1px solid var(--border-default)",
+              border: `1px solid ${partiallyFilled && !trimmedList ? "#f87171" : "var(--border-default)"}`,
               color: "var(--text-primary)",
               opacity: !isAdmin ? 0.7 : 1,
             }}
@@ -905,7 +972,7 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
             className="w-full rounded-md px-2.5 py-1.5 text-[11px]"
             style={{
               background: "var(--bg-base)",
-              border: "1px solid var(--border-default)",
+              border: `1px solid ${partiallyFilled && !trimmedField ? "#f87171" : "var(--border-default)"}`,
               color: "var(--text-primary)",
               opacity: !isAdmin ? 0.7 : 1,
             }}
@@ -915,11 +982,11 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
           <div className="self-end">
             <button
               onClick={handleSave}
-              disabled={!hasChanges || updateMutation.isPending}
+              disabled={!hasChanges || updateMutation.isPending || !!partiallyFilled}
               className="flex items-center gap-1 rounded-md px-3 py-1.5 text-[11px] font-medium text-white transition-all"
               style={{
                 background: saved ? "#4ade80" : "var(--acc)",
-                opacity: !hasChanges || updateMutation.isPending ? 0.5 : 1,
+                opacity: !hasChanges || updateMutation.isPending || partiallyFilled ? 0.5 : 1,
               }}
             >
               {saved ? <Check size={11} /> : <Save size={11} />}
@@ -928,9 +995,14 @@ function HistoryConfigEditor({ connectionId }: { connectionId: string }) {
           </div>
         )}
       </div>
-      {!relatedList && (
-        <p className="mt-1.5 text-[10px]" style={{ color: "var(--text-disabled)" }}>
-          Not configured. Without this, best quality stage is based on current CRM stage only.
+      {partiallyFilled && (
+        <p className="text-[10px]" style={{ color: "#f87171" }}>
+          Both fields are required. Fill in both or leave both empty.
+        </p>
+      )}
+      {!trimmedList && !trimmedField && !partiallyFilled && (
+        <p className="text-[10px]" style={{ color: "var(--text-disabled)" }}>
+          Not configured — best quality stage uses current CRM stage only.
         </p>
       )}
     </div>
@@ -1125,15 +1197,15 @@ function FieldMappingEditor({ connectionId }: { connectionId: string }) {
     sub: f.dataType,
   }))
 
-  const [syncedFieldMap, setSyncedFieldMap] = useState(fieldMapData?.data)
-  if (fieldMapData?.data && fieldMapData.data !== syncedFieldMap) {
-    setSyncedFieldMap(fieldMapData.data)
-    const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "", google_campaign_id: "", google_adgroup_id: "" }
-    for (const m of fieldMapData.data) {
-      map[m.metaField] = m.crmField
+  useEffect(() => {
+    if (fieldMapData?.data) {
+      const map: Record<string, string> = { campaign_id: "", adset_id: "", ad_id: "", google_campaign_id: "", google_adgroup_id: "" }
+      for (const m of fieldMapData.data) {
+        map[m.metaField] = m.crmField
+      }
+      setLocalMappings(map)
     }
-    setLocalMappings(map)
-  }
+  }, [fieldMapData?.data])
 
   const handleSave = () => {
     const mappings = ALL_MAPPING_FIELDS.map(f => ({
@@ -1255,11 +1327,11 @@ function SourceMappingEditor({ connectionId }: { connectionId: string }) {
   const [localMappings, setLocalMappings] = useState<{ crmSource: string; adPlatform: string }[]>([])
   const [saved, setSaved] = useState(false)
 
-  const [syncedSourceMap, setSyncedSourceMap] = useState(mapData?.data)
-  if (mapData?.data && mapData.data !== syncedSourceMap) {
-    setSyncedSourceMap(mapData.data)
-    setLocalMappings(mapData.data.map((m: SourceMapping) => ({ crmSource: m.crmSource, adPlatform: m.adPlatform })))
-  }
+  useEffect(() => {
+    if (mapData?.data) {
+      setLocalMappings(mapData.data.map((m: SourceMapping) => ({ crmSource: m.crmSource, adPlatform: m.adPlatform })))
+    }
+  }, [mapData?.data])
 
   const handleDiscover = () => discoverMutation.mutate(connectionId)
 
@@ -1370,18 +1442,18 @@ function QualityMappingEditor({ connectionId }: { connectionId: string }) {
   >([])
   const [saved, setSaved] = useState(false)
 
-  const [syncedQualityMap, setSyncedQualityMap] = useState(mapData?.data)
-  if (mapData?.data && mapData.data !== syncedQualityMap) {
-    setSyncedQualityMap(mapData.data)
-    setLocalMappings(
-      mapData.data.map((m: QualityMapping) => ({
-        crmStage: m.crmStage,
-        qualityScore: m.qualityScore,
-        qualityTier: m.qualityTier,
-        sortOrder: m.sortOrder,
-      }))
-    )
-  }
+  useEffect(() => {
+    if (mapData?.data) {
+      setLocalMappings(
+        mapData.data.map((m: QualityMapping) => ({
+          crmStage: m.crmStage,
+          qualityScore: m.qualityScore,
+          qualityTier: m.qualityTier,
+          sortOrder: m.sortOrder,
+        }))
+      )
+    }
+  }, [mapData?.data])
 
   const handleDiscover = () => {
     discoverMutation.mutate(connectionId)

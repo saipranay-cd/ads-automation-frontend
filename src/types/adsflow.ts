@@ -166,6 +166,54 @@ export interface WizardDraft {
   crmTag: string
 }
 
+// ─── Product Knowledge Base ──────────────────────────────
+
+export interface KBLink {
+  url: string
+  description: string
+}
+
+export type KPIType = "cpl" | "roas" | "ctr" | "cpc" | "cpql" | "leads" | "conversions" | "spend" | "custom"
+
+export interface KBObjectiveSnapshot {
+  date: string
+  actual: number
+  notes?: string
+}
+
+export interface KBObjective {
+  id: string
+  knowledgeBaseId: string
+  kpiType: KPIType | string
+  label: string
+  freeTextGoal?: string | null
+  targetValue?: number | null
+  targetUnit?: string | null
+  direction: string
+  snapshots: KBObjectiveSnapshot[]
+  isActive: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductKnowledgeBase {
+  id: string
+  adAccountId: string
+  platform: string
+  campaignId: string // "" = account-level, else campaign-specific
+  campaignName?: string | null
+  productDescription?: string | null
+  idealCustomer?: string | null
+  pricingContext?: string | null
+  competitorContext?: string | null
+  customNotes?: string | null
+  links: KBLink[]
+  objectives: KBObjective[]
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Dashboard View Types ────────────────────────────────
 
 export interface MetricCardData {

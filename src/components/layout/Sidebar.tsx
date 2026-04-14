@@ -26,6 +26,7 @@ import {
   KeyRound,
   HelpCircle,
   Search,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlatform } from "@/hooks/use-platform";
@@ -65,6 +66,7 @@ function getNavSections(platform: "meta" | "google") {
       items: platform === "google"
         ? [
             { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "Knowledge Base", href: "/google/knowledge-base", icon: BookOpen },
             { label: "Lead Quality", href: "/google/lead-quality", icon: Target },
             { label: "Funnel", href: "/google/funnel", icon: GitCommitVertical },
             { label: "AI Chat", href: "/chat", icon: MessageCircle },
@@ -72,6 +74,7 @@ function getNavSections(platform: "meta" | "google") {
           ]
         : [
             { label: "Insights", href: "/insights", icon: Sparkles },
+            { label: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
             { label: "Lead Quality", href: "/lead-quality", icon: Target },
             { label: "Funnel", href: "/funnel", icon: GitCommitVertical },
             { label: "Creatives", href: "/creatives", icon: FileText },
