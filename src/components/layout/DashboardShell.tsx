@@ -6,9 +6,22 @@ import { Topbar } from "./Topbar"
 import { MobileNavDrawer } from "./MobileNavDrawer"
 import { RateLimitWarning } from "./RateLimitWarning"
 import { useMobileNav } from "@/hooks/use-mobile-nav"
+import { useAuth } from "@/hooks/use-auth"
+import { useCurrentOrg } from "@/hooks/use-org"
+import { syncStoreScope } from "@/lib/store"
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isOpen, open, close } = useMobileNav()
+  const { user } = useAuth()
+  const { data: orgData } = useCurrentOrg()
+  const currentOrg = orgData?.data?.[0]
+
+  // Clear persisted account selections when user or org changes
+  useEffect(() => {
+    if (user?.email && currentOrg?.id) {
+      syncStoreScope(`${user.email}:${currentOrg.id}`)
+    }
+  }, [user?.email, currentOrg?.id])
 
   useEffect(() => {
     function handleGlobalShortcuts(e: KeyboardEvent) {

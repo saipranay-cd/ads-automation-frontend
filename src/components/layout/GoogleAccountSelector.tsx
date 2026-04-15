@@ -14,9 +14,10 @@ export function GoogleAccountSelector() {
 
   const accounts = useMemo(() => accountsData?.data || [], [accountsData?.data])
 
-  // Auto-select first account
+  // Auto-select first account, or clear stale selection not in current account list
   useEffect(() => {
-    if (!selectedId && accounts.length > 0) {
+    if (accounts.length === 0) return
+    if (!selectedId || !accounts.some((a) => a.id === selectedId)) {
       setSelectedId(accounts[0].id)
     }
   }, [accounts, selectedId, setSelectedId])

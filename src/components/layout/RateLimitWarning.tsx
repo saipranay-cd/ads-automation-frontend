@@ -9,7 +9,7 @@ import { AlertTriangle } from "lucide-react"
  */
 export function RateLimitWarning() {
   const [remaining, setRemaining] = useState<number | null>(null)
-  const [total, setTotal] = useState(200)
+  const [total, setTotal] = useState(2000)
   const [rateLimited, setRateLimited] = useState(false)
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function RateLimitWarning() {
   const borderColor = isRed ? "var(--red-solid)" : "var(--amber-solid)"
   const textColor = isRed ? "var(--red-text)" : "var(--amber-text)"
   const message = rateLimited
-    ? "Rate limit reached (200 calls/hour). Data will refresh when the limit resets."
+    ? `Rate limit reached (${total} calls/hour). Data will refresh when the limit resets.`
     : `Rate limit warning: ${remaining} of ${total} calls remaining this hour.`
 
   return (
