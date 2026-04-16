@@ -6,6 +6,7 @@ import Link from "next/link"
 import { FileImage, Download } from "lucide-react"
 import { SearchSelect } from "@/components/ui/search-select"
 import { AdTable } from "@/components/dashboard/AdTable"
+import { AdDetailDrawer } from "@/components/dashboard/AdDetailDrawer"
 import { SyncReminder } from "@/components/dashboard/SyncReminder"
 import { StatusTabs } from "@/components/dashboard/StatusTabs"
 import { SearchInput } from "@/components/dashboard/SearchInput"
@@ -33,6 +34,7 @@ function AdsPageContent() {
   const [adSetDropdown, setAdSetDropdown] = useState<string>("All")
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [selectedAdId, setSelectedAdId] = useState<string | null>(null)
   const selectedAdAccountId = useAppStore((s) => s.selectedAdAccountId)
   const { data: adsData, isLoading, error, refetch } = useAds(selectedAdAccountId)
   const sync = useSync()
@@ -141,7 +143,7 @@ function AdsPageContent() {
         <TableSkeleton rows={8} columns={6} />
       ) : ads.length > 0 ? (
         <>
-          <AdTable ads={filtered} isLoading={isLoading} />
+          <AdTable ads={filtered} isLoading={isLoading} onRowClick={setSelectedAdId} />
 
           {/* Filtered empty state */}
           {filtered.length === 0 && (
@@ -161,6 +163,8 @@ function AdsPageContent() {
           onAction={() => sync.mutate(selectedAdAccountId || undefined)}
         />
       )}
+
+      <AdDetailDrawer adId={selectedAdId} onClose={() => setSelectedAdId(null)} />
     </div>
   )
 }

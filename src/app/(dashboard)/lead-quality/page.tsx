@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Target, Users, IndianRupee, TrendingUp, ArrowUpRight,
   ArrowDownRight, RefreshCw, ChevronLeft, ChevronRight,
   Circle, CheckCircle, XCircle, Minus,
   Link2, Search, SlidersHorizontal,
   Megaphone, Layers, Image, BarChart3, Info, X,
+  User, Calendar, Tag, Hash, Copy, Check,
 } from "lucide-react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -850,14 +851,294 @@ function EntityQualityTable({ adAccountId, dateRange, platform, onEntityClick, s
   )
 }
 
+// ── Lead Details Panel ──────────────────────────────────
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        navigator.clipboard.writeText(value).then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1500)
+        })
+      }}
+      className="inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:opacity-100 opacity-0 group-hover/row:opacity-60"
+      style={{ color: "var(--text-tertiary)" }}
+      title="Copy"
+    >
+      {copied ? <Check size={11} style={{ color: "#4ade80" }} /> : <Copy size={11} />}
+    </button>
+  )
+}
+
+function DetailRow({ label, value, mono = false, copy = false }: {
+  label: string; value: React.ReactNode; mono?: boolean; copy?: boolean
+}) {
+  const isEmpty = value === null || value === undefined || value === ""
+  const display = isEmpty ? "—" : value
+  const copyValue = copy && typeof display === "string" && !isEmpty ? display : null
+  return (
+    <div
+      className="group/row flex items-start justify-between gap-3 py-2"
+      style={{ borderTop: "1px solid var(--border-default)" }}
+    >
+      <span className="text-[11px] shrink-0 pt-0.5" style={{ color: "var(--text-tertiary)" }}>
+        {label}
+      </span>
+      <div className="flex items-center gap-1 min-w-0 max-w-[300px]">
+        <span
+          className={`text-[12px] text-right break-all ${mono ? "font-mono text-[11px]" : ""}`}
+          style={{ color: isEmpty ? "var(--text-tertiary)" : "var(--text-primary)" }}
+        >
+          {display}
+        </span>
+        {copyValue && <CopyButton value={copyValue} />}
+      </div>
+    </div>
+  )
+}
+
+function DetailSection({ title, icon: Icon, children }: {
+  title: string; icon: typeof User; children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <Icon size={11} style={{ color: "var(--text-tertiary)" }} />
+        <h4 className="text-[10px] font-medium uppercase tracking-[0.06em]" style={{ color: "var(--text-tertiary)" }}>
+          {title}
+        </h4>
+      </div>
+      <div className="flex flex-col [&>div:first-child]:border-t-0">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function LeadDetailsPanel({ lead, onClose }: { lead: CrmLead | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!lead) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = ""
+    }
+  }, [lead, onClose])
+
+  if (!lead) return null
+
+  const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || lead.email || "Unknown"
+  const tierKey = lead.bestQualityTier || lead.qualityTier || "unknown"
+  const tier = tierConfig[tierKey] || tierConfig.unknown
+  const TierIcon = tier.icon
+  const pm = platformMeta[lead.adPlatform || "unknown"] || platformMeta.unknown
+  const showBestBadge = lead.bestQualityTier && lead.bestQualityTier !== lead.qualityTier
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 animate-in fade-in duration-150"
+        style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }}
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div
+        className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-[460px] flex flex-col animate-in slide-in-from-right duration-200"
+        style={{ background: "var(--bg-base)", borderLeft: "1px solid var(--border-default)", boxShadow: "-8px 0 24px rgba(0,0,0,0.25)" }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-5 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border-default)" }}>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                style={{ background: tier.bg, color: tier.color }}
+              >
+                <TierIcon size={9} />
+                {tier.label}
+              </span>
+              {showBestBadge && (
+                <span className="text-[9px]" style={{ color: "var(--text-disabled)" }} title={`Current stage: ${lead.crmStage} (${lead.qualityTier})`}>
+                  best · now {lead.qualityTier || "unknown"}
+                </span>
+              )}
+              {lead.crmStage && (
+                <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                  {lead.crmStage}
+                </span>
+              )}
+            </div>
+            <h2 className="text-[16px] font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+              {fullName}
+            </h2>
+            {lead.company && (
+              <p className="text-[12px] mt-0.5 truncate" style={{ color: "var(--text-tertiary)" }}>{lead.company}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-md transition-colors shrink-0"
+            style={{ color: "var(--text-tertiary)" }}
+            onMouseEnter={e => e.currentTarget.style.background = "var(--bg-subtle)"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            title="Close (Esc)"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Contact */}
+          <DetailSection title="Contact" icon={User}>
+            <DetailRow label="Name" value={[lead.firstName, lead.lastName].filter(Boolean).join(" ") || null} />
+            <DetailRow label="Email" value={lead.email} copy />
+            <DetailRow label="Phone" value={lead.phone} copy />
+            <DetailRow label="Company" value={lead.company} />
+          </DetailSection>
+
+          {/* CRM */}
+          <DetailSection title="CRM" icon={Tag}>
+            <DetailRow label="Stage" value={lead.crmStage} />
+            <DetailRow label="Status" value={lead.crmStatus} />
+            <DetailRow label="Owner" value={lead.crmOwner} />
+            <DetailRow label="Module" value={lead.crmModule} />
+            <DetailRow label="CRM ID" value={lead.crmLeadId} mono copy />
+          </DetailSection>
+
+          {/* Quality */}
+          <DetailSection title="Quality" icon={Target}>
+            <DetailRow
+              label="Current"
+              value={
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    {lead.qualityScore ?? "—"}{typeof lead.qualityScore === "number" ? "/100" : ""}
+                  </span>
+                  <span className="text-[11px]" style={{ color: (tierConfig[lead.qualityTier || "unknown"] || tierConfig.unknown).color }}>
+                    {(tierConfig[lead.qualityTier || "unknown"] || tierConfig.unknown).label}
+                  </span>
+                </span>
+              }
+            />
+            <DetailRow
+              label="Best ever"
+              value={
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    {lead.bestQualityScore ?? "—"}{typeof lead.bestQualityScore === "number" ? "/100" : ""}
+                  </span>
+                  <span className="text-[11px]" style={{ color: (tierConfig[lead.bestQualityTier || "unknown"] || tierConfig.unknown).color }}>
+                    {(tierConfig[lead.bestQualityTier || "unknown"] || tierConfig.unknown).label}
+                  </span>
+                </span>
+              }
+            />
+            <DetailRow
+              label="Deal value"
+              value={lead.dealValue != null ? <span className="font-mono">{fmt(lead.dealValue)}</span> : null}
+            />
+          </DetailSection>
+
+          {/* Attribution */}
+          <DetailSection title="Attribution" icon={Hash}>
+            <DetailRow
+              label="Source"
+              value={lead.adPlatform ? (
+                <span className="inline-flex items-center gap-1.5" style={{ color: pm.color }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: pm.color }} />
+                  {pm.label}
+                </span>
+              ) : null}
+            />
+            <DetailRow label="utm_source" value={lead.utmSource} mono />
+            <DetailRow label="utm_medium" value={lead.utmMedium} mono />
+            <DetailRow label="utm_campaign" value={lead.utmCampaign} mono />
+            <DetailRow label="utm_content" value={lead.utmContent} mono />
+            <DetailRow label="utm_term" value={lead.utmTerm} mono />
+            <DetailRow label="fbclid" value={lead.fbclid} mono copy />
+            <DetailRow label="gclid" value={lead.gclid} mono copy />
+          </DetailSection>
+
+          {/* Match */}
+          <DetailSection title="Ad Match" icon={Link2}>
+            <DetailRow
+              label="Method"
+              value={lead.matchMethod ? (
+                <span
+                  className="px-1.5 py-0.5 rounded text-[9px] font-mono font-medium uppercase"
+                  style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}
+                >
+                  {lead.matchMethod}
+                </span>
+              ) : null}
+            />
+            <DetailRow
+              label="Confidence"
+              value={lead.matchConfidence != null ? (
+                <span className="font-mono">{lead.matchConfidence}%</span>
+              ) : null}
+            />
+            <DetailRow label="Campaign ID" value={lead.campaignId} mono copy />
+            <DetailRow label="Ad Set ID" value={lead.adSetId} mono copy />
+            <DetailRow label="Ad ID" value={lead.adId} mono copy />
+            <DetailRow label="Ad Account" value={lead.adAccountId} mono copy />
+          </DetailSection>
+
+          {/* Timestamps */}
+          <DetailSection title="Timestamps" icon={Calendar}>
+            <DetailRow label="Created (CRM)" value={lead.crmCreatedAt ? fmtDate(lead.crmCreatedAt) : null} />
+            <DetailRow label="Modified (CRM)" value={lead.crmModifiedAt ? fmtDate(lead.crmModifiedAt) : null} />
+            <DetailRow label="Synced" value={lead.createdAt ? fmtDate(lead.createdAt) : null} />
+            <DetailRow label="Updated" value={lead.updatedAt ? fmtDate(lead.updatedAt) : null} />
+          </DetailSection>
+
+          {/* Raw data */}
+          {lead.rawData && typeof lead.rawData === "object" && Object.keys(lead.rawData).length > 0 && (
+            <details className="group">
+              <summary
+                className="flex items-center gap-1.5 cursor-pointer select-none list-none"
+              >
+                <ChevronRight size={11} className="transition-transform group-open:rotate-90" style={{ color: "var(--text-tertiary)" }} />
+                <span className="text-[10px] font-medium uppercase tracking-[0.06em]" style={{ color: "var(--text-tertiary)" }}>
+                  Raw CRM payload
+                </span>
+              </summary>
+              <pre
+                className="mt-2 rounded-md p-3 text-[10.5px] leading-[1.55] font-mono overflow-x-auto"
+                style={{
+                  background: "var(--bg-muted)",
+                  color: "var(--text-secondary)",
+                  maxHeight: 320,
+                  overflowY: "auto",
+                }}
+              >
+                {JSON.stringify(lead.rawData, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Leads Table ─────────────────────────────────────────
 
-function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, entityFilter, onClearEntity, isGoogle = false }: {
+function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, entityFilter, onClearEntity, isGoogle = false, onLeadClick }: {
   leads: CrmLead[]; total: number; page: number; setPage: (p: number) => void
   tierFilter: string; setTierFilter: (t: string) => void
   entityFilter?: { id: string; name: string; level: string } | null
   onClearEntity?: () => void
   isGoogle?: boolean
+  onLeadClick?: (lead: CrmLead) => void
 }) {
   const totalPages = Math.ceil(total / 50)
 
@@ -939,8 +1220,9 @@ function LeadsTable({ leads, total, page, setPage, tierFilter, setTierFilter, en
               return (
                 <tr
                   key={lead.id}
-                  className="transition-colors"
+                  className="transition-colors cursor-pointer"
                   style={{ borderBottom: "1px solid var(--border-default)" }}
+                  onClick={() => onLeadClick?.(lead)}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--bg-subtle)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -1121,6 +1403,7 @@ export default function LeadQualityPage() {
   const [leadPage, setLeadPage] = useState(1)
   const [tierFilter, setTierFilter] = useState("")
   const [entityFilter, setEntityFilter] = useState<{ id: string; name: string; level: string } | null>(null)
+  const [selectedLead, setSelectedLead] = useState<CrmLead | null>(null)
 
   // Paginated leads for the table (filtered by entity selection)
   const { data: leadsData } = useCrmLeads(selectedAdAccountId, {
@@ -1321,7 +1604,11 @@ export default function LeadQualityPage() {
         entityFilter={entityFilter}
         onClearEntity={() => setEntityFilter(null)}
         isGoogle={isGoogle}
+        onLeadClick={setSelectedLead}
       />
+
+      {/* Lead Details Panel (slide-in) */}
+      <LeadDetailsPanel lead={selectedLead} onClose={() => setSelectedLead(null)} />
     </div>
   )
 }

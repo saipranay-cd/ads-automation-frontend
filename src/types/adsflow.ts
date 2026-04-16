@@ -314,6 +314,39 @@ export interface AdTableRow {
   isActive: boolean;
 }
 
+export interface AdDetail {
+  id: string
+  name: string
+  status: string
+  createdAt: string
+  updatedAt: string
+  adSetId: string
+  adSetName: string
+  campaignId: string
+  campaignName: string
+  objective: string | null
+  creative: {
+    body: string | null
+    title: string | null
+    description: string | null
+    cta: string | null
+    link: string | null
+    thumbnailUrl: string | null
+    videoId: string | null
+  }
+  metrics: {
+    amountSpent: number
+    impressions: number
+    reach: number
+    clicks: number
+    leads: number
+    ctr: number
+    cpc: number
+    cpm: number
+    costPerLead: number | null
+  }
+}
+
 export interface AiInsightData {
   id: string;
   type: "ai" | "budget" | "opportunity" | "warning";

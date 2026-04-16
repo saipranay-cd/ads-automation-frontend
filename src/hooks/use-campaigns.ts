@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiFetch } from "@/lib/api-fetch"
 import { showApiError } from "@/components/layout/ErrorToast"
-import type { CampaignTableRow, AdSetTableRow, AdTableRow, WizardDraft } from "@/types/adsflow"
+import type { CampaignTableRow, AdSetTableRow, AdTableRow, AdDetail, WizardDraft } from "@/types/adsflow"
 
 // ── Helpers ──────────────────────────────────────────────
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -211,6 +211,23 @@ export function useAds(adAccountId?: string | null) {
       return res.json()
     },
     enabled: !!adAccountId,
+  })
+}
+
+export function useAdDetail(adId?: string | null) {
+  return useQuery<AdDetail>({
+    queryKey: ["ad-detail", adId],
+    queryFn: async () => {
+      if (!adId) throw new Error("No ad id")
+      const res = await apiFetch(`/api/meta/ads/${encodeURIComponent(adId)}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to fetch ad detail")
+      }
+      return res.json()
+    },
+    enabled: !!adId,
+    staleTime: 60_000,
   })
 }
 

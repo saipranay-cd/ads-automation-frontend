@@ -27,17 +27,34 @@ export interface CrmLead {
   phone: string | null
   company: string | null
   crmStage: string | null
+  crmStatus?: string | null
+  crmOwner?: string | null
+  crmLeadId?: string | null
+  crmModule?: string | null
   qualityScore: number | null
   qualityTier: string | null
   bestQualityScore: number | null
   bestQualityTier: string | null
   adPlatform: string | null
   campaignId: string | null
+  adSetId?: string | null
+  adId?: string | null
+  adAccountId?: string | null
   matchMethod: string | null
   matchConfidence: number | null
   dealValue: number | null
   crmCreatedAt: string | null
+  crmModifiedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  fbclid?: string | null
+  gclid?: string | null
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
+  utmContent?: string | null
   utmTerm: string | null
+  rawData?: Record<string, unknown> | null
 }
 
 export interface QualityMapping {

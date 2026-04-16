@@ -13,6 +13,7 @@ import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import type { DateRange } from "@/hooks/use-campaigns"
 import { useAppStore } from "@/lib/store"
 import { StatusBadge } from "@/components/campaigns/StatusBadge"
+import { GoogleAdDetailDrawer } from "@/components/dashboard/GoogleAdDetailDrawer"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ErrorBanner } from "@/components/ui/error-banner"
@@ -50,6 +51,7 @@ function GoogleAdsContent() {
   const pageSize = 25
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [selectedAd, setSelectedAd] = useState<GoogleAdRow | null>(null)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
   const { data: adsData, isLoading, error, refetch } = useGoogleAds(selectedGoogleAccountId, days, dateRange)
   const sync = useGoogleSync()
@@ -170,7 +172,7 @@ function GoogleAdsContent() {
                   return (
                     <tr
                       key={a.id}
-                      className="group transition-colors duration-100"
+                      className="group cursor-pointer transition-colors duration-100"
                       style={{
                         borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
                       }}
@@ -180,6 +182,7 @@ function GoogleAdsContent() {
                       onMouseLeave={(e) =>
                         e.currentTarget.style.setProperty("--row-bg", "var(--bg-base)")
                       }
+                      onClick={() => setSelectedAd(a)}
                     >
                       {/* Frozen headline column */}
                       <td
@@ -270,6 +273,14 @@ function GoogleAdsContent() {
           onAction={() => sync.mutate(selectedGoogleAccountId || undefined)}
         />
       )}
+
+      <GoogleAdDetailDrawer
+        adId={selectedAd?.id ?? null}
+        initial={selectedAd}
+        days={days}
+        dateRange={dateRange}
+        onClose={() => setSelectedAd(null)}
+      />
     </div>
   )
 }

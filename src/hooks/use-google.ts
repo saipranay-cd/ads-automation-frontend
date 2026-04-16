@@ -6,6 +6,7 @@ import type {
   GoogleCampaignRow,
   GoogleAdGroupRow,
   GoogleAdRow,
+  GoogleAdDetail,
   GoogleKeywordRow,
 } from "@/types/google-ads"
 import type { AiProposal, ProposalStats } from "@/hooks/use-campaigns"
@@ -120,6 +121,21 @@ export function useGoogleAds(googleAccountId?: string | null, days = 30, dateRan
     },
     enabled: !!googleAccountId,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useGoogleAdDetail(adId?: string | null, days = 30, dateRange?: DR) {
+  return useQuery<GoogleAdDetail>({
+    queryKey: ["google-ad-detail", adId, dateRange?.since ?? days, dateRange?.until ?? ""],
+    queryFn: async () => {
+      if (!adId) throw new Error("No ad id")
+      const p = new URLSearchParams({ days: String(days) })
+      if (dateRange) { p.set("since", dateRange.since); p.set("until", dateRange.until) }
+      const res = await googleFetch(`/api/google/ads/${encodeURIComponent(adId)}?${p.toString()}`)
+      return res.json()
+    },
+    enabled: !!adId,
+    staleTime: 60_000,
   })
 }
 

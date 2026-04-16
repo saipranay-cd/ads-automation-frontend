@@ -12,6 +12,7 @@ interface AdTableProps {
   ads: AdTableRow[]
   isLoading?: boolean
   onToggle?: (id: string, active: boolean) => void
+  onRowClick?: (id: string) => void
 }
 
 const scrollHeaders = [
@@ -42,6 +43,7 @@ export function AdTable({
   ads,
   isLoading = false,
   onToggle,
+  onRowClick,
 }: AdTableProps) {
   const { paginatedItems, currentPage, totalPages, totalItems, pageSize, setCurrentPage } = usePagination(ads, 25)
 
@@ -116,7 +118,7 @@ export function AdTable({
               return (
                 <tr
                   key={row.id}
-                  className="group transition-colors duration-100"
+                  className={`group transition-colors duration-100 ${onRowClick ? "cursor-pointer" : ""}`}
                   style={{
                     borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
                   }}
@@ -126,6 +128,7 @@ export function AdTable({
                   onMouseLeave={(e) => {
                     e.currentTarget.style.setProperty("--row-bg", "var(--bg-base)")
                   }}
+                  onClick={onRowClick ? () => onRowClick(row.id) : undefined}
                 >
                   {/* Frozen name column */}
                   <td

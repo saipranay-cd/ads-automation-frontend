@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.fbcdn.net" },
       { protocol: "https", hostname: "**.facebook.com" },
       { protocol: "https", hostname: "**.googleusercontent.com" },
+      { protocol: "https", hostname: "tpc.googlesyndication.com" },
+      { protocol: "https", hostname: "**.ggpht.com" },
     ],
   },
 };
