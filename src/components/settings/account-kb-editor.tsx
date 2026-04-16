@@ -60,13 +60,13 @@ export function AccountKBEditor({ adAccountId }: { adAccountId: string }) {
         Shared business context used by the AI across all campaigns.
       </p>
 
-      <Field label="Product / Service" placeholder="e.g., Premium 3BHK apartments in Whitefield, Bangalore."
+      <Field label="Product / Service" placeholder="What you sell and who it's for — include category, tier, and key features."
         value={productDescription} onChange={d(setProductDescription)} readOnly={readOnly} />
-      <Field label="Ideal Customer" placeholder="e.g., IT professionals aged 28-45, income >₹25 LPA."
+      <Field label="Ideal Customer" placeholder="Age range, role, income, location, and any qualifying criteria."
         value={idealCustomer} onChange={d(setIdealCustomer)} readOnly={readOnly} />
-      <Field label="Pricing" placeholder="e.g., ₹1.2 Cr - ₹2.1 Cr. EMI starting ₹85K/month."
+      <Field label="Pricing" placeholder="Price range or payment terms. E.g., starting price, package tiers, financing options."
         value={pricingContext} onChange={d(setPricingContext)} readOnly={readOnly} rows={2} />
-      <Field label="Competitors" placeholder="e.g., Prestige Lakeside Habitat, Brigade El Dorado."
+      <Field label="Competitors" placeholder="Name your top 2–4 competitors. Helps the AI avoid their angles and highlight your edge."
         value={competitorContext} onChange={d(setCompetitorContext)} readOnly={readOnly} rows={2} />
       <Field label="Additional Notes" placeholder="Market conditions, seasonal patterns, etc."
         value={customNotes} onChange={d(setCustomNotes)} readOnly={readOnly} rows={2} />

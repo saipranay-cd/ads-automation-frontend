@@ -63,6 +63,7 @@ export const AuthStore = {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
     deleteCookie(TOKEN_KEY)
+    deleteCookie("org-onboarded")
     notify()
   },
 
@@ -81,4 +82,29 @@ export const AuthStore = {
   getServerSnapshot(): string | null {
     return null
   },
+}
+
+/**
+ * Prime the onboarding-gate cookie from the server state.
+ * Call after successful login / accept-invite so users logging in from a
+ * new browser don't get stuck in the onboarding redirect loop.
+ */
+export async function primeOnboardingCookie(token: string): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const res = await fetch("/api/org", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return
+    const json = await res.json().catch(() => ({}))
+    const orgs = Array.isArray(json.data) ? json.data : []
+    const onboarded = !!orgs[0]?.onboardedAt
+    if (onboarded) {
+      setCookie("org-onboarded", "1", COOKIE_MAX_AGE)
+    } else {
+      deleteCookie("org-onboarded")
+    }
+  } catch {
+    // Silent failure — middleware will redirect to /onboarding which is safe
+  }
 }

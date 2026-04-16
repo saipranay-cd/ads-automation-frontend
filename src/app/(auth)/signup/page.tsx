@@ -52,7 +52,10 @@ export default function SignupPage() {
         AuthStore.setToken(result.token, user)
       }
 
-      router.push("/")
+      // Fresh signup → org is not onboarded yet. Clear any stale cookie
+      // and send the user to /onboarding.
+      document.cookie = "org-onboarded=; path=/; max-age=0; samesite=lax"
+      router.push("/onboarding")
     } catch {
       setError("Could not reach the server. Check your connection and try again.")
     } finally {

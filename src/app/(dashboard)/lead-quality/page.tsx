@@ -235,7 +235,7 @@ function QualityKpiCard({ label, value, sub, icon: Icon, accent }: {
                 boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
               }}
             >
-              Leads with quality score &ge; 70, based on your CRM stage mapping in Settings. Stages like Qualified, Site Visit, Converted score 70+.
+              Leads with quality score &ge; 70, based on your CRM stage mapping in Settings. Stages like Qualified, Converted, and mid-to-late funnel milestones score 70+.
             </div>
           )}
         </div>

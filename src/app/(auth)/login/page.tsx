@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 import Link from "next/link"
 import { Zap, AlertCircle, Loader2 } from "lucide-react"
-import { AuthStore } from "@/lib/auth-store"
+import { AuthStore, primeOnboardingCookie } from "@/lib/auth-store"
 import { AuthInput } from "@/components/auth/AuthInput"
 
 function LoginForm() {
@@ -45,6 +45,9 @@ function LoginForm() {
           ? { name: result.user.name || result.user.email, email: result.user.email }
           : undefined
         AuthStore.setToken(result.token, user)
+        // Prime the onboarding cookie from the server state so existing
+        // onboarded users don't get bounced to /onboarding.
+        await primeOnboardingCookie(result.token)
       }
 
       const callbackUrl = searchParams.get("callbackUrl") || "/"

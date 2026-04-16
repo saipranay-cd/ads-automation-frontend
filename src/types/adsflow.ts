@@ -1,3 +1,31 @@
+// ─── Business Profile ────────────────────────────────────
+
+export type IndustryId =
+  | "real_estate"
+  | "ecommerce"
+  | "saas"
+  | "local_services"
+  | "agency"
+  | "healthcare"
+  | "education"
+  | "finance"
+  | "hospitality"
+  | "automotive"
+  | "professional_services"
+  | "b2b_enterprise"
+  | "other";
+
+export type TeamSize = "solo" | "2_5" | "6_20" | "21_50" | "51_200" | "200_plus";
+export type BusinessType = "B2B" | "B2C" | "D2C" | "B2B2C";
+export type PrimaryGoal =
+  | "lead_gen"
+  | "sales"
+  | "brand_awareness"
+  | "app_installs"
+  | "retention"
+  | "traffic"
+  | "signups";
+
 // ─── Meta Graph API Response Types ───────────────────────
 
 export interface MetaAdAccount {

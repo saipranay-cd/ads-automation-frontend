@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
 import { Zap, AlertCircle, Loader2, CheckCircle } from "lucide-react"
-import { AuthStore } from "@/lib/auth-store"
+import { AuthStore, primeOnboardingCookie } from "@/lib/auth-store"
 import { AuthInput } from "@/components/auth/AuthInput"
 
 interface InviteInfo {
@@ -89,6 +89,7 @@ function AcceptInviteForm() {
           ? { name: result.user.name || name || result.user.email, email: result.user.email }
           : undefined
         AuthStore.setToken(result.token, user)
+        await primeOnboardingCookie(result.token)
       }
       router.push("/")
     } catch {

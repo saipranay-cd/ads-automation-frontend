@@ -55,6 +55,40 @@ export interface OrgInfo {
   name: string
   slug: string
   role: string
+  // Business profile — set during onboarding, null until completed
+  industry?: string | null
+  industryOther?: string | null
+  teamSize?: string | null
+  businessType?: string | null
+  primaryGoal?: string | null
+  currency?: string
+  locale?: string
+  onboardedAt?: string | null
+}
+
+export interface OrgProfile {
+  id: string
+  name: string
+  slug: string
+  industry: string | null
+  industryOther: string | null
+  teamSize: string | null
+  businessType: string | null
+  primaryGoal: string | null
+  currency: string
+  locale: string
+  onboardedAt: string | null
+}
+
+export interface OrgProfileUpdate {
+  industry?: string
+  industryOther?: string | null
+  teamSize?: string
+  businessType?: string
+  primaryGoal?: string
+  currency?: string
+  locale?: string
+  markOnboarded?: boolean
 }
 
 export function useCurrentOrg() {
@@ -184,5 +218,41 @@ export function useOAuthConnections(orgId?: string | null) {
       return res.json()
     },
     enabled: !!orgId,
+  })
+}
+
+// ── Business profile hooks ─────────────────────────────
+
+export function useOrgProfile(orgId?: string | null) {
+  return useQuery<{ data: OrgProfile | null }>({
+    queryKey: ["org-profile", orgId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/org/${orgId}/profile`)
+      if (!res.ok) throw new Error("Failed to fetch org profile")
+      return res.json()
+    },
+    enabled: !!orgId,
+  })
+}
+
+export function useUpdateOrgProfile(orgId?: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (patch: OrgProfileUpdate) => {
+      const res = await apiFetch(`/api/org/${orgId}/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error?.message || "Failed to update profile")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["current-org"] })
+      queryClient.invalidateQueries({ queryKey: ["org-profile", orgId] })
+    },
   })
 }

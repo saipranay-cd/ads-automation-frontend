@@ -103,7 +103,7 @@ export function StepCreative() {
         <Textarea
           id="primaryText"
           rows={3}
-          placeholder="Discover premium 2 & 3 BHK apartments starting at ₹85L. World-class amenities, prime location near IT parks."
+          placeholder="Hook readers in the first line, then follow with your value prop and an offer or proof point."
           value={draft.primaryText}
           onChange={(e) => updateDraft({ primaryText: e.target.value })}
         />
@@ -115,7 +115,7 @@ export function StepCreative() {
           <Label htmlFor="headline">Headline</Label>
           <Input
             id="headline"
-            placeholder="Book Your Dream Home Today"
+            placeholder="Your benefit-led headline"
             value={draft.headline}
             onChange={(e) => updateDraft({ headline: e.target.value })}
           />
@@ -124,7 +124,7 @@ export function StepCreative() {
           <Label htmlFor="description">Description</Label>
           <Input
             id="description"
-            placeholder="Premium living in Bangalore's most sought-after neighborhood"
+            placeholder="One-line proof point or CTA support"
             value={draft.description}
             onChange={(e) => updateDraft({ description: e.target.value })}
           />

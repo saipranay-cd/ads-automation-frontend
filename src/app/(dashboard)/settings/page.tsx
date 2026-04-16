@@ -20,6 +20,7 @@ import { CrmProviderPicker } from "@/components/crm/crm-provider-picker"
 import { CrmAccountMapping } from "@/components/crm/crm-account-mapping"
 import { useIsAdmin } from "@/hooks/use-role"
 import { AccountKBEditor } from "@/components/settings/account-kb-editor"
+import { BusinessProfileCard } from "@/components/settings/BusinessProfileCard"
 
 export default function SettingsPageWrapper() {
   return (
@@ -85,6 +86,9 @@ function SettingsPage() {
           <Row label="Name" value={authUser?.name || "—"} />
         </div>
       </SettingsSection>
+
+      {/* Business Profile (industry, team size, currency, locale) */}
+      <BusinessProfileCard />
 
       {/* Connectors */}
       <MetaConnection />
