@@ -918,6 +918,120 @@ function DetailSection({ title, icon: Icon, children }: {
   )
 }
 
+// ── Additional CRM fields (provider-agnostic rawData flattener) ────
+//
+// The sync stores the full CRM response on CrmLead.rawData. We already
+// render the normalized fields (name, email, utm_*, stage, etc.) in the
+// panel above — this helper surfaces *everything else* the user's CRM
+// returned (project details, call outcomes, custom picklists, ...)
+// without hardcoding field names, so it adapts to any CRM / customer.
+
+// Fields already rendered elsewhere in the drawer. Keys are lowercased
+// before comparison so we cover Zoho (First_Name), HubSpot (firstname),
+// Salesforce (FirstName), and Pipedrive (name) with one set.
+const LEAD_SHOWN_KEYS = new Set([
+  // Identity
+  "id", "crm_lead_id",
+  // Zoho
+  "first_name", "last_name", "email", "phone", "company", "owner",
+  "lead_status", "stage", "lead_source", "amount",
+  "utm_source", "ut_medium", "utm_medium", "utm_campaign", "utm_content",
+  "utm_term", "utm_ad_id", "gclid", "google_click_id", "fbclid",
+  "ad_campaign_name", "lead_creation_date", "created_time", "modified_time",
+  "last_activity_time", "ad_click_date",
+  // HubSpot
+  "firstname", "lastname", "lifecyclestage", "hs_lead_status",
+  "hubspot_owner_id", "hs_analytics_source", "createdate", "lastmodifieddate",
+  "hs_object_id", "properties",
+  // Salesforce
+  "status", "leadsource", "ownerid",
+  "utm_source__c", "utm_medium__c", "utm_campaign__c", "utm_content__c",
+  "utm_term__c", "fbclid__c", "gclid__c", "createddate",
+  "attributes",
+  // Pipedrive
+  "name", "org_name", "stage_name", "owner_name", "value",
+  "source_channel", "source_origin", "add_time", "update_time",
+])
+
+// Provider-internal bookkeeping that adds noise, not signal.
+const LEAD_SKIP_EXACT = new Set([
+  "locked__s", "enrich_status__s", "last_enriched_time__s",
+  "change_log_time__s", "record_status__s",
+  "isdeleted", "systemmodstamp",
+])
+
+function isEmptyValue(v: unknown): boolean {
+  if (v == null || v === "") return true
+  if (Array.isArray(v) && v.length === 0) return true
+  if (typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0) return true
+  return false
+}
+
+function looksLikeDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}([T ]|$)/.test(s)) return false
+  const d = new Date(s)
+  return !isNaN(d.getTime())
+}
+
+function renderRawValue(v: unknown): string {
+  if (typeof v === "boolean") return v ? "Yes" : "No"
+  if (typeof v === "number") return v.toLocaleString()
+  if (typeof v === "string") return looksLikeDate(v) ? fmtDate(v) : v
+  if (Array.isArray(v)) {
+    return v.map(renderRawValue).filter((x) => x && x !== "null").join(", ")
+  }
+  if (typeof v === "object" && v !== null) {
+    const o = v as Record<string, unknown>
+    // Common nested shapes like { id, name } (Zoho owner/contact/module refs)
+    if (typeof o.name === "string" && o.name.trim()) return o.name
+    if (typeof o.email === "string") return o.email
+    if (typeof o.value === "string") return o.value
+    try { return JSON.stringify(v) } catch { return "" }
+  }
+  return String(v ?? "")
+}
+
+function prettifyCrmKey(key: string): string {
+  // Strip Salesforce `__c` / Zoho `__s` markers before prettifying
+  const cleaned = key.replace(/__[cs]$/i, "")
+  return cleaned
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    // Tidy up common acronyms re-cased by the logic above
+    .replace(/\b(Utm|Url|Id|Crm|Ql|Tat|Api)\b/gi, (m) => m.toUpperCase())
+}
+
+function flattenRawData(raw: Record<string, unknown>): Record<string, unknown> {
+  // HubSpot nests fields under `properties` — merge up so the two shapes
+  // render identically regardless of provider.
+  if (raw.properties && typeof raw.properties === "object" && !Array.isArray(raw.properties)) {
+    return { ...raw, ...(raw.properties as Record<string, unknown>) }
+  }
+  return raw
+}
+
+function getAdditionalLeadFields(
+  rawData: unknown
+): Array<{ key: string; label: string; value: string }> {
+  if (!rawData || typeof rawData !== "object") return []
+  const flat = flattenRawData(rawData as Record<string, unknown>)
+  const entries: Array<{ key: string; label: string; value: string }> = []
+  for (const [key, value] of Object.entries(flat)) {
+    const lower = key.toLowerCase()
+    if (LEAD_SHOWN_KEYS.has(lower)) continue
+    if (LEAD_SKIP_EXACT.has(lower)) continue
+    if (key.startsWith("$")) continue
+    if (isEmptyValue(value)) continue
+    const rendered = renderRawValue(value)
+    if (!rendered.trim() || rendered === "{}" || rendered === "[]") continue
+    entries.push({ key, label: prettifyCrmKey(key), value: rendered })
+  }
+  entries.sort((a, b) => a.label.localeCompare(b.label))
+  return entries
+}
+
 function LeadDetailsPanel({ lead, onClose }: { lead: CrmLead | null; onClose: () => void }) {
   useEffect(() => {
     if (!lead) return
@@ -1099,6 +1213,21 @@ function LeadDetailsPanel({ lead, onClose }: { lead: CrmLead | null; onClose: ()
             <DetailRow label="Synced" value={lead.createdAt ? fmtDate(lead.createdAt) : null} />
             <DetailRow label="Updated" value={lead.updatedAt ? fmtDate(lead.updatedAt) : null} />
           </DetailSection>
+
+          {/* Additional CRM fields — everything from rawData we don't
+              already render above. Industry-specific stuff lives here
+              (project name, call disposition, budget, property type, ...). */}
+          {(() => {
+            const extras = getAdditionalLeadFields(lead.rawData)
+            if (extras.length === 0) return null
+            return (
+              <DetailSection title={`CRM fields · ${extras.length}`} icon={Info}>
+                {extras.map((f) => (
+                  <DetailRow key={f.key} label={f.label} value={f.value} />
+                ))}
+              </DetailSection>
+            )
+          })()}
 
           {/* Raw data */}
           {lead.rawData && typeof lead.rawData === "object" && Object.keys(lead.rawData).length > 0 && (
@@ -1391,7 +1520,10 @@ export default function LeadQualityPage() {
   const isGoogle = platform === "google"
   const selectedMetaAccountId = useAppStore((s) => s.selectedAdAccountId)
   const selectedGoogleAccountId = useAppStore((s) => s.selectedGoogleAccountId)
-  const selectedAdAccountId = selectedMetaAccountId || selectedGoogleAccountId || null
+  // Pick the account based on current platform — the `||` form was always
+  // preferring Meta, so Google views with both accounts selected queried
+  // CRM data for the Meta connection and showed zeros.
+  const selectedAdAccountId = (isGoogle ? selectedGoogleAccountId : selectedMetaAccountId) || null
   const { data: connData } = useCrmConnection(selectedAdAccountId)
   const [days, setDays] = useState(30)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
